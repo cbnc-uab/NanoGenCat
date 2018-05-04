@@ -1,0 +1,38 @@
+
+
+<div class="form-group">
+
+    <label> Interval:
+    {%if control[0] in meta %}
+      {{meta[control[0]][1]}}
+    {% else %}
+      {{control[0]}}
+    {% endif %}
+    </label>
+
+    <div class="row">
+
+        <div class="col-xs-3">
+          <input form="mainFormID" type="text" class="form-control input-sm" id="{{control[0]}}-l"
+                 onchange="var rval = document.getElementById('{{control[0]}}-r').value;
+                 ControlFunction('INTERVAL', '{{control[0]}}', [this.value == '' ? null : this.value, rval=='' ? null : rval]); return false;"
+                 onenter="$('#mainFormID').submit(); return false;">
+        </div>
+
+        <div class="col-xs-1">
+          -
+        </div>
+
+        <div class="col-xs-3">
+          <input form="mainFormID" type="text" class="form-control input-sm" id="{{control[0]}}-r"
+                 onchange="var lval = document.getElementById('{{control[0]}}-l').value;
+                 ControlFunction('INTERVAL', '{{control[0]}}', [lval=='' ? null : lval, this.value == '' ? null : this.value]); return false;"
+                 onenter="$('#mainFormID').submit(); return false;">
+        </div>
+
+        <div class="col-xs-5">
+        </div>
+
+    </div> <!--END OF ROW-->
+
+</div> <!--END OF FORM GROUP-->

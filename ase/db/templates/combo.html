@@ -1,0 +1,54 @@
+
+<div class="form-group">
+
+    <label>
+    {%if control[0] in meta %}
+      {{meta[control[0]][1]}}
+    {% else %}
+      {{control[0]}}
+    {% endif %}
+    </label>
+
+    <div class="row">
+
+        <div class="col-xs-3">
+            <div class="dropdown">
+                <button class="btn btn-default btn-sm dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                {%if control[0] in meta %}
+                  {{meta[control[0]][0]}}
+                {% else %}
+                  {{control[0]}}
+                {% endif %}
+                <span class="caret"></span>
+                </button>
+
+                <ul class="dropdown-menu">
+
+                    <li>
+                        <a href="#" id="{{control[0]}}-Reset" onclick="ControlFunction('COMBO', '{{control[0]}}', 'Reset'); $('#formula-result').focus(); return false;">Reset</a>
+                    </li>
+
+                    {% for item in control[2] %}
+                    <li>
+                        <a href="#" id="{{control[0]}}-{{item}}" onclick="ControlFunction('COMBO', '{{control[0]}}', '{{item}}'); $('#formula-result').focus(); return false;">
+                        {{item}}
+                        </a>
+                    </li>
+                    {% endfor %}
+
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-xs-4">
+            <ul class="list-group">
+            <li class="list-group-item" style="height: 31px; padding: 5px 15px;" id="{{control[0]}}-result"></li>
+            </ul>
+        </div>
+
+        <div class="col-xs-5">
+        </div>
+
+    </div> <!--END OF ROW-->
+
+</div> <!--END OF FORM GROUP-->
