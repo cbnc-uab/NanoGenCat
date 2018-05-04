@@ -33,10 +33,7 @@ def read_xsd(file):
                 formula += symbol
 
                 xyz = atom.get('XYZ')
-                if xyz: 
-                    coord = [float(coord) for coord in xyz.split(',')]
-                else:
-                    coord = [0.0, 0.0, 0.0]
+                coord = [float(coord) for coord in xyz.split(',')]
                 coords.append(coord)
             elif atom.tag == 'SpaceGroup':
                 avec = [float(vec) for vec in atom.get('AVector').split(',')]

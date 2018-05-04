@@ -59,8 +59,8 @@ class Execute(ui.Window):
     <c>ans[-i]</c>:\tith last calculated result
     <c>exec file</c>: executes commands listed in file
     <c>cov[Z]</c>:(read only): covalent radius of atomic number Z
-    <c>gui</c>:\tadvanced: gui window python object
-    <c>img</c>:\tadvanced: gui images object
+    <c>gui</c>:\tadvanced: ase-gui window python object
+    <c>img</c>:\tadvanced: ase-gui images object
     """)
 
     def __init__(self, gui):
@@ -147,8 +147,6 @@ class Execute(ui.Window):
         else:
             self.add_text('--> ' + cmd)
 
-
-        # XXXXXX This is not supported since GUI uses atoms objects directly
         gui = self.gui
         img = gui.images
         frame = gui.frame
@@ -246,7 +244,7 @@ class Execute(ui.Window):
                         exec(code)
                     gui.set_frame(frame)
                     if gui.movie_window is not None:
-                        gui.movie_window.frame_number.value = frame + 1
+                        gui.movie_window.frame_number.value = frame
                     img.selected = S
                     img.A[i] = A
                     img.P[i][indices] = R
@@ -279,7 +277,7 @@ class Execute(ui.Window):
                             img.r[a] = cov[Z] * 0.89
                             r, g, b = jmol_colors[Z]
                         gui.colordata[a] = [a, [r, g, b]]
-                        color = tuple([int(65535 * _x) for _x in [r, g, b]])
+                        color = tuple([int(65535 * x) for x in [r, g, b]])
                         gui.colors[a] = new(alloc(*color))
                         img.M[i][a] = m
         setattr(self.gui, 'expert_mode_answers', ans)

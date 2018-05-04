@@ -3,7 +3,6 @@ import numpy as np
 from ase.calculators.calculator import Calculator, all_properties
 from ase.calculators.calculator import PropertyNotImplementedError
 
-
 class SinglePointCalculator(Calculator):
     """Special calculator for a single configuration.
 
@@ -11,9 +10,9 @@ class SinglePointCalculator(Calculator):
     configuration.  If the positions, atomic numbers, unit cell, or
     boundary conditions are changed, then asking for
     energy/forces/stress will raise an exception."""
-
+    
     name = 'unknown'
-
+    
     def __init__(self, atoms, **results):
         """Save energy, forces, stress, ... for the current configuration."""
         Calculator.__init__(self)
@@ -28,16 +27,6 @@ class SinglePointCalculator(Calculator):
                 self.results[property] = np.array(value, float)
         self.atoms = atoms.copy()
 
-    def __str__(self):
-        tokens = []
-        for key, val in sorted(self.results.items()):
-            if np.isscalar(val):
-                txt = '{}={}'.format(key, val)
-            else:
-                txt = '{}=...'.format(key)
-            tokens.append(txt)
-        return '{}({})'.format(self.__class__.__name__, ', '.join(tokens))
-
     def get_property(self, name, atoms=None, allow_calculation=True):
         if name not in self.results or self.check_state(atoms):
             if allow_calculation:
@@ -50,7 +39,7 @@ class SinglePointCalculator(Calculator):
             result = result.copy()
         return result
 
-
+    
 class SinglePointKPoint:
     def __init__(self, weight, s, k, eps_n=[], f_n=[]):
         self.weight = weight
@@ -61,23 +50,43 @@ class SinglePointKPoint:
 
 
 class SinglePointDFTCalculator(SinglePointCalculator):
-    def __init__(self, atoms,
-                 efermi=None, bzkpts=None, ibzkpts=None, bz2ibz=None,
-                 **results):
-        self.bz_kpts = bzkpts
-        self.ibz_kpts = ibzkpts
-        self.bz2ibz = bz2ibz
-        self.eFermi = efermi
+    def __init__(self, *args, **results):
+        self.bz_kpts = results.pop('bz_kpts', None)
+        self.ibz_kpts = results.pop('ibz_kpts', None)
+        if args and isinstance(args[0], float):
+            # Old interface:
+            assert not results
+            for key, value in zip(['energy', 'forces', 'stress', 'magmoms'],
+                                  args):
+                if value is not None:
+                    results[key] = value
+            atoms = args[4]
+            if len(args) > 5:
+                eFermi = args[5]
+                if len(args) > 6:
+                    energies = args[6]
+        else:
+            if args:
+                atoms = args[0]
+            else:
+                atoms = results.pop('atoms')
+            eFermi = results.pop('eFermi', None)
+            energies = results.pop('energies', None)
+            eref = results.pop('Eref', None)
 
         SinglePointCalculator.__init__(self, atoms, **results)
+
+        if eFermi is not None:
+            self.eFermi = eFermi
+        if energies is not None:
+            self.energies = energies
+        if eref is not None:
+            self.eref = eref
         self.kpts = None
 
     def get_fermi_level(self):
         """Return the Fermi-level(s)."""
         return self.eFermi
-
-    def get_bz_to_ibz_map(self):
-        return self.bz2ibz
 
     def get_bz_k_points(self):
         """Return the k-points."""
@@ -100,7 +109,7 @@ class SinglePointDFTCalculator(SinglePointCalculator):
         if nos is not None:
             return nos == 2
         return None
-
+    
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
         return self.ibz_kpts
@@ -140,7 +149,7 @@ class SinglePointDFTCalculator(SinglePointCalculator):
             eHs.append(eH)
             eLs.append(eL)
         return np.array(eHs).max(), np.array(eLs).min()
-
+        
     def get_homo_lumo_by_spin(self, spin=0):
         """Return HOMO and LUMO energies for a given spin."""
         if self.kpts is None:

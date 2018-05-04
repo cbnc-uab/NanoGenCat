@@ -1,70 +1,120 @@
-"""Build ASE's web-page.
-
-Initial setup::
-
-    cd ~
-    python3 -m venv ase-web-page
-    cd ase-web-page
-    . bin/activate
-    pip install sphinx-rtd-theme
-    pip install Sphinx
-    pip install matplotlib scipy flask
-    git clone http://gitlab.com/ase/ase.git
-    cd ase
-    pip install -U .
-
-Crontab::
-
-    WEB_PAGE_FOLDER=...
-    CMD="python -m ase.utils.build_web_page"
-    10 19 * * * cd ~/ase-web-page; . bin/activate; cd ase; $CMD > ../ase.log
-
-"""
-
 from __future__ import print_function
+import glob
+import optparse
 import os
+import shutil
 import subprocess
 import sys
-
-from ase import __version__
-
-
-cmds = """\
-touch ../ase-web-page.lock
-git clean -fdx
-git checkout web-page -q
-git pull -q &> /dev/null
-pip install .
-cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html ase-web-page
-git clean -fdx doc
-git checkout master -q
-git pull -q &> /dev/null
-pip install .
-cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html ase-web-page/dev
-python setup.py sdist
-cp dist/ase-*.tar.gz ase-web-page/
-cp dist/ase-*.tar.gz ase-web-page/dev/
-find ase-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{0}/g
-tar -czf ase-web-page.tar.gz ase-web-page
-cp ase-web-page.tar.gz {1}/tmp-ase-web-page.tar.gz
-mv {1}/tmp-ase-web-page.tar.gz {1}/ase-web-page.tar.gz"""
-
-cmds = cmds.format('ase-' + __version__ + '.tar.gz',
-                   os.environ['WEB_PAGE_FOLDER'])
+import time
 
 
-def build():
-    if os.path.isfile('../ase-web-page.lock'):
+def git_pull(name='ase'):
+    os.chdir(name)
+    try:
+        sleep = 1  # 1 minute
+        while True:
+            try:
+                output = subprocess.check_output(
+                    'GIT_HTTP_LOW_SPEED_LIMIT=1000 '
+                    'GIT_HTTP_LOW_SPEED_TIME=20 '  # make sure we get a timeout
+                    'git pull 2>> pull.err', shell=True)
+            except subprocess.CalledProcessError:
+                if sleep > 16:
+                    raise
+                time.sleep(sleep * 60)
+                sleep *= 2
+            else:
+                break
+    finally:
+        os.chdir('..')
+    lastline = output.splitlines()[-1]
+    return not lastline.startswith('Already up-to-date')
+
+
+def build(force_build, name='ase', env=''):
+    if not force_build:
+        return
+
+    home = os.getcwd()
+
+    os.chdir(name)
+
+    # Clean up:
+    shutil.rmtree('doc')
+    subprocess.check_call('git checkout .', shell=True)
+
+    # Create development snapshot tar-file and install:
+    try:
+        shutil.rmtree('dist')
+    except OSError:
+        pass
+    subprocess.check_call('python setup.py sdist install --home=..',
+                          shell=True)
+
+    # Build web-page:
+    os.chdir('doc')
+    os.makedirs('build/html')  # Sphinx-1.1.3 needs this (1.2.2 is OK)
+    subprocess.check_call(env + ' PYTHONPATH='
+                          '{0}/lib/python:{0}/lib64/python:$PYTHONPATH '
+                          'PATH={0}/bin:$PATH '.format(home) +
+                          'make html', shell=True)
+
+    # Use https for mathjax:
+    subprocess.check_call(
+        'find build -name "*.html" | '
+        'xargs sed -i "s|http://cdn.mathjax.org|https://cdn.mathjax.org|"',
+        shell=True)
+
+    tar = glob.glob('../dist/*.tar.gz')[0].split('/')[-1]
+    os.rename('../dist/' + tar, 'build/html/' + tar)
+
+    # Set correct version of snapshot tar-file:
+    subprocess.check_call(
+        'find build/html -name install.html | '
+        'xargs sed -i s/snapshot.tar.gz/{}/g'.format(tar),
+        shell=True)
+
+    os.chdir('..')
+
+    os.chdir('doc/build')
+    dir = name + '-web-page'
+    os.rename('html', dir)
+    subprocess.check_call('tar -czf {0}.tar.gz {0}'.format(dir),
+                          shell=True)
+    os.rename('{}.tar.gz'.format(dir), '../../../{}.tar.gz'.format(dir))
+    os.chdir('../../..')
+    try:
+        shutil.rmtree('lib64')
+    except OSError:
+        pass
+    shutil.rmtree('lib')
+    shutil.rmtree('bin')
+
+
+def main(build=build):
+    """Build web-page if there are changes in the source.
+
+    The optional build function is used by GPAW to build its web-page.
+    """
+    if os.path.isfile('build-web-page.lock'):
         print('Locked', file=sys.stderr)
         return
     try:
-        for cmd in cmds.splitlines():
-            subprocess.check_call(cmd, shell=True)
+        home = os.getcwd()
+        open('build-web-page.lock', 'w').close()
+
+        parser = optparse.OptionParser(usage='Usage: %prog [-f]',
+                                       description='Build web-page')
+        parser.add_option('-f', '--force-build', action='store_true',
+                          help='Force build instead of building only when '
+                          'there are changes to the docs or code.')
+        opts, args = parser.parse_args()
+        assert len(args) == 0
+        changes = git_pull('ase')
+        build(opts.force_build or changes)
     finally:
-        os.remove('../ase-web-page.lock')
+        os.remove(os.path.join(home, 'build-web-page.lock'))
 
 
 if __name__ == '__main__':
-    build()
+    main()

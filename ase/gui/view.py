@@ -4,78 +4,17 @@ from os.path import basename
 
 import numpy as np
 
+from ase.data import chemical_symbols
 from ase.data.colors import jmol_colors
 from ase.geometry import complete_cell
 from ase.gui.repeat import Repeat
 from ase.gui.rotate import Rotate
 from ase.gui.render import Render
 from ase.gui.colors import ColorWindow
-from ase.gui.utils import get_magmoms
 from ase.utils import rotate
 
 
-GREEN = '#74DF00'
-PURPLE = '#AC58FA'
-
-
-def get_cell_coordinates(cell):
-    """Get start and end points of lines segments used to draw cell."""
-    nn = []
-    for c in range(3):
-        v = cell[c]
-        d = sqrt(np.dot(v, v))
-        if d < 1e-12:
-            n = 0
-        else:
-            n = max(2, int(d / 0.3))
-        nn.append(n)
-    B1 = np.zeros((2, 2, sum(nn), 3))
-    B2 = np.zeros((2, 2, sum(nn), 3))
-    n1 = 0
-    for c, n in enumerate(nn):
-        n2 = n1 + n
-        h = 1.0 / (2 * n - 1)
-        R = np.arange(n) * (2 * h)
-
-        for i, j in [(0, 0), (0, 1), (1, 0), (1, 1)]:
-            B1[i, j, n1:n2, c] = R
-            B1[i, j, n1:n2, (c + 1) % 3] = i
-            B1[i, j, n1:n2, (c + 2) % 3] = j
-        B2[:, :, n1:n2] = B1[:, :, n1:n2]
-        B2[:, :, n1:n2, c] += h
-        n1 = n2
-    B1.shape = (-1, 3)
-    B2.shape = (-1, 3)
-    return B1, B2
-
-
-
-def get_bonds(atoms, covalent_radii):
-    from ase.neighborlist import NeighborList
-    nl = NeighborList(covalent_radii * 1.5,
-                      skin=0, self_interaction=False)
-    nl.update(atoms)
-    nbonds = nl.nneighbors + nl.npbcneighbors
-
-    bonds = np.empty((nbonds, 5), int)
-    if nbonds == 0:
-        return bonds
-
-    n1 = 0
-    for a in range(len(atoms)):
-        indices, offsets = nl.get_neighbors(a)
-        n2 = n1 + len(indices)
-        bonds[n1:n2, 0] = a
-        bonds[n1:n2, 1] = indices
-        bonds[n1:n2, 2:] = offsets
-        n1 = n2
-
-    i = bonds[:n2, 2:].any(1)
-    pbcbonds = bonds[:n2][i]
-    bonds[n2:, 0] = pbcbonds[:, 1]
-    bonds[n2:, 1] = pbcbonds[:, 0]
-    bonds[n2:, 2:] = -pbcbonds[:, 2:]
-    return bonds
+GREEN = '#DDFFDD'
 
 
 class View:
@@ -87,131 +26,176 @@ class View:
         self.configured = False
         self.frame = None
 
-        # XXX
-        self.colormode = 'jmol'
-        self.colors = {}
-
-        for i, rgb in enumerate(jmol_colors):
-            self.colors[i] = ('#{0:02X}{1:02X}{2:02X}'
-                              .format(*(int(x * 255) for x in rgb)))
-
-    @property
-    def atoms(self):
-        return self.images[self.frame]
-
-    def set_frame(self, frame=None, focus=False):
+    def set_coordinates(self, frame=None, focus=None):
         if frame is None:
             frame = self.frame
-        assert frame < len(self.images)
+        self.make_box()
+        self.bind(frame)
+        n = self.images.natoms
+        self.X = np.empty((n + len(self.B1) + len(self.bonds), 3))
+        self.set_frame(frame, focus=focus, init=True)
+
+    def set_frame(self, frame=None, focus=False, init=False):
+        if frame is None:
+            frame = self.frame
+
+        n = self.images.natoms
+
+        if self.frame is not None and self.frame > self.images.nimages:
+            self.frame = self.images.nimages - 1
+
+        if init or frame != self.frame:
+            A = self.images.A
+            nc = len(self.B1)
+            nb = len(self.bonds)
+
+            if init or (A[frame] != A[self.frame]).any():
+                self.X[n:n + nc] = np.dot(self.B1, A[frame])
+                self.B = np.empty((nc + nb, 3))
+                self.B[:nc] = np.dot(self.B2, A[frame])
+
+            if nb > 0:
+                P = self.images.P[frame]
+                Af = self.images.repeat[:, np.newaxis] * A[frame]
+                a = P[self.bonds[:, 0]]
+                b = P[self.bonds[:, 1]] + np.dot(self.bonds[:, 2:], Af) - a
+                d = (b**2).sum(1)**0.5
+                r = 0.65 * self.images.r
+                x0 = (r[self.bonds[:, 0]] / d).reshape((-1, 1))
+                x1 = (r[self.bonds[:, 1]] / d).reshape((-1, 1))
+                self.X[n + nc:] = a + b * x0
+                b *= 1.0 - x0 - x1
+                b[self.bonds[:, 2:].any(1)] *= 0.5
+                self.B[nc:] = self.X[n + nc:] + b
+
+            filenames = self.images.filenames
+            filename = filenames[frame]
+            if (self.frame is None or
+                filename != filenames[self.frame] or
+                filename is None):
+                if filename is None:
+                    filename = 'ase.gui'
+            filename = basename(filename)
+            self.window.title = filename
+
         self.frame = frame
-        self.set_atoms(self.images[frame])
-
-        fname = self.images.filenames[frame]
-        if fname is None:
-            title = 'ase.gui'
-        else:
-            title = '{}@{}'.format(basename(fname), frame)
-
-        self.window.title = title
-
+        self.X[:n] = self.images.P[frame]
+        self.R = self.X[:n]
         if focus:
             self.focus()
         else:
             self.draw()
 
-    def set_atoms(self, atoms):
-        natoms = len(atoms)
+    def set_colors(self):
+        self.colormode = 'jmol'
+        self.colors = {}
+        for z in np.unique(self.images.Z):
+            rgb = jmol_colors[z]
+            self.colors[z] = ('#{0:02X}{1:02X}{2:02X}'
+                              .format(*(int(x * 255) for x in rgb)))
 
-        if self.showing_cell():
-            B1, B2 = get_cell_coordinates(atoms.cell)
-        else:
-            B1 = B2 = np.zeros((0, 3))
+    def make_box(self):
+        if not self.window['toggle-show-unit-cell']:
+            self.B1 = self.B2 = np.zeros((0, 3))
+            return
 
-        if self.showing_bonds():
-            atomscopy = atoms.copy()
-            atomscopy.cell *= self.images.repeat[:, np.newaxis]
-            bonds = get_bonds(atomscopy, self.get_covalent_radii(atoms))
-        else:
-            bonds = np.empty((0, 5), int)
+        V = self.images.A[0]
+        nn = []
+        for c in range(3):
+            v = V[c]
+            d = sqrt(np.dot(v, v))
+            if d < 1e-12:
+                n = 0
+            else:
+                n = max(2, int(d / 0.3))
+            nn.append(n)
+        self.B1 = np.zeros((2, 2, sum(nn), 3))
+        self.B2 = np.zeros((2, 2, sum(nn), 3))
+        n1 = 0
+        for c, n in enumerate(nn):
+            n2 = n1 + n
+            h = 1.0 / (2 * n - 1)
+            R = np.arange(n) * (2 * h)
 
-        # X is all atomic coordinates, and starting points of vectors
-        # like bonds and cell segments.
-        # The reason to have them all in one big list is that we like to
-        # eventually rotate/sort it by Z-order when rendering.
+            for i, j in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+                self.B1[i, j, n1:n2, c] = R
+                self.B1[i, j, n1:n2, (c + 1) % 3] = i
+                self.B1[i, j, n1:n2, (c + 2) % 3] = j
+            self.B2[:, :, n1:n2] = self.B1[:, :, n1:n2]
+            self.B2[:, :, n1:n2, c] += h
+            n1 = n2
+        self.B1.shape = (-1, 3)
+        self.B2.shape = (-1, 3)
 
-        # Also B are the end points of line segments.
+    def bind(self, frame):
+        if not self.window['toggle-show-bonds']:
+            self.bonds = np.empty((0, 5), int)
+            return
 
-        self.X = np.empty((natoms + len(B1) + len(bonds), 3))
-        self.X_pos = self.X[:natoms]
-        self.X_pos[:] = atoms.positions
-        self.X_cell = self.X[natoms:natoms + len(B1)]
-        self.X_bonds = self.X[natoms + len(B1):]
+        from ase.atoms import Atoms
+        from ase.neighborlist import NeighborList
+        nl = NeighborList(self.images.r * 1.5, skin=0, self_interaction=False)
+        nl.update(Atoms(positions=self.images.P[frame],
+                        cell=(self.images.repeat[:, np.newaxis] *
+                              self.images.A[frame]),
+                        pbc=self.images.pbc))
+        nb = nl.nneighbors + nl.npbcneighbors
 
-        if 1:#if init or frame != self.frame:
-            cell = atoms.cell
-            ncellparts = len(B1)
-            nbonds = len(bonds)
+        bonds = np.empty((nb, 5), int)
+        self.coordination = np.zeros((self.images.natoms), dtype=int)
+        if nb == 0:
+            return
 
-            if 1: #init or (atoms.cell != self.atoms.cell).any():
-                self.X_cell[:] = np.dot(B1, cell)
-                self.B = np.empty((ncellparts + nbonds, 3))
-                self.B[:ncellparts] = np.dot(B2, cell)
+        n1 = 0
+        for a in range(self.images.natoms):
+            indices, offsets = nl.get_neighbors(a)
+            self.coordination[a] += len(indices)
+            for a2 in indices:
+                self.coordination[a2] += 1
+            n2 = n1 + len(indices)
+            bonds[n1:n2, 0] = a
+            bonds[n1:n2, 1] = indices
+            bonds[n1:n2, 2:] = offsets
+            n1 = n2
 
-            if nbonds > 0:
-                P = atoms.positions
-                Af = self.images.repeat[:, np.newaxis] * cell
-                a = P[bonds[:, 0]]
-                b = P[bonds[:, 1]] + np.dot(bonds[:, 2:], Af) - a
-                d = (b**2).sum(1)**0.5
-                r = 0.65 * self.get_covalent_radii()
-                x0 = (r[bonds[:, 0]] / d).reshape((-1, 1))
-                x1 = (r[bonds[:, 1]] / d).reshape((-1, 1))
-                self.X_bonds[:] = a + b * x0
-                b *= 1.0 - x0 - x1
-                b[bonds[:, 2:].any(1)] *= 0.5
-                self.B[ncellparts:] = self.X_bonds + b
-
-    def showing_bonds(self):
-        return self.window['toggle-show-bonds']
-
-    def showing_cell(self):
-        return self.window['toggle-show-unit-cell']
+        i = bonds[:n2, 2:].any(1)
+        pbcbonds = bonds[:n2][i]
+        bonds[n2:, 0] = pbcbonds[:, 1]
+        bonds[n2:, 1] = pbcbonds[:, 0]
+        bonds[n2:, 2:] = -pbcbonds[:, 2:]
+        self.bonds = bonds
 
     def toggle_show_unit_cell(self, key=None):
-        self.set_frame()
+        self.set_coordinates()
 
-    def update_labels(self):
+    def show_labels(self):
         index = self.window['show-labels']
         if index == 0:
             self.labels = None
         elif index == 1:
-            self.labels = list(range(len(self.atoms)))
+            self.labels = ([list(range(self.images.natoms))] *
+                           self.images.nimages)
         elif index == 2:
-            self.labels = list(get_magmoms(self.atoms))
-        elif index == 4:
-            Q = self.atoms.get_initial_charges()
-            self.labels = ['{0:.4g}'.format(q) for q in Q]
+            self.labels = self.images.M
         else:
-            self.labels = self.atoms.get_chemical_symbols()
+            self.labels = [[chemical_symbols[x]
+                            for x in self.images.Z]] * self.images.nimages
 
-    def show_labels(self):
-        self.update_labels()
         self.draw()
 
     def toggle_show_axes(self, key=None):
         self.draw()
 
     def toggle_show_bonds(self, key=None):
-        self.set_frame()
+        self.set_coordinates()
 
     def toggle_show_velocities(self, key=None):
+        # XXX hard coded scale is ugly
+        self.show_vectors(10 * np.nan_to_num(self.images.V))
         self.draw()
 
-    # transitional compat hack
-    def get_forces(self):
-        return self.images.get_forces(self.atoms)
-
     def toggle_show_forces(self, key=None):
+        self.show_vectors(np.nan_to_num(self.images.F))
         self.draw()
 
     def hide_selected(self):
@@ -235,19 +219,18 @@ class View:
 
     def focus(self, x=None):
         cell = (self.window['toggle-show-unit-cell'] and
-                self.images[0].cell.any())
-        if (len(self.atoms) == 0 and not cell):
+                self.images.A[0].any())
+        if (self.images.natoms == 0 and not cell):
             self.scale = 1.0
             self.center = np.zeros(3)
             self.draw()
             return
 
         P = np.dot(self.X, self.axes)
-        n = len(self.atoms)
-        covalent_radii = self.get_covalent_radii()
-        P[:n] -= covalent_radii[:, None]
+        n = self.images.natoms
+        P[:n] -= self.images.r[:, None]
         P1 = P.min(0)
-        P[:n] += 2 * covalent_radii[:, None]
+        P[:n] += 2 * self.images.r[:, None]
         P2 = P.max(0)
         self.center = np.dot(self.axes, (P1 + P2) / 2)
         S = 1.3 * (P2 - P1)
@@ -262,7 +245,7 @@ class View:
 
     def reset_view(self, menuitem):
         self.axes = rotate('0.0x,0.0y,0.0z')
-        self.set_frame()
+        self.set_coordinates()
         self.focus(self)
 
     def set_view(self, key):
@@ -292,7 +275,7 @@ class View:
             elif key == 'Alt+2':
                 i, j = 0, 2
 
-            A = complete_cell(self.atoms.cell)
+            A = complete_cell(self.images.A[self.frame])
             x1 = A[i]
             x2 = A[j]
 
@@ -305,44 +288,38 @@ class View:
 
             self.axes = np.array([x1, x2, x3]).T
 
-        self.set_frame()
+        self.set_coordinates()
 
     def get_colors(self, rgb=False):
         if rgb:
-            return [tuple(int(_rgb[i:i + 2], 16) / 255 for i in range(1, 7, 2))
-                    for _rgb in self.get_colors()]
+            return [tuple(int(rgb[i:i + 2], 16) / 255 for i in range(1, 7, 2))
+                    for rgb in self.get_colors()]
 
         if self.colormode == 'jmol':
-            return [self.colors[Z] for Z in self.atoms.numbers]
+            return [self.colors[Z] for Z in self.images.Z]
 
+        scalars = self.get_color_scalars()
         colorscale, cmin, cmax = self.colormode_data
         N = len(colorscale)
-        if cmin == cmax:
-            indices = [N // 2] * len(self.atoms)
-        else:
-            scalars = self.get_color_scalars()
-            indices = np.clip(((scalars - cmin) / (cmax - cmin) * N +
-                               0.5).astype(int),
-                              0, N - 1)
+        indices = np.clip(((scalars - cmin) / (cmax - cmin) * N +
+                           0.5).astype(int),
+                          0, N - 1)
         return [colorscale[i] for i in indices]
 
     def get_color_scalars(self, frame=None):
-        if self.colormode == 'tag':
-            return self.atoms.get_tags()
-        if self.colormode == 'force':
-            f = (self.get_forces()**2).sum(1)**0.5
-            return f * self.images.get_dynamic(self.atoms)
-        elif self.colormode == 'velocity':
-            return (self.atoms.get_velocities()**2).sum(1)**0.5
-        elif self.colormode == 'initial charge':
-            return self.atoms.get_initial_charges()
-        elif self.colormode == 'magmom':
-            return get_magmoms(self.atoms)
+        i = frame or self.frame
 
-    def get_covalent_radii(self, atoms=None):
-        if atoms is None:
-            atoms = self.atoms
-        return self.images.get_radii(atoms)
+        if self.colormode == 'tag':
+            return self.images.T[i]
+        if self.colormode == 'force':
+            f = (self.images.F[i]**2).sum(1)**0.5
+            return f * self.images.dynamic
+        elif self.colormode == 'velocity':
+            return (self.images.V[i]**2).sum(1)**0.5
+        elif self.colormode == 'charge':
+            return self.images.q[i]
+        elif self.colormode == 'magmom':
+            return self.images.M[i]
 
     def draw(self, status=True):
         self.window.clear()
@@ -350,59 +327,39 @@ class View:
         offset = np.dot(self.center, axes)
         offset[:2] -= 0.5 * self.window.size
         X = np.dot(self.X, axes) - offset
-        n = len(self.atoms)
-        # The indices enumerate drawable objects in z order:
+        n = self.images.natoms
         self.indices = X[:, 2].argsort()
-        r = self.get_covalent_radii() * self.scale
         if self.window['toggle-show-bonds']:
-            r *= 0.65
+            r = self.images.r * (0.65 * self.scale)
+        else:
+            r = self.images.r * self.scale
         P = self.P = X[:n, :2]
         A = (P - r[:, None]).round().astype(int)
         X1 = X[n:, :2].round().astype(int)
         X2 = (np.dot(self.B, axes) - offset).round().astype(int)
-        disp = (np.dot(self.atoms.get_celldisp().reshape((3,)),
-                       axes)).round().astype(int)
+        disp = (np.dot(self.images.D[self.frame], axes)).round().astype(int)
         d = (2 * r).round().astype(int)
 
-        vector_arrays = []
-        if self.window['toggle-show-velocities']:
-            # Scale ugly?
-            v = self.atoms.get_velocities()
-            if v is not None:
-                vector_arrays.append(v * 10.0)
-        if self.window['toggle-show-forces']:
-            f = self.get_forces()
-            if f is not None:
-                vector_arrays.append(f)
-
-        for array in vector_arrays:
-            array[:] = np.dot(array, axes) + X[:n]
+        vectors = (self.window['toggle-show-velocities'] or
+                   self.window['toggle-show-forces'])
+        if vectors:
+            V = np.dot(self.vectors[self.frame], axes) + X[:n]
 
         colors = self.get_colors()
         circle = self.window.circle
         line = self.window.line
-        constrained = ~self.images.get_dynamic(self.atoms)
-
+        dynamic = self.images.dynamic
         selected = self.images.selected
         visible = self.images.visible
-        ncell = len(self.X_cell)
-        bond_linewidth = self.scale * 0.15
-
-        self.update_labels()
-
-        if self.arrowkey_mode == self.ARROWKEY_MOVE:
-            movecolor = GREEN
-        elif self.arrowkey_mode == self.ARROWKEY_ROTATE:
-            movecolor = PURPLE
-
+        ncell = len(self.B1)
+        bw = self.scale * 0.15
         for a in self.indices:
             if a < n:
                 ra = d[a]
                 if visible[a]:
                     # Draw the atoms
-                    if (self.moving and a < len(self.move_atoms_mask)
-                        and self.move_atoms_mask[a]):
-                        circle(movecolor, False,
+                    if self.moving and selected[a]:
+                        circle(GREEN, False,
                                A[a, 0] - 4, A[a, 1] - 4,
                                A[a, 0] + ra + 4, A[a, 1] + ra + 4)
 
@@ -411,12 +368,11 @@ class View:
 
                     # Draw labels on the atoms
                     if self.labels is not None:
-                        self.window.text(A[a, 0] + ra / 2,
-                                         A[a, 1] + ra / 2,
-                                         str(self.labels[a]))
+                        self.window.text(A[a, 0], A[a, 1],
+                                         str(self.labels[self.frame][a]))
 
                     # Draw cross on constrained atoms
-                    if constrained[a]:
+                    if not dynamic[a]:
                         R1 = int(0.14644 * ra)
                         R2 = int(0.85355 * ra)
                         line((A[a, 0] + R1, A[a, 1] + R1,
@@ -424,11 +380,9 @@ class View:
                         line((A[a, 0] + R2, A[a, 1] + R1,
                               A[a, 0] + R1, A[a, 1] + R2))
 
-                    # Draw velocities and/or forces
-                    for v in vector_arrays:
-                        assert not np.isnan(v).any()
-                        self.arrow((X[a, 0], X[a, 1], v[a, 0], v[a, 1]),
-                                   width=2)
+                    # Draw velocities or forces
+                    if vectors:
+                        line((X[a, 0], X[a, 1], V[a, 0], V[a, 1]), width=2)
             else:
                 # Draw unit cell and/or bonds:
                 a -= n
@@ -437,37 +391,18 @@ class View:
                           X2[a, 0] + disp[0], X2[a, 1] + disp[1]))
                 else:
                     line((X1[a, 0] + disp[0], X1[a, 1] + disp[1],
-                          X2[a, 0] + disp[0], X2[a, 1] + disp[1]),
-                         width=bond_linewidth)
+                          X2[a, 0] + disp[0], X2[a, 1] + disp[1]), width=bw)
 
         if self.window['toggle-show-axes']:
             self.draw_axes()
 
-        if len(self.images) > 1:
+        if self.images.nimages > 1:
             self.draw_frame_number()
 
         self.window.update()
 
         if status:
-            self.status(self.atoms)
-
-    def arrow(self, coords, width):
-        line = self.window.line
-        begin = np.array((coords[0], coords[1]))
-        end = np.array((coords[2], coords[3]))
-        line(coords, width)
-
-        vec = end - begin
-        length = np.sqrt((vec[:2]**2).sum())
-        length = min(length, 0.3 * self.scale)
-
-        angle = np.arctan2(end[1] - begin[1], end[0] - begin[0]) + np.pi
-        x1 = (end[0] + length * np.cos(angle - 0.3)).round().astype(int)
-        y1 = (end[1] + length * np.sin(angle - 0.3)).round().astype(int)
-        x2 = (end[0] + length * np.cos(angle + 0.3)).round().astype(int)
-        y2 = (end[1] + length * np.sin(angle + 0.3)).round().astype(int)
-        line((x1, y1, end[0], end[1]), width)
-        line((x2, y2, end[0], end[1]), width)
+            self.status()
 
     def draw_axes(self):
         axes_length = 15
@@ -484,8 +419,8 @@ class View:
 
     def draw_frame_number(self):
         x, y = self.window.size
-        self.window.text(x, y, '{0}/{1}'.format(self.frame + 1,
-                                                len(self.images)),
+        self.window.text(x, y, '{0}/{1}'.format(self.frame,
+                                                self.images.nimages),
                          anchor='SE')
 
     def release(self, event):
@@ -501,10 +436,9 @@ class View:
 
         if event.time < self.t0 + 200:  # 200 ms
             d = self.P - self.xy
-            r = self.get_covalent_radii()
-            hit = np.less((d**2).sum(1), (self.scale * r)**2)
+            hit = np.less((d**2).sum(1), (self.scale * self.images.r)**2)
             for a in self.indices[::-1]:
-                if a < len(self.atoms) and hit[a]:
+                if a < self.images.natoms and hit[a]:
                     if event.modifier == 'ctrl':
                         selected[a] = not selected[a]
                         if selected[a]:
@@ -539,8 +473,7 @@ class View:
                 selected_ordered = []
             self.draw()
 
-        # XXX check bounds
-        indices = np.arange(len(self.atoms))[self.images.selected[:len(self.atoms)]]
+        indices = np.arange(self.images.natoms)[self.images.selected]
         if len(indices) != len(selected_ordered):
             selected_ordered = []
         self.images.selected_ordered = selected_ordered
@@ -583,16 +516,19 @@ class View:
                                  ((c - 1) * a * b, c * b * b + a * a, s * b),
                                  (-s * a, -s * b, c)])
             self.axes = np.dot(self.axes0, rotation)
-            if len(self.atoms) > 0:
-                com = self.X_pos.mean(0)
+            if self.images.natoms > 0:
+                com = self.X[:self.images.natoms].mean(0)
             else:
-                com = self.atoms.cell.mean(0)
+                com = self.images.A[self.frame].mean(0)
             self.center = com - np.dot(com - self.center0,
                                        np.dot(self.axes0, self.axes.T))
         self.draw(status=False)
 
-    def render_window(self):
+    def render_window(self, action):
         Render(self)
+
+    def show_vectors(self, vectors):
+        self.vectors = vectors
 
     def resize(self, event):
         w, h = self.window.size

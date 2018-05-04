@@ -2,34 +2,20 @@ import os
 
 import ase.db
 from ase import Atoms
-from ase.build import niggli_reduce
 from ase.io import read
 
 
 def dcdft():
-    """Create delta-codes-DFT collection.
-
-    Data from: https://github.com/molmod/DeltaCodesDFT
-    """
     os.environ['USER'] = 'ase'
     con = ase.db.connect('dcdft.json')
-    with open('history/exp.txt') as fd:
-        lines = fd.readlines()
-    experiment = {}
-    for line in lines[2:-1]:
-        words = line.split()
-        print(words)
-        experiment[words[0]] = [float(word) for word in words[1:]]
     with open('WIEN2k.txt') as fd:
         lines = fd.readlines()
     for line in lines[2:73]:
         words = line.split()
         symbol = words.pop(0)
         vol, B, Bp = (float(x) for x in words)
-        filename = 'primCIFs/' + symbol + '.cif'
+        filename = 'cif/' + symbol + '.cif'
         atoms = read(filename)
-        if symbol in ['Li', 'Na']:
-            niggli_reduce(atoms)
         M = {'Fe': 2.3,
              'Co': 1.2,
              'Ni': 0.6,
@@ -41,16 +27,19 @@ def dcdft():
             if symbol in ['Cr', 'O', 'Mn']:
                 magmoms[len(atoms) // 2:] = [-M] * (len(atoms) // 2)
             atoms.set_initial_magnetic_moments(magmoms)
-
-        extra = {}
-        exp = experiment.get(symbol, [])
-        for key, val in zip(['exp_volume', 'exp_B', 'exp_Bp'], exp):
-            extra[key] = val
-        con.write(atoms, name=symbol,
-                  wien2k_B=B, wien2k_Bp=Bp, wien2k_volume=vol,
-                  **extra)
-
-
+        con.write(atoms, name=symbol, w2k_B=B, w2k_Bp=Bp, w2k_volume=vol)
+        filename = 'pcif/' + symbol + '.cif'
+        p = read(filename, primitive_cell=True)
+        v = atoms.get_volume() / len(atoms)
+        dv = v - p.get_volume() / len(p)
+        p2 = read(filename)
+        dv2 = v - p2.get_volume() / len(p2)
+        print(symbol, vol - atoms.get_volume() / len(atoms),
+              len(atoms), len(p), dv, dv2)
+        print(p.info)
+        # assert dv < 0.0001
+  
+        
 def g2():
     from ase.data.g2 import data
     os.environ['USER'] = 'ase'

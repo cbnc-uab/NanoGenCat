@@ -10,8 +10,17 @@ qH = 0.417
 sigma0 = 3.15061
 epsilon0 = 0.1521 * units.kcal / units.mol
 rOH = 0.9572
-angleHOH = 104.52
-thetaHOH = 104.52 / 180 * np.pi  # we keep this for backwards compatibility
+thetaHOH = 104.52 / 180 * np.pi
+
+
+def set_tip3p_charges(atoms):
+    charges = np.empty(len(atoms))
+    charges[:] = qH
+    if atoms.numbers[0] == 8:
+        charges[::3] = -2 * qH
+    else:
+        charges[2::3] = -2 * qH
+    atoms.set_initial_charges(charges)
 
 
 class TIP3P(Calculator):
@@ -119,21 +128,6 @@ class TIP3P(Calculator):
             system_changes.append('positions')
         return system_changes
 
-    def add_virtual_sites(self, positions):
-        return positions  # no virtual sites
-
-    def redistribute_forces(self, forces):
-        return forces
-
-    def get_virtual_charges(self, atoms):
-        charges = np.empty(len(atoms))
-        charges[:] = qH
-        if atoms.numbers[0] == 8:
-            charges[::3] = -2 * qH
-        else:
-            charges[2::3] = -2 * qH
-        return charges
-
 
 class PointChargePotential:
     def __init__(self, mmcharges):
@@ -145,7 +139,7 @@ class PointChargePotential:
         self.mmpositions = None
         self.mmforces = None
 
-    def set_positions(self, mmpositions, com_pv=None):
+    def set_positions(self, mmpositions):
         self.mmpositions = mmpositions
 
     def calculate(self, qmcharges, qmpositions):

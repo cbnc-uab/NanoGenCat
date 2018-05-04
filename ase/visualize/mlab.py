@@ -11,9 +11,9 @@ from ase.calculators.calculator import get_calculator
 
 def plot(atoms, data, contours):
     """Plot atoms, unit-cell and iso-surfaces using Mayavi.
-
+    
     Parameters:
-
+        
     atoms: Atoms object
         Positions, atomiz numbers and unit-cell.
     data: 3-d ndarray of float
@@ -21,7 +21,7 @@ def plot(atoms, data, contours):
     countours: list of float
         Contour values.
     """
-
+    
     # Delay slow imports:
     from mayavi import mlab
 
@@ -55,7 +55,7 @@ def plot(atoms, data, contours):
     pts = np.array(polydata.points) - 1
     # Transform the points to the unit cell:
     polydata.points = np.dot(pts, A / np.array(data.shape)[:, np.newaxis])
-
+    
     # Apparently we need this to redraw the figure, maybe it can be done in
     # another way?
     mlab.view(azimuth=155, elevation=70, distance='auto')
@@ -76,18 +76,16 @@ def main(args=None):
         help='Band index counting from zero.')
     add('-s', '--spin-index', type=int, metavar='SPIN',
         help='Spin index: zero or one.')
-    add('-e', '--electrostatic-potential', action='store_true',
-        help='Plot the electrostatic potential.')
     add('-c', '--contours', default='4',
         help='Use "-c 3" for 3 contours or "-c -0.5,0.5" for specific ' +
         'values.  Default is four contours.')
     add('-r', '--repeat', help='Example: "-r 2,2,2".')
     add('-C', '--calculator-name', metavar='NAME', help='Name of calculator.')
-
+    
     opts, args = parser.parse_args(args)
     if len(args) != 1:
         parser.error('Incorrect number of arguments')
-
+        
     arg = args[0]
     if arg.endswith('.cube'):
         data, atoms = read_cube_data(arg)
@@ -95,28 +93,25 @@ def main(args=None):
         calc = get_calculator(opts.calculator_name)(arg, txt=None)
         atoms = calc.get_atoms()
         if opts.band_index is None:
-            if opts.electrostatic_potential:
-                data = calc.get_electrostatic_potential()
-            else:
-                data = calc.get_pseudo_density(opts.spin_index)
+            data = calc.get_pseudo_density(opts.spin_index)
         else:
             data = calc.get_pseudo_wave_function(opts.band_index,
                                                  opts.spin_index or 0)
             if data.dtype == complex:
                 data = abs(data)
-
+                
     mn = data.min()
     mx = data.max()
     print('Min: %16.6f' % mn)
     print('Max: %16.6f' % mx)
-
+    
     if opts.contours.isdigit():
         n = int(opts.contours)
         d = (mx - mn) / n
         contours = np.linspace(mn + d / 2, mx - d / 2, n).tolist()
     else:
-        contours = [float(x) for x in opts.contours.rstrip(',').split(',')]
-
+        contours = [float(x) for x in opts.contours.split(',')]
+        
     if len(contours) == 1:
         print('1 contour:', contours[0])
     else:
@@ -127,9 +122,9 @@ def main(args=None):
         repeat = [int(r) for r in opts.repeat.split(',')]
         data = np.tile(data, repeat)
         atoms *= repeat
-
+        
     plot(atoms, data, contours)
-
+    
 
 if __name__ == '__main__':
     main()

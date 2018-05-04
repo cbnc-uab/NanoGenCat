@@ -1,5 +1,6 @@
 import ase.units as units
-from ase.calculators.tip3p import TIP3P, epsilon0, sigma0, rOH, angleHOH
+from ase.calculators.tip3p import (TIP3P, epsilon0, sigma0, rOH, thetaHOH,
+                                   set_tip3p_charges)
 from ase.calculators.qmmm import SimpleQMMM, EIQMMM, LJInteractions
 from ase.data.s22 import create_s22_system as s22
 from ase.md.verlet import VelocityVerlet
@@ -13,15 +14,14 @@ for calc in [TIP3P(),
     dimer = s22('Water_dimer')
 
     for m in [0, 3]:
-        dimer.set_angle(m + 1, m, m + 2, angleHOH)
+        dimer.set_angle((m + 1, m, m + 2), thetaHOH)
         dimer.set_distance(m, m + 1, rOH, fix=0)
         dimer.set_distance(m, m + 2, rOH, fix=0)
 
-    fixOH1 = [(3 * i, 3 * i + 1) for i in range(2)]
-    fixOH2 = [(3 * i, 3 * i + 2) for i in range(2)]
-    fixHH = [(3 * i + 1, 3 * i + 2) for i in range(2)]
-    dimer.set_constraint(FixBondLengths(fixOH1+fixOH2+fixHH))
+    bonds = [(m + i, m + (i + 1) % 3) for m in [0, 3] for i in [0, 1, 2]]
+    dimer.constraints = FixBondLengths(bonds)
 
+    set_tip3p_charges(dimer)
     dimer.calc = calc
 
     e = dimer.get_potential_energy()

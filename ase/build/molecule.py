@@ -2,19 +2,16 @@ from ase.atoms import Atoms
 from ase.collections import g2
 
 
-def molecule(name, vacuum=None, **kwargs):
+def molecule(name, **kwargs):
     if name in extra:
         kwargs.update(extra[name])
-        mol = Atoms(**kwargs)
-    else:
-        mol = g2[name]
-        if kwargs:
-            mol = Atoms(mol, **kwargs)
-    if vacuum is not None:
-        mol.center(vacuum=vacuum)
+        return Atoms(**kwargs)
+    mol = g2[name]
+    if kwargs:
+        mol = Atoms(mol, **kwargs)
     return mol
 
-
+    
 extra = {
     'Be2': {
         'symbols': 'BeBe',

@@ -7,7 +7,6 @@ import numpy as np
 
 from ase.data import chemical_symbols as symbols
 from ase.data import atomic_names as names
-from ase.gui.utils import get_magmoms
 
 try:
     chr = unichr
@@ -31,16 +30,14 @@ def formula(Z):
     return '+'.join(strings)
 
 
-class Status:  # Status is used as a mixin in GUI
+class Status:
     def __init__(self):
         self.ordered_indices = []
 
-    def status(self, atoms):
+    def status(self):
         # use where here:  XXX
-        natoms = len(atoms)
-        indices = np.arange(natoms)[self.images.selected[:natoms]]
-        ordered_indices = [i for i in self.images.selected_ordered
-                           if i < len(atoms)]
+        indices = np.arange(self.images.natoms)[self.images.selected]
+        ordered_indices = self.images.selected_ordered
         n = len(indices)
         self.nselected = n
 
@@ -48,23 +45,21 @@ class Status:  # Status is used as a mixin in GUI
             self.window.update_status_line('')
             return
 
-        Z = atoms.numbers[indices]
-        R = atoms.positions[indices]
+        Z = self.images.Z[indices]
+        R = self.R[indices]
 
         if n == 1:
-            tag = atoms.get_tags()[indices[0]]
+            tag = self.images.T[self.frame, indices][0]
             text = (u' #%d %s (%s): %.3f Å, %.3f Å, %.3f Å ' %
                     ((indices[0], names[Z[0]], symbols[Z[0]]) + tuple(R[0])))
             text += _(' tag=%(tag)s') % dict(tag=tag)
-            magmoms = get_magmoms(self.atoms)
-            if magmoms.any():
+            if self.images.M.any():
                 # TRANSLATORS: mom refers to magnetic moment
                 text += _(' mom={0:1.2f}'.format(
-                    magmoms[indices][0]))
-            charges = self.atoms.get_initial_charges()
-            if charges.any():
+                    self.images.M[self.frame][indices][0]))
+            if self.images.q.any():
                 text += _(' q={0:1.2f}'.format(
-                    charges[indices][0]))
+                    self.images.q[self.frame][indices][0]))
         elif n == 2:
             D = R[0] - R[1]
             d = sqrt(np.dot(D, D))
@@ -89,8 +84,8 @@ class Status:  # Status is used as a mixin in GUI
             text = (u' %s-%s-%s: %.1f°, %.1f°, %.1f°' %
                     tuple([symbols[z] for z in Z] + a))
         elif len(ordered_indices) == 4:
-            R = self.atoms.positions[ordered_indices]
-            Z = self.atoms.numbers[ordered_indices]
+            R = self.R[ordered_indices]
+            Z = self.images.Z[ordered_indices]
             a = R[1] - R[0]
             b = R[2] - R[1]
             c = R[3] - R[2]
@@ -107,7 +102,7 @@ class Status:  # Status is used as a mixin in GUI
             if (np.vdot(bxa, c)) > 0:
                 angle = 2 * np.pi - angle
             angle = angle * 180.0 / np.pi
-            text = (u'%s %s → %s → %s → %s: %.1f°' %
+            text = (u'%s %s->%s->%s->%s: %.1f°' %
                     tuple([_('dihedral')] + [symbols[z] for z in Z] + [angle]))
         else:
             text = ' ' + formula(Z)

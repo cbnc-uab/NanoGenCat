@@ -4,25 +4,24 @@ import numpy as np
 
 from ase.units import Bohr, Hartree
 from ase.io.elk import read_elk
-from ase.calculators.calculator import (FileIOCalculator, Parameters, kpts2mp,
-                                        ReadError, PropertyNotImplementedError,
-                                        EigenvalOccupationMixin)
+from ase.calculators.calculator import FileIOCalculator, Parameters, kpts2mp, \
+    ReadError, PropertyNotImplementedError
 
 elk_parameters = {'swidth': Hartree}
 
-class ELK(FileIOCalculator, EigenvalOccupationMixin):
+class ELK(FileIOCalculator):
     command = 'elk > elk.out'
     implemented_properties = ['energy', 'forces']
 
     def __init__(self, restart=None, ignore_bad_restart_file=False,
                  label=os.curdir, atoms=None, **kwargs):
         """Construct ELK calculator.
-
+        
         The keyword arguments (kwargs) can be one of the ASE standard
         keywords: 'xc', 'kpts' and 'smearing' or any of ELK'
         native keywords.
         """
-
+        
         FileIOCalculator.__init__(self, restart, ignore_bad_restart_file,
                                   label, atoms, **kwargs)
 
@@ -225,7 +224,7 @@ class ELK(FileIOCalculator, EigenvalOccupationMixin):
 
         for filename in [totenergy, eigval, kpoints, self.out]:
             if not os.path.isfile(filename):
-                raise ReadError('ELK output file '+filename+' is missing.')
+                raise ReadError
 
         # read state from elk.in because *.OUT do not provide enough digits!
         self.atoms = read_elk(os.path.join(self.directory, 'elk.in'))

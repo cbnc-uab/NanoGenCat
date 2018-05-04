@@ -5,7 +5,6 @@ from ase.gui.i18n import _
 
 import ase.gui.ui as ui
 from ase.gui.widgets import Element
-from ase.gui.utils import get_magmoms
 
 
 class ModifyAtoms:
@@ -13,8 +12,7 @@ class ModifyAtoms:
     atomic type, the magnetic moment and tags of the selected atoms.
     """
     def __init__(self, gui):
-        self.gui = gui
-        selected = self.selection()
+        selected = gui.images.selected
         if not selected.any():
             ui.error(_('No atoms selected!'))
             return
@@ -29,34 +27,36 @@ class ModifyAtoms:
         self.magmom = ui.SpinBox(0.0, -10, 10, 0.1, self.set_magmom)
         win.add([_('Moment'), self.magmom])
 
-        atoms = self.gui.atoms
-        Z = atoms.numbers
+        Z = gui.images.Z[selected]
         if Z.ptp() == 0:
             element.Z = Z[0]
 
-        tags = atoms.get_tags()[selected]
+        tags = gui.images.T[gui.frame][selected]
         if tags.ptp() == 0:
             self.tag.value = tags[0]
 
-        magmoms = get_magmoms(atoms)[selected]
+        magmoms = gui.images.M[gui.frame][selected]
         if magmoms.round(2).ptp() == 0.0:
             self.magmom.value = round(magmoms[0], 2)
 
-    def selection(self):
-        return self.gui.images.selected[:len(self.gui.atoms)]
+        self.gui = gui
 
     def set_element(self, element):
-        self.gui.atoms.numbers[self.selection()] = element.Z
-        self.gui.draw()
+        selected = self.gui.images.selected
+        self.gui.images.Z[selected] = element.Z
+        self.update_gui()
 
     def set_tag(self):
-        tags = self.gui.atoms.get_tags()
-        tags[self.selection()] = self.tag.value
-        self.gui.atoms.set_tags(tags)
-        self.gui.draw()
+        selected = self.gui.images.selected
+        self.gui.images.T[self.gui.frame][selected] = self.tag.value
+        self.update_gui()
 
     def set_magmom(self):
-        magmoms = get_magmoms(self.gui.atoms)
-        magmoms[self.selection()] = self.magmom.value
-        self.gui.atoms.set_initial_magnetic_moments(magmoms)
+        selected = self.gui.images.selected
+        self.gui.images.M[self.gui.frame][selected] = self.magmom.value
+        self.update_gui()
+
+    def update_gui(self):
+        self.gui.set_colors()
+        self.gui.images.set_radii()
         self.gui.draw()

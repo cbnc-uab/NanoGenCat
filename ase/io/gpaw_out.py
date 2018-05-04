@@ -108,12 +108,8 @@ def read_gpaw_out(fileobj, index):
         try:
             i = index_startswith(lines, 'energy contributions relative to')
         except ValueError:
-            e = energy_contributions = None
+            e = None
         else:
-            energy_contributions = {}
-            for line in lines[i + 2:i + 8]:
-                 fields = line.split(':')
-                 energy_contributions[fields[0]] = float(fields[1])
             line = lines[i + 10]
             assert (line.startswith('zero kelvin:') or
                     line.startswith('extrapolated:'))
@@ -146,6 +142,7 @@ def read_gpaw_out(fileobj, index):
         except ValueError:
             pass
         ii = min(ii1, ii2)
+        spinpol = False
         if ii == 1e32:
             kpts = None
         else:
@@ -161,6 +158,7 @@ def read_gpaw_out(fileobj, index):
             kpts[0].eps_n = vals[1]
             kpts[0].f_n = vals[2]
             if vals.shape[0] > 3:
+                spinpol = True
                 kpts.append(SinglePointKPoint(1, 1, 0))
                 kpts[1].eps_n = vals[3]
                 kpts[1].f_n = vals[4]
@@ -182,15 +180,18 @@ def read_gpaw_out(fileobj, index):
                 line = line.replace(x, '')
             dipole = np.array([float(c) for c in line.split()[2:5]])
 
-        try:
-            ii = index_startswith(lines, 'local magnetic moments')
-        except ValueError:
-            magmoms = None
+        if spinpol:
+            try:
+                ii = index_startswith(lines, 'local magnetic moments')
+            except ValueError:
+                magmoms = None
+            else:
+                magmoms = []
+                for i in range(ii + 1, ii + 1 + len(atoms)):
+                    magmom = lines[i].split()[-1]
+                    magmoms.append(float(magmom))
         else:
-            magmoms = []
-            for j in range(ii + 1, ii + 1 + len(atoms)):
-                magmom = lines[j].split()[-1]
-                magmoms.append(float(magmom))
+            magmoms = None
 
         try:
             ii = lines.index('forces in ev/ang:\n')
@@ -220,12 +221,9 @@ def read_gpaw_out(fileobj, index):
         if e is not None or f is not None:
             calc = SinglePointDFTCalculator(atoms, energy=e, forces=f,
                                             dipole=dipole, magmoms=magmoms,
-                                            efermi=eFermi,
-                                            bzkpts=bz_kpts, ibzkpts=ibz_kpts)
-            calc.eref = Eref
+                                            eFermi=eFermi, Eref=Eref,
+                                            bz_kpts=bz_kpts, ibz_kpts=ibz_kpts)
             calc.name = 'gpaw'
-            if energy_contributions is not None:
-                calc.energy_contributions = energy_contributions
             if kpts is not None:
                 calc.kpts = kpts
             atoms.set_calculator(calc)

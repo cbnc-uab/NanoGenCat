@@ -1,17 +1,16 @@
 from __future__ import absolute_import, print_function
 import os
-import sys
 
 import numpy as np
 
 from ase.db.core import Database, ops, lock, now
 from ase.db.row import AtomsRow
-from ase.io.jsonio import encode, decode
+from ase.io.jsonio import encode, read_json
 from ase.parallel import world, parallel_function
 from ase.utils import basestring
 
 
-class JSONDatabase(Database, object):
+class JSONDatabase(Database):
     def __enter__(self):
         return self
 
@@ -25,8 +24,8 @@ class JSONDatabase(Database, object):
         ids = []
         nextid = 1
 
-        if (isinstance(self.filename, basestring) and
-            os.path.isfile(self.filename)):
+        if (isinstance(self.filename, basestring)
+            and os.path.isfile(self.filename)):
             try:
                 bigdct, ids, nextid = self._read_json()
             except (SyntaxError, ValueError):
@@ -54,15 +53,15 @@ class JSONDatabase(Database, object):
             dct[key] = row[key]
 
         dct['mtime'] = mtime
-
+        
         kvp = key_value_pairs or row.key_value_pairs
         if kvp:
             dct['key_value_pairs'] = kvp
-
+        
         data = data or row.get('data')
         if data:
             dct['data'] = data
-
+            
         constraints = row.get('constraints')
         if constraints:
             dct['constraints'] = constraints
@@ -77,18 +76,8 @@ class JSONDatabase(Database, object):
         return id
 
     def _read_json(self):
-        if isinstance(self.filename, basestring):
-            with open(self.filename) as fd:
-                bigdct = decode(fd.read())
-        else:
-            bigdct = decode(self.filename.read())
-            if self.filename is not sys.stdin:
-                self.filename.seek(0)
-        ids = bigdct.get('ids')
-        if ids is None:
-            # Allow for missing "ids" and "nextid":
-            assert 1 in bigdct
-            return bigdct, [1], 2
+        bigdct = read_json(self.filename)
+        ids = bigdct['ids']
         if not isinstance(ids, list):
             ids = ids.tolist()
         return bigdct, ids, bigdct['nextid']
@@ -107,8 +96,6 @@ class JSONDatabase(Database, object):
             txt = ',\n '.join('"{0}": {1}'.format(key, encode(dct[key]))
                               for key in sorted(dct.keys()))
             print('"{0}": {{\n {1}}},'.format(id, txt), file=fd)
-        if self._metadata is not None:
-            print('"metadata": {0},'.format(encode(self.metadata)), file=fd)
         print('"ids": {0},'.format(ids), file=fd)
         print('"nextid": {0}}}'.format(nextid), file=fd)
 
@@ -134,21 +121,21 @@ class JSONDatabase(Database, object):
         return AtomsRow(dct)
 
     def _select(self, keys, cmps, explain=False, verbosity=0,
-                limit=None, offset=0, sort=None, include_data=True):
+                limit=None, offset=0, sort=None):
         if explain:
             yield {'explain': (0, 0, 0, 'scan table')}
             return
-
+            
         if sort:
             if sort[0] == '-':
                 reverse = True
                 sort = sort[1:]
             else:
                 reverse = False
-
+            
             def f(row):
                 return row[sort]
-
+                
             rows = sorted(self._select(keys + [sort], cmps),
                           key=f, reverse=reverse)
             if limit:
@@ -156,24 +143,21 @@ class JSONDatabase(Database, object):
             for row in rows:
                 yield row
             return
-
+            
         try:
             bigdct, ids, nextid = self._read_json()
         except IOError:
             return
-
+            
         if not limit:
             limit = -offset - 1
-
+            
         cmps = [(key, ops[op], val) for key, op, val in cmps]
         n = 0
         for id in ids:
             if n - offset == limit:
                 return
-            dct = bigdct[id]
-            if not include_data:
-                dct.pop('data', None)
-            row = AtomsRow(dct)
+            row = AtomsRow(bigdct[id])
             row.id = id
             for key in keys:
                 if key not in row:
@@ -196,9 +180,9 @@ class JSONDatabase(Database, object):
 
     def _update(self, ids, delete_keys, add_key_value_pairs):
         bigdct, myids, nextid = self._read_json()
-
+        
         t = now()
-
+        
         m = 0
         n = 0
         for id in ids:
@@ -214,19 +198,6 @@ class JSONDatabase(Database, object):
             if kvp:
                 dct['key_value_pairs'] = kvp
             dct['mtime'] = t
-
+            
         self._write_json(bigdct, myids, nextid)
         return m, n
-
-    @property
-    def metadata(self):
-        if self._metadata is None:
-            bigdct, myids, nextid = self._read_json()
-            self._metadata = bigdct.get('metadata', {})
-        return self._metadata.copy()
-
-    @metadata.setter
-    def metadata(self, dct):
-        bigdct, ids, nextid = self._read_json()
-        self._metadata = dct
-        self._write_json(bigdct, ids, nextid)

@@ -25,20 +25,17 @@ Unit cell:
 
 def info(gui):
     images = gui.images
-    nimg = len(images)
-    atoms = gui.atoms
-    natoms = len(atoms)
-
-    if len(atoms) < 1:
-        txt = _('This frame has no atoms.')
+    if images.natoms < 1:
+        txt = _('No atoms loaded.')
     else:
+        (nimg, natoms, three) = images.P.shape
+        assert three == 3
         img = gui.frame
-
-        uc = atoms.cell
+        uc = images.A[img]
         if nimg > 1:
             equal = True
             for i in range(nimg):
-                equal = equal and (uc == images[i].cell).all()
+                equal = equal and (uc == images.A[i]).all()
             if equal:
                 uctxt = ucconst
             else:
@@ -51,12 +48,10 @@ def info(gui):
             imgtxt = multiimage % (img, nimg - 1)
 
         periodic = [[_('no'), _('yes')][periodic]
-                    for periodic in atoms.pbc]
+                    for periodic in images.pbc]
 
         # TRANSLATORS: This has the form Periodic: no, no, yes
         pbcstring = _('Periodic: %s, %s, %s') % tuple(periodic)
         txt = format % ((imgtxt, natoms) + tuple(uc.flat) +
                         (pbcstring,) + (uctxt,))
-        if atoms.number_of_lattice_vectors == 3:
-            txt += _('Volume: ') + '{:8.3f}'.format(atoms.get_volume())
     return txt

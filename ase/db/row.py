@@ -9,7 +9,7 @@ from ase.calculators.calculator import PropertyNotImplementedError
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.data import chemical_symbols, atomic_masses
 from ase.io.jsonio import decode
-from ase.utils import formula_metal, basestring
+from ase.utils import hill
 
 
 class FancyDict(dict):
@@ -34,9 +34,9 @@ def atoms2dict(atoms):
     if atoms.cell.any():
         dct['pbc'] = atoms.pbc
         dct['cell'] = atoms.cell
-    if atoms.has('initial_magmoms'):
+    if atoms.has('magmoms'):
         dct['initial_magmoms'] = atoms.get_initial_magnetic_moments()
-    if atoms.has('initial_charges'):
+    if atoms.has('charges'):
         dct['initial_charges'] = atoms.get_initial_charges()
     if atoms.has('masses'):
         dct['masses'] = atoms.get_masses()
@@ -65,15 +65,8 @@ class AtomsRow:
     def __init__(self, dct):
         if isinstance(dct, dict):
             dct = dct.copy()
-            if 'calculator_parameters' in dct:
-                # Earlier version of ASE would encode the calculator
-                # parameter dict again and again and again ...
-                while isinstance(dct['calculator_parameters'], basestring):
-                    dct['calculator_parameters'] = decode(
-                        dct['calculator_parameters'])
         else:
             dct = atoms2dict(dct)
-        assert 'numbers' in dct
         self._constraints = dct.pop('constraints', [])
         self._data = dct.pop('data', None)
         kvp = dct.pop('key_value_pairs', {})
@@ -153,7 +146,7 @@ class AtomsRow:
     @property
     def formula(self):
         """Chemical formula string."""
-        return formula_metal(self.numbers)
+        return hill(self.numbers)
 
     @property
     def symbols(self):
@@ -221,7 +214,7 @@ class AtomsRow:
                       constraint=self.constraints)
 
         if attach_calculator:
-            params = self.get('calculator_parameters', {})
+            params = decode(self.get('calculator_parameters', '{}'))
             atoms.calc = get_calculator(self.calculator)(**params)
         else:
             results = {}

@@ -175,12 +175,12 @@ def get_rdf(atoms, rmax, nbins, distance_matrix=None,
         dm = atoms.get_all_distances()
     rdf = np.zeros(nbins + 1)
     dr = float(rmax / nbins)
-
+    
     if elements is None:
         # Coefficients to use for normalization
         phi = len(atoms) / atoms.get_volume()
         norm = 2.0 * math.pi * dr * phi * len(atoms)
-
+        
         for i in range(len(atoms)):
             for j in range(i + 1, len(atoms)):
                 rij = dm[i][j]
@@ -191,7 +191,7 @@ def get_rdf(atoms, rmax, nbins, distance_matrix=None,
         i_indices = np.where(atoms.numbers == elements[0])[0]
         phi = len(i_indices) / atoms.get_volume()
         norm = 4.0 * math.pi * dr * phi * len(atoms)
-
+        
         for i in i_indices:
             for j in np.where(atoms.numbers == elements[1])[0]:
                 rij = dm[i][j]
@@ -266,15 +266,6 @@ def get_nnmat(atoms, mic=False):
     return nnlist
 
 
-def get_nnmat_string(atoms, decimals=2, mic=False):
-    nnmat = get_nnmat(atoms, mic=mic)
-    s = '-'.join(['{1:2.{0}f}'.format(decimals, i)
-                  for i in nnmat])
-    if len(nnmat) == 1:
-        return s + '-'
-    return s
-
-
 def get_connections_index(atoms, max_conn=5, no_count_types=None):
     """
     This method returns a dictionary where each key value are a
@@ -328,7 +319,7 @@ def get_atoms_connections(atoms, max_conn=5, no_count_types=None):
     """
     conn_index = get_connections_index(atoms, max_conn=max_conn,
                                        no_count_types=no_count_types)
-
+    
     no_of_conn = [0] * max_conn
     for i in conn_index:
         no_of_conn[i] += len(conn_index[i])
@@ -342,6 +333,7 @@ def get_angles_distribution(atoms, ang_grid=9):
     in bins (default 9) with bonds defined from
     the get_neighbor_list().
     """
+    from math import pi
     conn = get_neighbor_list(atoms)
 
     if conn is None:
@@ -353,7 +345,7 @@ def get_angles_distribution(atoms, ang_grid=9):
         for i in conn[atom.index]:
             for j in conn[atom.index]:
                 if j != i:
-                    a = atoms.get_angle(i, atom.index, j)
+                    a = atoms.get_angle([i, atom.index, j]) * 180 / pi
                     for k in range(ang_grid):
                         if (k + 1) * 180. / ang_grid > a > k * 180. / ang_grid:
                             bins[k] += 1

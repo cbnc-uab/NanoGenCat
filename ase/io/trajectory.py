@@ -1,8 +1,6 @@
 from __future__ import print_function
 import warnings
 
-import numpy as np
-
 from ase import __version__
 from ase.calculators.singlepoint import SinglePointCalculator, all_properties
 from ase.constraints import dict2constraint
@@ -86,9 +84,10 @@ class TrajectoryWriter:
         self.properties = properties
 
         self.description = {}
+        self.numbers = None
+        self.pbc = None
+        self.masses = None
         self._open(filename, mode)
-        self.header_data = None
-        self.multiple_headers = False
 
     def set_description(self, description):
         self.description.update(description)
@@ -116,35 +115,41 @@ class TrajectoryWriter:
 
             writer.write(atoms, energy=117, dipole=[0, 0, 1.0])
         """
+        b = self.backend
+
         if atoms is None:
             atoms = self.atoms
 
-        for image in atoms._images_():
-            self._write_atoms(image, **kwargs)
+        if hasattr(atoms, 'interpolate'):
+            # seems to be a NEB
+            neb = atoms
+            assert not neb.parallel or world.size == 1
+            for image in neb.images:
+                self.write(image)
+            return
+        while hasattr(atoms, 'atoms_for_saving'):
+            # Seems to be a Filter or similar, instructing us to
+            # save the original atoms.
+            atoms = atoms.atoms_for_saving
 
-    def _write_atoms(self, atoms, **kwargs):
-        b = self.backend
-
-        if self.header_data is None:
+        if len(b) == 0:
             b.write(version=1, ase_version=__version__)
             if self.description:
                 b.write(description=self.description)
-            # Atomic numbers and periodic boundary conditions are written
-            # in the header in the beginning.
-            #
-            # If an image later on has other numbers/pbc, we write a new
-            # header.  All subsequent images will then have their own header
-            # whether or not their numbers/pbc change.
-            self.header_data = get_header_data(atoms)
-            write_header = True
+            # Atomic numbers and periodic boundary conditions are only
+            # written once - in the header.  Store them here so that we can
+            # check that they are the same for all images:
+            self.numbers = atoms.get_atomic_numbers()
+            self.pbc = atoms.get_pbc()
         else:
-            if not self.multiple_headers:
-                header_data = get_header_data(atoms)
-                self.multiple_headers = not headers_equal(self.header_data,
-                                                          header_data)
-            write_header = self.multiple_headers
+            if (atoms.pbc != self.pbc).any():
+                raise ValueError('Bad periodic boundary conditions!')
+            elif len(atoms) != len(self.numbers):
+                raise ValueError('Bad number of atoms!')
+            elif (atoms.numbers != self.numbers).any():
+                raise ValueError('Bad atomic numbers!')
 
-        write_atoms(b, atoms, write_header=write_header)
+        write_atoms(b, atoms, write_header=(len(b) == 0))
 
         calc = atoms.get_calculator()
 
@@ -249,13 +254,8 @@ class TrajectoryReader:
 
     def __getitem__(self, i=-1):
         b = self.backend[i]
-        if 'numbers' in b:
-            # numbers and other header info was written alongside the image:
-            atoms = read_atoms(b)
-        else:
-            # header info was not written because they are the same:
-            atoms = read_atoms(b, header=[self.pbc, self.numbers, self.masses,
-                                          self.constraints])
+        atoms = read_atoms(b, header=[self.pbc, self.numbers, self.masses,
+                                      self.constraints])
         if 'calculator' in b:
             results = {}
             c = b.calculator
@@ -273,21 +273,6 @@ class TrajectoryReader:
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
-
-
-def get_header_data(atoms):
-    return {'pbc': atoms.pbc.copy(),
-            'numbers': atoms.get_atomic_numbers(),
-            'masses': atoms.get_masses() if atoms.has('masses') else None,
-            'constraints': list(atoms.constraints)}
-
-
-def headers_equal(headers1, headers2):
-    assert len(headers1) == len(headers2)
-    eq = True
-    for key in headers1:
-        eq &= np.array_equal(headers1[key], headers2[key])
-    return eq
 
 
 def read_atoms(backend, header=None):
@@ -335,9 +320,9 @@ def write_atoms(backend, atoms, write_header=True):
         b.write(tags=atoms.get_tags())
     if atoms.has('momenta'):
         b.write(momenta=atoms.get_momenta())
-    if atoms.has('initial_magmoms'):
+    if atoms.has('magmoms'):
         b.write(magmoms=atoms.get_initial_magnetic_moments())
-    if atoms.has('initial_charges'):
+    if atoms.has('charges'):
         b.write(charges=atoms.get_initial_charges())
 
 

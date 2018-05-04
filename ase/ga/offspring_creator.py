@@ -13,7 +13,6 @@ class OffspringCreator(object):
     verbose: Be verbose and print some stuff
 
     """
-
     def __init__(self, verbose=False, num_muts=1):
         self.descriptor = 'OffspringCreator'
         self.verbose = verbose
@@ -45,8 +44,6 @@ class OffspringCreator(object):
         supplied in the parameter indi."""
         if indi is None:
             indi = Atoms(pbc=parent.get_pbc(), cell=parent.get_cell())
-        else:
-            indi = indi.copy()
         # key_value_pairs for numbers and strings
         indi.info['key_value_pairs'] = {'extinct': 0}
         # data for lists and the like
@@ -67,7 +64,6 @@ class OperationSelector(object):
 
     oplist: The list of operations to select from.
     """
-
     def __init__(self, probabilities, oplist):
         assert len(probabilities) == len(oplist)
         self.oplist = oplist

@@ -113,18 +113,6 @@ vdWDB_Grimme06jcc = {
     'Xe': [29.99, 1.881]}
 
 
-# Optimal range parameters sR for different XC functionals
-# to be used with the Tkatchenko-Scheffler scheme
-# Reference: M.A. Caro arXiv:1704.00761 (2017)
-sR_opt={'PBE': 0.940,
-        'RPBE': 0.590,
-        'revPBE': 0.585,
-        'PBEsol': 1.055,
-        'BLYP': 0.625,
-        'AM05': 0.840,
-        'PW91': 0.965}
-
-
 def get_logging_file_descriptor(calculator):
     if hasattr(calculator, 'log'):
         fd = calculator.log
@@ -144,7 +132,7 @@ class vdWTkatchenko09prl(Calculator):
                  hirshfeld=None, vdwradii=None, calculator=None,
                  Rmax=10,  # maximal radius for periodic calculations
                  vdWDB_alphaC6=vdWDB_alphaC6,
-                 txt=None, sR=None):
+                 txt=None):
         """Constructor
 
         Parameters
@@ -167,14 +155,7 @@ class vdWTkatchenko09prl(Calculator):
         self.Rmax = Rmax
         self.atoms = None
 
-        if sR is None:
-            try:
-                xc_name = self.calculator.get_xc_functional()
-                self.sR = sR_opt[xc_name]
-            except KeyError:
-                raise ValueError('Tkatchenko-Scheffler dispersion correction not implemented for %s functional' % xc_name)
-        else:
-            self.sR = sR
+        self.sR = 0.94
         self.d = 20
 
         Calculator.__init__(self)

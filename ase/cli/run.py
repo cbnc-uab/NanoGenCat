@@ -1,12 +1,13 @@
 from __future__ import division, print_function
 
 import sys
+import os.path
+import optparse
 import os
-import pickle
 import tempfile
 import time
 import traceback
-
+    
 import numpy as np
 
 from ase.io import read
@@ -21,19 +22,61 @@ from ase.calculators.calculator import PropertyNotImplementedError
 import ase.db as db
 
 
-class CLICommand:
-    short_description = "Run calculation with one of ASE's calculators"
-    description = short_description + ': ' + ', '.join(calcnames) + '.'
+def main():
+    runner = Runner()
+    runner.parse()
+    if runner.errors:
+        sys.exit(runner.errors)
 
-    @staticmethod
-    def add_arguments(parser):
-        parser.add_argument('calculator')
-        CLICommand.add_more_arguments(parser)
 
-    @staticmethod
-    def add_more_arguments(parser):
-        add = parser.add_argument
-        add('names', nargs='*')
+class Runner:
+    def __init__(self):
+        self.db = None
+        self.opts = None
+        self.errors = 0
+        self.names = []
+        self.calculator_name = None
+
+        if world.rank == 0:
+            self.logfile = sys.stdout
+        else:
+            self.logfile = devnull
+
+    def parse(self, args=None):
+        parser = self.make_parser()
+        self.add_options(parser)
+        self.opts, names = parser.parse_args(args)
+
+        if args is None and self.opts.interactive_python_session:
+            file = tempfile.NamedTemporaryFile()
+            file.write('import os\n')
+            file.write('if "PYTHONSTARTUP" in os.environ:\n')
+            file.write('    execfile(os.environ["PYTHONSTARTUP"])\n')
+            file.write('from ase.cli.run import Runner\n')
+            file.write('atoms = Runner().parse(%r)\n' %
+                       ([self.calculator_name] + sys.argv[1:]))
+            file.flush()
+            os.system('python -i %s' % file.name)
+            return
+
+        if self.calculator_name is None:
+            if names:
+                self.calculator_name = names.pop(0)
+            else:
+                parser.error('Missing calculator name')
+                
+        atoms = self.run(names)
+        return atoms
+        
+    def make_parser(self):
+        parser = optparse.OptionParser(
+            usage='ase-run calculator [options] [system, ...]',
+            description="Run calculation with one of ASE's calculators: " +
+            ', '.join(calcnames) + '.')
+        return parser
+        
+    def add_options(self, parser):
+        add = parser.add_option
         add('-t', '--tag',
             help='String tag added to filenames.')
         add('-p', '--parameters', default='',
@@ -59,9 +102,9 @@ class CLICommand:
             help='Relax unit-cell and internal coordinates.')
         add('-E', '--equation-of-state',
             help='Use "-E 5,2.0" for 5 lattice constants ranging from '
-            '-2.0 %% to +2.0 %%.')
+            '-2.0% to +2.0%.')
         add('--eos-type', default='sjeos', help='Selects the type of eos.')
-        add('-i', '--interactive', action='store_true')
+        add('-i', '--interactive-python-session', action='store_true')
         add('-c', '--collection')
         add('--modify', metavar='...',
             help='Modify atoms with Python statement.  ' +
@@ -69,85 +112,40 @@ class CLICommand:
         add('--after', help='Perform operation after calculation.  ' +
             'Example: --after="atoms.calc.write(...)"')
 
-    @staticmethod
-    def run(args):
-        runner = Runner()
-        runner.parse(args)
-        if runner.errors:
-            sys.exit(runner.errors)
-
-
-interactive_script = """
-import os
-import pickle
-if "PYTHONSTARTUP" in os.environ:
-    exec(open(os.environ["PYTHONSTARTUP"]).read())
-from ase.cli.run import Runner
-args = pickle.loads({!r})
-atoms = Runner().parse(args, True)
-"""
-
-
-class Runner:
-    def __init__(self):
-        self.db = None
-        self.args = None
-        self.errors = 0
-        self.names = []
-        self.calculator_name = None
-
-        if world.rank == 0:
-            self.logfile = sys.stdout
-        else:
-            self.logfile = devnull
-
-    def parse(self, args, interactive=False):
-        if not interactive and args.interactive:
-            fd = tempfile.NamedTemporaryFile('w')
-            fd.write(interactive_script.format(pickle.dumps(args, protocol=0)))
-            fd.flush()
-            os.system('python3 -i ' + fd.name)
-            return
-
-        self.calculator_name = args.calculator
-
-        self.args = args
-        atoms = self.run()
-        return atoms
-
     def log(self, *args, **kwargs):
         print(file=self.logfile, *args, **kwargs)
 
-    def run(self):
-        args = self.args
+    def run(self, names):
+        opts = self.opts
+
         if self.db is None:
             # Create database connection:
-            self.db = db.connect(args.database, use_lock_file=True)
+            self.db = db.connect(opts.database, use_lock_file=True)
 
-        self.expand(args.names)
+        self.expand(names)
 
-        if not args.names:
-            args.names.insert(0, '-')
+        if not names:
+            names.insert(0, '-')
 
         atoms = None
-        for name in args.names:
+        for name in names:
             if atoms is not None:
                 del atoms.calc  # release resources from last calculation
             atoms = self.build(name)
-            if args.modify:
-                exec(args.modify, {'atoms': atoms, 'np': np})
+            if opts.modify:
+                exec(opts.modify, {'atoms': atoms, 'np': np})
 
             if name == '-':
                 name = atoms.info['key_value_pairs']['name']
 
             skip = False
             id = None
-
-            if args.skip:
+            
+            if opts.skip:
                 id = self.db.reserve(name=name)
                 if id is None:
                     skip = True
-
+        
             if not skip:
                 self.set_calculator(atoms, name)
 
@@ -167,30 +165,30 @@ class Runner:
                     tstop = time.time()
                     data['time'] = tstop - tstart
                     self.db.write(atoms, name=name, data=data)
-
+                
                 if id:
                     del self.db[id]
 
         return atoms
-
+    
     def calculate(self, atoms, name):
-        args = self.args
+        opts = self.opts
 
         data = {}
-        if args.maximum_force or args.maximum_stress:
+        if opts.maximum_force or opts.maximum_stress:
             data = self.optimize(atoms, name)
-        if args.equation_of_state:
+        if opts.equation_of_state:
             data.update(self.eos(atoms, name))
         data.update(self.calculate_once(atoms, name))
 
-        if args.after:
-            exec(args.after, {'atoms': atoms, 'data': data})
+        if opts.after:
+            exec(opts.after, {'atoms': atoms, 'data': data})
 
         return data
 
     def expand(self, names):
-        if not self.names and self.args.collection:
-            con = db.connect(self.args.collection)
+        if not self.names and self.opts.collection:
+            con = db.connect(self.opts.collection)
             self.names = [dct.id for dct in con.select()]
         if not names:
             names[:] = self.names
@@ -213,28 +211,24 @@ class Runner:
         if name == '-':
             con = db.connect(sys.stdin, 'json')
             return con.get_atoms(add_additional_information=True)
-        elif self.args.collection:
-            con = db.connect(self.args.collection)
+        elif self.opts.collection:
+            con = db.connect(self.opts.collection)
             return con.get_atoms(name)
         else:
-            atoms = read(name)
-            if isinstance(atoms, list):
-                assert len(atoms) == 1
-                atoms = atoms[0]
-            return atoms
+            return read(name)
 
     def set_calculator(self, atoms, name):
         cls = get_calculator(self.calculator_name)
-        parameters = str2dict(self.args.parameters)
+        parameters = str2dict(self.opts.parameters)
         if getattr(cls, 'nolabel', False):
             atoms.calc = cls(**parameters)
         else:
             atoms.calc = cls(label=self.get_filename(name), **parameters)
 
     def calculate_once(self, atoms, name):
-        args = self.args
+        opts = self.opts
 
-        for p in args.properties or 'efsdMm':
+        for p in opts.properties or 'efsdMm':
             property, method = {'e': ('energy', 'get_potential_energy'),
                                 'f': ('forces', 'get_forces'),
                                 's': ('stress', 'get_stress'),
@@ -247,23 +241,24 @@ class Runner:
                 pass
 
         data = {}
-
+        
         return data
 
     def optimize(self, atoms, name):
-        args = self.args
-        if args.constrain_tags:
-            tags = [int(t) for t in args.constrain_tags.split(',')]
+        opts = self.opts
+        if opts.constrain_tags:
+            tags = [int(t) for t in opts.constrain_tags.split(',')]
             mask = [t in tags for t in atoms.get_tags()]
             atoms.constraints = FixAtoms(mask=mask)
-
-        trajectory = Trajectory(self.get_filename(name, 'traj'), 'w', atoms)
-        if args.maximum_stress:
+        
+        trajectory = Trajectory(self.get_filename(name, 'traj'), 'w',
+                                      atoms)
+        if opts.maximum_stress:
             optimizer = LBFGS(UnitCellFilter(atoms), logfile=self.logfile)
-            fmax = args.maximum_stress
+            fmax = opts.maximum_stress
         else:
             optimizer = LBFGS(atoms, logfile=self.logfile)
-            fmax = args.maximum_force
+            fmax = opts.maximum_force
 
         optimizer.attach(trajectory)
         optimizer.run(fmax=fmax)
@@ -275,11 +270,11 @@ class Runner:
         return data
 
     def eos(self, atoms, name):
-        args = self.args
-
+        opts = self.opts
+        
         traj = Trajectory(self.get_filename(name, 'traj'), 'w', atoms)
-
-        N, eps = args.equation_of_state.split(',')
+        
+        N, eps = opts.equation_of_state.split(',')
         N = int(N)
         eps = float(eps) / 100
         strains = np.linspace(1 - eps, 1 + eps, N)
@@ -292,7 +287,7 @@ class Runner:
             energies.append(atoms.get_potential_energy())
             traj.write(atoms)
         traj.close()
-        eos = EquationOfState(volumes, energies, args.eos_type)
+        eos = EquationOfState(volumes, energies, opts.eos_type)
         v0, e0, B = eos.fit()
         atoms.set_cell(cell1 * (v0 / v1)**(1 / 3), scale_atoms=True)
         data = {'volumes': volumes,
@@ -300,22 +295,22 @@ class Runner:
                 'fitted_energy': e0,
                 'fitted_volume': v0,
                 'bulk_modulus': B,
-                'eos_type': args.eos_type}
+                'eos_type': opts.eos_type}
         return data
 
     def get_filename(self, name=None, ext=None):
         if name is None:
-            if self.args.tag is None:
+            if self.opts.tag is None:
                 filename = 'ase'
             else:
-                filename = self.args.tag
+                filename = self.opts.tag
         else:
             if '.' in name:
                 name = name.rsplit('.', 1)[0]
-            if self.args.tag is None:
+            if self.opts.tag is None:
                 filename = name
             else:
-                filename = name + '-' + self.args.tag
+                filename = name + '-' + self.opts.tag
 
         if ext:
             filename += '.' + ext
@@ -333,7 +328,7 @@ def str2dict(s, namespace={}, sep='='):
     >>> str2dict('a=1.2,b=True,c=ab,d=1,2,3,e={f:42,g:cd}')
     {'a': 1.2, 'c': 'ab', 'b': True, 'e': {'g': 'cd', 'f': 42}, 'd': (1, 2, 3)}
     """
-
+    
     def myeval(value):
         try:
             value = eval(value, namespace)

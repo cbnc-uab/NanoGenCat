@@ -13,8 +13,7 @@ from subprocess import Popen, PIPE
 import numpy as np
 
 from ase import Atoms
-from ase.calculators.calculator import (FileIOCalculator, kpts2ndarray,
-                                        EigenvalOccupationMixin)
+from ase.calculators.calculator import FileIOCalculator, kpts2ndarray
 from ase.calculators.calculator import PropertyNotImplementedError
 # XXX raise ReadError upon bad read
 from ase.data import atomic_numbers
@@ -160,7 +159,7 @@ def process_special_kwargs(atoms, kwargs):
     # will be passed to Octopus
     # XXX do a better check of this
     for kw in Octopus.special_ase_keywords:
-        assert kw not in kwargs, kw
+        assert kw not in kwargs
     return kwargs
 
 
@@ -344,14 +343,8 @@ class OctNamespace:
                     continue
 
                 v = self.evaluate(token)
-
                 try:
                     v = float(v)
-                except TypeError:
-                    try:
-                        v = complex(v)
-                    except ValueError:
-                        break
                 except ValueError:
                     break  # Cannot evaluate expression
                 else:
@@ -432,7 +425,7 @@ def kwargs2atoms(kwargs, directory=None):
 
     Some keyword arguments may refer to files.  The directory keyword
     may be necessary to resolve the paths correctly, and is used for
-    example when running 'ase gui somedir/inp'."""
+    example when running 'ase-gui somedir/inp'."""
     kwargs = normalize_keywords(kwargs)
 
     # Only input units accepted nowadays are 'atomic'.
@@ -620,10 +613,9 @@ def atoms2kwargs(atoms, use_ase_cell):
 
     positions = atoms.positions / Bohr
 
+    # TODO LatticeVectors parameter for non-orthogonal cells
     if use_ase_cell:
         cell = atoms.cell / Bohr
-        cell_offset = 0.5 * cell.sum(axis=0)
-        positions -= cell_offset
         if is_orthorhombic(cell):
             Lsize = 0.5 * np.diag(cell)
             kwargs['lsize'] = [[repr(size) for size in Lsize]]
@@ -631,6 +623,8 @@ def atoms2kwargs(atoms, use_ase_cell):
             # Lsize is really cell / 2, and we have to adjust our
             # positions by subtracting Lsize (see construction of the coords
             # block) in non-periodic directions.
+            nonpbc = (atoms.pbc == 0)
+            positions[:, nonpbc] -= Lsize[None, nonpbc]
         else:
             kwargs['latticevectors'] = cell.tolist()
 
@@ -902,15 +896,14 @@ def read_static_info(fd):
     return results
 
 
-class Octopus(FileIOCalculator, EigenvalOccupationMixin):
+class Octopus(FileIOCalculator):
     """Octopus calculator.
 
     The label is always assumed to be a directory."""
 
     implemented_properties = ['energy', 'forces',
                               'dipole',
-                              #'magmom', 'magmoms'
-    ]
+                              'magmom', 'magmoms']
 
     troublesome_keywords = set(['subsystemcoordinates',
                                 'subsystems',
@@ -923,13 +916,12 @@ class Octopus(FileIOCalculator, EigenvalOccupationMixin):
                                 'reducedcoordinates'])
 
     special_ase_keywords = set(['kpts'])
-    command = 'octopus'
 
     def __init__(self,
                  restart=None,
                  label=None,
                  atoms=None,
-                 command=None,
+                 command='octopus',
                  ignore_troublesome_keywords=None,
                  check_keywords=True,
                  _autofix_outputformats=False,
@@ -946,7 +938,6 @@ class Octopus(FileIOCalculator, EigenvalOccupationMixin):
         # This makes us able to robustly construct the input file
         # in the face of changing octopus versions, and also of
         # early partial verification of user input.
-
         if check_keywords:
             try:
                 octopus_keywords = get_octopus_keywords()
@@ -1200,15 +1191,15 @@ class Octopus(FileIOCalculator, EigenvalOccupationMixin):
     def get_number_of_bands(self):
         return self.results['nbands']
 
-    #def get_magnetic_moments(self, atoms=None):
-    #    if self.results['nspins'] == 1:
-    #        return np.zeros(len(self.atoms))
-    #    return self.results['magmoms'].copy()
+    def get_magnetic_moments(self, atoms=None):
+        if self.results['nspins'] == 1:
+            return np.zeros(len(self.atoms))
+        return self.results['magmoms'].copy()
 
-    #def get_magnetic_moment(self, atoms=None):
-    #    if self.results['nspins'] == 1:
-    #        return 0.0
-    #    return self.results['magmom']
+    def get_magnetic_moment(self, atoms=None):
+        if self.results['nspins'] == 1:
+            return 0.0
+        return self.results['magmom']
 
     def get_occupation_numbers(self, kpt=0, spin=0):
         return self.results['occupations'][kpt, spin].copy()

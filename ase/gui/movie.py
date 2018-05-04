@@ -10,8 +10,8 @@ class Movie:
     def __init__(self, gui):
         self.win = win = ui.Window(_('Movie'), self.close)
         win.add(_('Image number:'))
-        self.frame_number = ui.Scale(gui.frame + 1, 1,
-                                     len(gui.images),
+        self.frame_number = ui.Scale(gui.frame, 0,
+                                     gui.images.nimages - 1,
                                      callback=self.new_frame)
         win.add(self.frame_number)
 
@@ -29,13 +29,13 @@ class Movie:
 
         win.add([play, stop, self.rock])
 
-        if len(gui.images) > 150:
-            skipdefault = len(gui.images) // 150
-            tdefault = min(max(len(gui.images) / (skipdefault * 5.0),
+        if gui.images.nimages > 150:
+            skipdefault = gui.images.nimages // 150
+            tdefault = min(max(gui.images.nimages / (skipdefault * 5.0),
                                1.0), 30)
         else:
             skipdefault = 0
-            tdefault = min(max(len(gui.images) / 5.0, 1.0), 30)
+            tdefault = min(max(gui.images.nimages / 5.0, 1.0), 30)
         self.time = ui.SpinBox(tdefault, 1.0, 99, 0.1)
         self.skip = ui.SpinBox(skipdefault, 0, 99, 1)
         win.add([_(' Frame rate: '), self.time, _(' Skip frames: '),
@@ -58,18 +58,18 @@ class Movie:
         if firstlast and step < 0:
             i = 0
         elif firstlast:
-            i = len(self.gui.images) - 1
+            i = self.gui.images.nimages - 1
         else:
-            i = max(0, min(len(self.gui.images) - 1, self.gui.frame + step))
-
-        self.frame_number.value = i + 1
+            i = max(0, min(self.gui.images.nimages - 1, self.gui.frame + step))
+        self.gui.set_frame(i)
+        self.frame_number.value = i
         if firstlast:
             self.direction = np.sign(-step)
         else:
             self.direction = np.sign(step)
 
     def new_frame(self, value):
-        self.gui.set_frame(value - 1)
+        self.gui.set_coordinates(value)
 
     def play(self):
         self.stop()
@@ -82,7 +82,7 @@ class Movie:
 
     def step(self):
         i = self.gui.frame
-        nimages = len(self.gui.images)
+        nimages = self.gui.images.nimages
         delta = int(self.skip.value + 1)
 
         if self.rock.value:
@@ -94,5 +94,5 @@ class Movie:
         else:
             i = (i + self.direction * delta + nimages) % nimages
 
-        self.frame_number.value = i + 1
+        self.frame_number.value = i
         self.play()
