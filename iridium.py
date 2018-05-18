@@ -15,7 +15,7 @@ iridium = crystal('IrO', basis, spacegroup=136, cellpar=[a,a,c,90,90,90],primiti
 surfaces = [(1,1,0),(0,1,1),(1,0,0),(0,0,1)]
 esurf=[0.94,1.06,1.23,1.55]
 # for size in np.arange(20,30,1):
-size= 13.
+size= 15.
 atoms = wulff_construction(iridium,surfaces,esurf,float(size),'ext',rounding='above',debug=1)
 
 exit()
