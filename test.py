@@ -2,6 +2,7 @@ from ase.spacegroup import crystal
 
 from ase.visualize import view
 from ase.cluster.cut_cluster import CutCluster as structure
+from ase.io import write
 
 # from ase.build import cut
 
@@ -19,6 +20,7 @@ surfaces = [(1,1,0),(0,1,1),(1,0,0),(0,0,1)]
 distances=None
 atoms=structure(iridium,surfaces,10*np.ones(len(surfaces),int),distances, latticeconstant=None)
 
+write('wulff',atoms,format='vasp',sort=True)
 view(atoms)
 # esurf=[0.94,1.06,1.23,1.55]
 # # for size in np.arange(20,30,1):
