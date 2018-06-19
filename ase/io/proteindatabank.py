@@ -3,14 +3,7 @@
 See::
 
     http://www.wwpdb.org/documentation/file-format
-
-Note: The PDB format saves cell lengths and angles; hence the absolute
-orientation is lost when saving.  Saving and loading a file will
-conserve the scaled positions, not the absolute ones.
 """
-
-import warnings
-
 import numpy as np
 
 from ase.atoms import Atom, Atoms
@@ -33,7 +26,6 @@ def read_proteindatabank(fileobj, index=-1):
         if line.startswith('CRYST1'):
             cellpar = [float(word) for word in line[6:54].split()]
             atoms.set_cell(cellpar_to_cell(cellpar))
-            atoms.pbc = True
         for c in range(3):
             if line.startswith('ORIGX' + '123'[c]):
                 pars = [float(word) for word in line[10:55].split()]
@@ -52,9 +44,8 @@ def read_proteindatabank(fileobj, index=-1):
                                      float(words[2])])
                 position = np.dot(orig, position) + trans
                 atoms.append(Atom(symbol, position))
-            except Exception as ex:
-                warnings.warn('Discarding atom when reading PDB file: {}'
-                              .format(ex))
+            except:
+                pass
         if line.startswith('ENDMDL'):
             images.append(atoms)
             atoms = Atoms()
@@ -71,15 +62,9 @@ def write_proteindatabank(fileobj, images):
     if hasattr(images, 'get_positions'):
         images = [images]
 
-
-    rotation = None
     if images[0].get_pbc().any():
-        from ase.geometry import cell_to_cellpar, cellpar_to_cell
-
-        currentcell = images[0].get_cell()
-        cellpar = cell_to_cellpar(currentcell)
-        exportedcell = cellpar_to_cell(cellpar)
-        rotation = np.linalg.solve(currentcell, exportedcell)
+        from ase.geometry import cell_to_cellpar
+        cellpar = cell_to_cellpar(images[0].get_cell())
         # ignoring Z-value, using P1 since we have all atoms defined explicitly
         format = 'CRYST1%9.3f%9.3f%9.3f%7.2f%7.2f%7.2f P 1\n'
         fileobj.write(format % (cellpar[0], cellpar[1], cellpar[2],
@@ -99,8 +84,6 @@ def write_proteindatabank(fileobj, images):
     for n, atoms in enumerate(images):
         fileobj.write('MODEL     ' + str(n + 1) + '\n')
         p = atoms.get_positions()
-        if rotation is not None:
-            p = p.dot(rotation)
         for a in range(natoms):
             x, y, z = p[a]
             fileobj.write(format % (a % MAXNUM, symbols[a],

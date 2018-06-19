@@ -100,8 +100,6 @@ class BundleTrajectory:
             self._open_write(atoms, backup, backend)
         elif mode == 'a':
             self._open_append(atoms)
-        else:
-            raise ValueError('Unknown mode: ' + str(mode))
 
     def _set_defaults(self):
         "Set default values for internal parameters."
@@ -148,10 +146,25 @@ class BundleTrajectory:
         if atoms is None:
             atoms = self.atoms
 
-        for image in atoms._images_():
-            self._write_atoms(image)
+        if hasattr(atoms, 'interpolate'):
+            # seems to be a NEB
+            self.log('Beginning to write NEB data')
+            neb = atoms
+            assert not neb.parallel
+            try:
+                neb.get_energies_and_forces(all=True)
+            except AttributeError:
+                pass
+            for image in neb.images:
+                self.write(image)
+            self.log('Done writing NEB data')
+            return
 
-    def _write_atoms(self, atoms):
+        while hasattr(atoms, 'atoms_for_saving'):
+            # Seems to be a Filter or similar, instructing us to
+            # save the original atoms.
+            atoms = atoms.atoms_for_saving
+
         # OK, it is a real atoms object.  Write it.
         self._call_observers(self.pre_observers)
         self.log('Beginning to write frame ' + str(self.nframes))
@@ -205,9 +218,8 @@ class BundleTrajectory:
             else:
                 self.datatypes['momenta'] = False
         if datatypes.get('magmoms'):
-            if atoms.has('initial_magmoms'):
-                self.backend.write(framedir, 'magmoms',
-                                   atoms.get_initial_magnetic_moments())
+            if atoms.has('magmoms'):
+                self.backend.write(framedir, 'magmoms', atoms.get_magmoms())
             else:
                 self.datatypes['magmoms'] = False
         if datatypes.get('forces'):
@@ -1029,8 +1041,37 @@ def read_bundletrajectory(filename, index=-1):
         frame).
     """
     traj = BundleTrajectory(filename, mode='r')
-    for i in range(*index.indices(len(traj))):
-        yield traj[i]
+    if isinstance(index, int):
+        return traj[index]
+    else:
+        # Here, we try to read only the configurations we need to read
+        # and len(traj) should only be called if we need to as it will
+        # read all configurations!
+
+        # XXX there must be a simpler way?
+        step = index.step or 1
+        if step > 0:
+            start = index.start or 0
+            if start < 0:
+                start += len(traj)
+            stop = index.stop or len(traj)
+            if stop < 0:
+                stop += len(traj)
+        else:
+            if index.start is None:
+                start = len(traj) - 1
+            else:
+                start = index.start
+                if start < 0:
+                    start += len(traj)
+            if index.stop is None:
+                stop = -1
+            else:
+                stop = index.stop
+                if stop < 0:
+                    stop += len(traj)
+
+        return [traj[i] for i in range(start, stop, step)]
 
 
 def write_bundletrajectory(filename, images):

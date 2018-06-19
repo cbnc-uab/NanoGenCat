@@ -7,7 +7,7 @@ import numpy as np
 from ase.build import cut, bulk
 from ase.geometry import (get_layers, wrap_positions,
                           crystal_structure_from_cell)
-from ase.spacegroup import crystal, get_spacegroup
+from ase.spacegroup import crystal
 
 al = crystal('Al', [(0, 0, 0)], spacegroup=225, cellpar=4.05)
 
@@ -81,8 +81,6 @@ assert np.allclose(correct_pos, al.positions)
 # Create an Ag(111)/Si(111) interface
 ag = crystal(['Ag'], basis=[(0, 0, 0)], spacegroup=225, cellpar=4.09)
 si = crystal(['Si'], basis=[(0, 0, 0)], spacegroup=227, cellpar=5.43)
-assert get_spacegroup(ag).no == 225
-assert get_spacegroup(si).no == 227
 
 ag111 = cut(ag, a=(4, -4, 0), b=(4, 4, -8), nlayers=5)
 si111 = cut(si, a=(3, -3, 0), b=(3, 3, -6), nlayers=5)
@@ -162,5 +160,7 @@ cell = [[1, 0, 0], [0, 1, 0], [0, 0, 2]]
 assert crystal_structure_from_cell(cell) == 'tetragonal'
 cell = [[1, 0, 0], [0, 2, 0], [0, 0, 3]]
 assert crystal_structure_from_cell(cell) == 'orthorhombic'
-cell = [[1, 0, 0], [0, 2, 0], [0.5, 0, 3]]
+cell = [[1, 0, 0], [0, 2, 0], [0, 1, 3]]
 assert crystal_structure_from_cell(cell) == 'monoclinic'
+
+

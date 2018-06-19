@@ -2,7 +2,6 @@
 from __future__ import print_function, division
 
 from ase.units import kJ
-from ase.utils import basestring
 
 import numpy as np
 
@@ -367,106 +366,49 @@ class EquationOfState:
         return self.v0, self.e0, self.B
 
 
-def calculate_eos(atoms, npoints=5, eps=0.04, trajectory=None, callback=None):
-    """Calculate equation-of-state.
-
-    atoms: Atoms object
-        System to calculate EOS for.  Must have a calculator attached.
-    npoints: int
-        Number of points.
-    eps: float
-        Variation in volume from v0*(1-eps) to v0*(1+eps).
-    trajectory: Trjectory object or str
-        Write configurations to a trajectory file.
-    callback: function
-        Called after every energy calculation.
-
-    >>> from ase.build import bulk
-    >>> from ase.calculators.emt import EMT
-    >>> a = bulk('Cu', 'fcc', a=3.6)
-    >>> a.calc = EMT()
-    >>> eos = calculate_eos(a, trajectory='Cu.traj')
-    >>> v, e, B = eos.fit()
-    >>> a = (4 * v)**(1 / 3.0)
-    >>> print('{0:.6f}'.format(a))
-    3.589825
-    """
-
-    # Save original positions and cell:
-    p0 = atoms.get_positions()
-    c0 = atoms.get_cell()
-
-    if isinstance(trajectory, basestring):
-        from ase.io import Trajectory
-        trajectory = Trajectory(trajectory, 'w', atoms)
-
-    if trajectory is not None:
-        trajectory.set_description({'type': 'eos',
-                                    'npoints': npoints,
-                                    'eps': eps})
-
-    try:
-        energies = []
-        volumes = []
-        for x in np.linspace(1 - eps, 1 + eps, npoints)**(1 / 3):
-            atoms.set_cell(x * c0, scale_atoms=True)
-            volumes.append(atoms.get_volume())
-            energies.append(atoms.get_potential_energy())
-            if callback:
-                callback()
-            if trajectory is not None:
-                trajectory.write()
-        return EquationOfState(volumes, energies)
-    finally:
-        atoms.cell = c0
-        atoms.positions = p0
-        if trajectory is not None:
-            trajectory.close()
-
-
-class CLICommand:
-    short_description = 'Calculate equation of state'
-
-    @staticmethod
-    def add_arguments(parser):
-        parser.add_argument('trajectories', nargs='+', metavar='trajectory')
-        parser.add_argument('-p', '--plot', action='store_true')
-        parser.add_argument('-t', '--type', default='sj')
-
-    @staticmethod
-    def run(args):
-        from ase.io import read
-
-        if not args.plot:
-            print('# filename                '
-                  'points     volume    energy  bulk modulus')
-            print('#                         '
-                  '          [Ang^3]      [eV]         [GPa]')
-        for name in args.trajectories:
-            if name == '-':
-                # Special case - used by ASE's GUI:
-                import pickle
-                import sys
-                if sys.version_info[0] == 2:
-                    v, e = pickle.load(sys.stdin)
-                else:
-                    v, e = pickle.load(sys.stdin.buffer)
+def main():
+    import optparse
+    from ase.io import read
+    parser = optparse.OptionParser(usage='python -m ase.eos [options] '
+                                   'trajectory, ...',
+                                   description='Calculate equation of state.')
+    parser.add_option('-p', '--plot', action='store_true')
+    parser.add_option('-t', '--type', default='sj')
+    opts, args = parser.parse_args()
+    if not opts.plot:
+        print('# filename                '
+              'points     volume    energy  bulk modulus')
+        print('#                         '
+              '          [Ang^3]      [eV]         [GPa]')
+    for name in args:
+        if name == '-':
+            # Special case - used by ase-gui:
+            import pickle
+            import sys
+            if sys.version_info[0] == 2:
+                v, e = pickle.load(sys.stdin)
             else:
-                if '@' in name:
-                    index = None
-                else:
-                    index = ':'
-                images = read(name, index=index)
-                v = [atoms.get_volume() for atoms in images]
-                e = [atoms.get_potential_energy() for atoms in images]
-            eos = EquationOfState(v, e, args.type)
-            if args.plot:
-                eos.plot()
+                v, e = pickle.load(sys.stdin.buffer)
+        else:
+            if '@' in name:
+                index = None
             else:
-                try:
-                    v0, e0, B = eos.fit()
-                except ValueError as ex:
-                    print('{0:30}{1:2}    {2}'.format(name, len(v), ex.message))
-                else:
-                    print('{0:30}{1:2} {2:10.3f}{3:10.3f}{4:14.3f}'
-                          .format(name, len(v), v0, e0, B / kJ * 1.0e24))
+                index = ':'
+            images = read(name, index=index)
+            v = [atoms.get_volume() for atoms in images]
+            e = [atoms.get_potential_energy() for atoms in images]
+        eos = EquationOfState(v, e, opts.type)
+        if opts.plot:
+            eos.plot()
+        else:
+            try:
+                v0, e0, B = eos.fit()
+            except ValueError as ex:
+                print('{0:30}{1:2}    {2}'.format(name, len(v), ex.message))
+            else:
+                print('{0:30}{1:2} {2:10.3f}{3:10.3f}{4:14.3f}'
+                      .format(name, len(v), v0, e0, B / kJ * 1.0e24))
+
+
+if __name__ == '__main__':
+    main()

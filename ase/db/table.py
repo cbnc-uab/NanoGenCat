@@ -15,7 +15,7 @@ def plural(n, word):
         return '1 ' + word
     return '%d %ss' % (n, word)
 
-
+    
 def cut(txt, length):
     if len(txt) <= length or length == 0:
         return txt
@@ -27,7 +27,7 @@ def cutlist(lst, length):
         return lst
     return lst[:9] + ['... ({0} more)'.format(len(lst) - 9)]
 
-
+    
 class Table:
     def __init__(self, connection, verbosity=1, cut=35):
         self.connection = connection
@@ -38,16 +38,15 @@ class Table:
         self.id = None
         self.right = None
         self.keys = None
-
+        
     def select(self, query, columns, sort, limit, offset):
         self.limit = limit
         self.offset = offset
-
-        self.rows = [Row(row, columns)
-                     for row in self.connection.select(
+        
+        self.rows = [Row(d, columns)
+                     for d in self.connection.select(
                          query, verbosity=self.verbosity,
-                         limit=limit, offset=offset, sort=sort,
-                         include_data=False)]
+                         limit=limit, offset=offset, sort=sort)]
 
         delete = set(range(len(columns)))
         for row in self.rows:
@@ -58,11 +57,11 @@ class Table:
         for row in self.rows:
             for n in delete:
                 del row.values[n]
-
+                
         self.columns = list(columns)
         for n in delete:
             del self.columns[n]
-
+                
     def format(self, subscript=None):
         right = set()  # right-adjust numbers
         allkeys = set()
@@ -70,10 +69,10 @@ class Table:
             numbers = row.format(self.columns, subscript)
             right.update(numbers)
             allkeys.update(row.dct.get('key_value_pairs', {}))
-
+            
         right.add('age')
         self.right = [column in right for column in self.columns]
-
+        
         self.keys = sorted(allkeys)
 
     def write(self, query=None):
@@ -93,9 +92,9 @@ class Table:
 
         if self.verbosity == 0:
             return
-
+            
         nrows = len(self.rows)
-
+        
         if self.limit and nrows == self.limit:
             n = self.connection.count(query)
             print('Rows:', n, '(showing first {0})'.format(self.limit))
@@ -104,13 +103,13 @@ class Table:
 
         if self.keys:
             print('Keys:', ', '.join(cutlist(self.keys, self.cut)))
-
+            
     def write_csv(self):
         print(', '.join(self.columns))
         for row in self.rows:
             print(', '.join(str(val) for val in row.values))
 
-
+            
 class Row:
     def __init__(self, dct, columns):
         self.dct = dct
@@ -118,7 +117,7 @@ class Row:
         self.strings = None
         self.more = False
         self.set_columns(columns)
-
+        
     def set_columns(self, columns):
         self.values = []
         for c in columns:
@@ -129,10 +128,10 @@ class Row:
             else:
                 value = getattr(self.dct, c, None)
             self.values.append(value)
-
+            
     def toggle(self):
         self.more = not self.more
-
+        
     def format(self, columns, subscript=None):
         self.strings = []
         numbers = set()
@@ -148,5 +147,5 @@ class Row:
             elif value is None:
                 value = ''
             self.strings.append(value)
-
+        
         return numbers

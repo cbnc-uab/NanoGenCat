@@ -4,7 +4,7 @@ try:
     import tkinter as tk
     import tkinter.ttk as ttk
     from tkinter.messagebox import askokcancel as ask_question
-    from tkinter.messagebox import showerror, showwarning
+    from tkinter.messagebox import showerror
     from tkinter.filedialog import LoadFileDialog, SaveFileDialog
 except ImportError:
     # Python 2
@@ -13,8 +13,7 @@ except ImportError:
         import ttk
     except ImportError:
         ttk = None
-    from tkMessageBox import (askokcancel as ask_question, showerror,
-                              showwarning)
+    from tkMessageBox import askokcancel as ask_question, showerror
     from FileDialog import LoadFileDialog, SaveFileDialog
 
 import re
@@ -31,7 +30,7 @@ __all__ = [
     'error', 'ask_question', 'MainWindow', 'LoadFileDialog', 'SaveFileDialog',
     'ASEGUIWindow', 'Button', 'CheckButton', 'ComboBox', 'Entry', 'Label',
     'Window', 'MenuItem', 'RadioButton', 'RadioButtons', 'Rows', 'Scale',
-    'showwarning', 'SpinBox', 'Text']
+    'SpinBox', 'Text']
 
 
 if sys.platform == 'darwin':
@@ -65,7 +64,7 @@ def helpwindow(text):
     win.add(Text(text))
 
 
-class BaseWindow(object):
+class BaseWindow:
     def __init__(self, title, close=None):
         self.title = title
         if close:
@@ -172,7 +171,6 @@ class Text(Widget):
         for text, tags in self.text:
             widget.insert('insert', text, tags)
         widget.configure(state='disabled', background=parent['bg'])
-        widget.bind("<1>", lambda event: widget.focus_set())
         return widget
 
 
@@ -185,13 +183,12 @@ class Button(Widget):
 
 
 class CheckButton(Widget):
-    def __init__(self, text, value=False, callback=None):
+    def __init__(self, text, value=False):
         self.text = text
         self.var = tk.BooleanVar(value=value)
-        self.callback = callback
 
     def create(self, parent):
-        self.check = tk.Checkbutton(parent, text=self.text, var=self.var, command=self.callback)
+        self.check = tk.Checkbutton(parent, text=self.text, var=self.var)
         return self.check
 
     @property
@@ -221,8 +218,6 @@ class SpinBox(Widget):
         x = self.widget.get().replace(',', '.')
         if '.' in x:
             return float(x)
-        if x == 'None':
-            return None
         return int(x)
 
     @value.setter
@@ -299,8 +294,8 @@ class RadioButtons(Widget):
                         for i, label in enumerate(labels)]
         self.vertical = vertical
 
-    def create(self, parent):
-        self.widget = frame = tk.Frame(parent)
+    def create(self, parrent):
+        self.widget = frame = tk.Frame(parrent)
         side = 'top' if self.vertical else 'left'
         for button in self.buttons:
             button.create(frame).pack(side=side)
@@ -564,12 +559,9 @@ class ASEGUIWindow(MainWindow):
         self.canvas.bind('<Control-ButtonRelease>', bind(release, 'ctrl'))
         self.canvas.bind('<Shift-ButtonRelease>', bind(release, 'shift'))
         self.canvas.bind('<Configure>', resize)
-        self.win.bind('<MouseWheel>', bind(scroll_event))
-        for key in ['Key', 'Next', 'Prior']:
-            # Next and Prior are PageUp/Dn, referring to Z axis.
-            self.win.bind('<{}>'.format(key), bind(scroll))
-            self.win.bind('<Shift-{}>'.format(key), bind(scroll, 'shift'))
-            self.win.bind('<Control-{}>'.format(key), bind(scroll, 'ctrl'))
+        self.win.bind('<Key>', bind(scroll))
+        self.win.bind('<Shift-Key>', bind(scroll, 'shift'))
+        self.win.bind('<Control-Key>', bind(scroll, 'ctrl'))
 
         self.fg = config['gui_foreground_color']
         self.bg = config['gui_background_color']

@@ -8,7 +8,7 @@ from scipy.spatial import ConvexHull
 
 import ase.units as units
 from ase.atoms import string2symbols
-from ase.utils import formula_hill, basestring
+from ase.utils import hill, basestring
 
 _solvated = []
 
@@ -269,6 +269,7 @@ class Pourbaix:
             name = re.sub('(\d+)', r'$_{\1}$', name)
             text.append((x, y, name))
 
+
         if plot:
             import matplotlib.pyplot as plt
             import matplotlib.cm as cm
@@ -332,7 +333,7 @@ class PhaseDiagram:
                 count = parse_formula(name)[0]
             else:
                 count = name
-                name = formula_hill(count)
+                name = hill(count)
 
             if filter and any(symbol not in filter for symbol in count):
                 continue
@@ -434,8 +435,7 @@ class PhaseDiagram:
 
         return energy, indices, np.array(coefs)
 
-    def plot(self, ax=None, dims=None, show=True,
-             only_label_simplices=False, only_plot_simplices=False):
+    def plot(self, ax=None, dims=None, show=True):
         """Make 2-d or 3-d plot of datapoints and convex hull.
 
         Default is 2-d for 2- and 3-component diagrams and 3-d for a
@@ -465,7 +465,7 @@ class PhaseDiagram:
 
         if dims == 2:
             if N == 2:
-                self.plot2d2(ax, only_label_simplices, only_plot_simplices)
+                self.plot2d2(ax)
             elif N == 3:
                 self.plot2d3(ax)
             else:
@@ -483,23 +483,16 @@ class PhaseDiagram:
             plt.show()
         return ax
 
-    def plot2d2(self, ax, only_label_simplices, only_plot_simplices):
+    def plot2d2(self, ax):
         x, e = self.points[:, 1:].T
         for i, j in self.simplices:
             ax.plot(x[[i, j]], e[[i, j]], '-b')
         ax.plot(x[self.hull], e[self.hull], 'og')
-        if not only_plot_simplices:
-            ax.plot(x[~self.hull], e[~self.hull], 'sr')
-            
-        refs = self.references
-        if only_plot_simplices or only_label_simplices:
-            x = x[self.hull]
-            e = e[self.hull]
-            refs = np.array(refs)[self.hull]
-        for a, b, ref in zip(x, e, refs):
+        ax.plot(x[~self.hull], e[~self.hull], 'sr')
+        for a, b, ref in zip(x, e, self.references):
             name = re.sub('(\d+)', r'$_{\1}$', ref[2])
             ax.text(a, b, name,
-                    horizontalalignment='center', verticalalignment='bottom')
+                     horizontalalignment='center', verticalalignment='bottom')
 
         ax.set_xlabel(self.symbols[1])
         ax.set_ylabel('energy [eV/atom]')
@@ -515,7 +508,7 @@ class PhaseDiagram:
         for a, b, ref in zip(x, y, self.references):
             name = re.sub('(\d+)', r'$_{\1}$', ref[2])
             ax.text(a, b, name,
-                    horizontalalignment='center', verticalalignment='bottom')
+                     horizontalalignment='center', verticalalignment='bottom')
 
     def plot3d3(self, ax):
         x, y, e = self.points[:, 1:].T

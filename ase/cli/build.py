@@ -1,5 +1,6 @@
 import sys
-
+import optparse
+    
 import numpy as np
 
 from ase.db import connect
@@ -12,118 +13,110 @@ from ase.data import ground_state_magnetic_moments
 from ase.data import atomic_numbers, covalent_radii
 
 
-class CLICommand:
-    short_description = 'Build an atom, molecule or bulk structure'
+def main():
+    parser = optparse.OptionParser(
+        usage='%prog [options] name/input-file [output-file]')
+    add = parser.add_option
+    add('-M', '--magnetic-moment',
+        metavar='M1,M2,...',
+        help='Magnetic moment(s).  ' +
+        'Use "-M 1" or "-M 2.3,-2.3".')
+    add('--modify', metavar='...',
+        help='Modify atoms with Python statement.  ' +
+        'Example: --modify="atoms.positions[-1,2]+=0.1".')
+    add('-v', '--vacuum', type=float, default=3.0,
+        help='Amount of vacuum to add around isolated atoms '
+        '(in Angstrom).')
+    add('--unit-cell',
+        help='Unit cell.  Examples: "10.0" or "9,10,11" ' +
+        '(in Angstrom).')
+    add('--bond-length', type=float,
+        help='Bond length of dimer in Angstrom.')
+    add('-x', '--crystal-structure',
+        help='Crystal structure.',
+        choices=['sc', 'fcc', 'bcc', 'hcp', 'diamond',
+                 'zincblende', 'rocksalt', 'cesiumchloride',
+                 'fluorite', 'wurtzite'])
+    add('-a', '--lattice-constant', default='',
+        help='Lattice constant(s) in Angstrom.')
+    add('--orthorhombic', action='store_true',
+        help='Use orthorhombic unit cell.')
+    add('--cubic', action='store_true',
+        help='Use cubic unit cell.')
+    add('-r', '--repeat',
+        help='Repeat unit cell.  Use "-r 2" or "-r 2,3,1".')
+    add('-g', '--gui', action='store_true')
 
-    @staticmethod
-    def add_arguments(parser):
-        add = parser.add_argument
-        add('name', metavar='name/input-file')
-        add('output', nargs='?')
-        add('-M', '--magnetic-moment',
-            metavar='M1,M2,...',
-            help='Magnetic moment(s).  '
-            'Use "-M 1" or "-M 2.3,-2.3".')
-        add('--modify', metavar='...',
-            help='Modify atoms with Python statement.  '
-            'Example: --modify="atoms.positions[-1,2]+=0.1".')
-        add('-V', '--vacuum', type=float,
-            help='Amount of vacuum to add around isolated atoms '
-            '(in Angstrom).')
-        add('-v', '--vacuum0', type=float,
-            help='Deprecated.  Use -V or --vacuum instead.')
-        add('--unit-cell',
-            help='Unit cell.  Examples: "10.0" or "9,10,11" (in Angstrom).')
-        add('--bond-length', type=float,
-            help='Bond length of dimer in Angstrom.')
-        add('-x', '--crystal-structure',
-            help='Crystal structure.',
-            choices=['sc', 'fcc', 'bcc', 'hcp', 'diamond',
-                     'zincblende', 'rocksalt', 'cesiumchloride',
-                     'fluorite', 'wurtzite'])
-        add('-a', '--lattice-constant', default='',
-            help='Lattice constant(s) in Angstrom.')
-        add('--orthorhombic', action='store_true',
-            help='Use orthorhombic unit cell.')
-        add('--cubic', action='store_true',
-            help='Use cubic unit cell.')
-        add('-r', '--repeat',
-            help='Repeat unit cell.  Use "-r 2" or "-r 2,3,1".')
-        add('-g', '--gui', action='store_true')
-        add('--periodic', action='store_true')
+    opts, args = parser.parse_args()
+    if len(args) == 0 or len(args) > 2:
+        parser.error('Wrong number of arguments!')
 
-    @staticmethod
-    def run(args, parser):
-        if args.vacuum0:
-            parser.error('Please use -V or --vacuum instead!')
+    name = args.pop(0)
 
-        if '.' in args.name:
-            # Read from file:
-            atoms = read(args.name)
-        elif args.crystal_structure:
-            atoms = build_bulk(args)
-        else:
-            atoms = build_molecule(args)
+    if '.' in name:
+        # Read from file:
+        atoms = read(name)
+    elif opts.crystal_structure:
+        atoms = build_bulk(name, opts)
+    else:
+        atoms = build_molecule(name, opts)
 
-        if args.magnetic_moment:
-            magmoms = np.array(
-                [float(m) for m in args.magnetic_moment.split(',')])
-            atoms.set_initial_magnetic_moments(
-                np.tile(magmoms, len(atoms) // len(magmoms)))
+    if opts.magnetic_moment:
+        magmoms = np.array(
+            [float(m) for m in opts.magnetic_moment.split(',')])
+        atoms.set_initial_magnetic_moments(
+            np.tile(magmoms, len(atoms) // len(magmoms)))
 
-        if args.modify:
-            exec(args.modify, {'atoms': atoms})
+    if opts.modify:
+        exec(opts.modify, {'atoms': atoms})
 
-        if args.repeat is not None:
-            r = args.repeat.split(',')
-            if len(r) == 1:
-                r = 3 * r
-            atoms = atoms.repeat([int(c) for c in r])
+    if opts.repeat is not None:
+        r = opts.repeat.split(',')
+        if len(r) == 1:
+            r = 3 * r
+        atoms = atoms.repeat([int(c) for c in r])
 
-        if args.gui:
-            view(atoms)
-
-        if args.output:
-            write(args.output, atoms)
-        elif sys.stdout.isatty():
-            write(args.name + '.json', atoms)
-        else:
-            con = connect(sys.stdout, type='json')
-            con.write(atoms, name=args.name)
+    if opts.gui:
+        view(atoms)
+        
+    if args:
+        write(args[0], atoms)
+    elif sys.stdout.isatty():
+        write(name + '.json', atoms)
+    else:
+        con = connect(sys.stdout, type='json')
+        con.write(atoms, name=name)
 
 
-def build_molecule(args):
+def build_molecule(name, opts):
     try:
         # Known molecule or atom?
-        atoms = molecule(args.name)
+        atoms = molecule(name)
     except NotImplementedError:
-        symbols = string2symbols(args.name)
+        symbols = string2symbols(name)
         if len(symbols) == 1:
             Z = atomic_numbers[symbols[0]]
             magmom = ground_state_magnetic_moments[Z]
-            atoms = Atoms(args.name, magmoms=[magmom])
+            atoms = Atoms(name, magmoms=[magmom])
         elif len(symbols) == 2:
             # Dimer
-            if args.bond_length is None:
+            if opts.bond_length is None:
                 b = (covalent_radii[atomic_numbers[symbols[0]]] +
                      covalent_radii[atomic_numbers[symbols[1]]])
             else:
-                b = args.bond_length
-            atoms = Atoms(args.name, positions=[(0, 0, 0),
-                                                (b, 0, 0)])
+                b = opts.bond_length
+            atoms = Atoms(name, positions=[(0, 0, 0),
+                                           (b, 0, 0)])
         else:
-            raise ValueError('Unknown molecule: ' + args.name)
+            raise ValueError('Unknown molecule: ' + name)
     else:
-        if len(atoms) == 2 and args.bond_length is not None:
-            atoms.set_distance(0, 1, args.bond_length)
+        if len(atoms) == 2 and opts.bond_length is not None:
+            atoms.set_distance(0, 1, opts.bond_length)
 
-    if args.unit_cell is None:
-        if args.vacuum:
-            atoms.center(vacuum=args.vacuum)
-        else:
-            atoms.center(about=[0, 0, 0])
+    if opts.unit_cell is None:
+        atoms.center(vacuum=opts.vacuum)
     else:
-        a = [float(x) for x in args.unit_cell.split(',')]
+        a = [float(x) for x in opts.unit_cell.split(',')]
         if len(a) == 1:
             cell = [a[0], a[0], a[0]]
         elif len(a) == 3:
@@ -144,22 +137,20 @@ def build_molecule(args):
         atoms.cell = cell
         atoms.center()
 
-    atoms.pbc = args.periodic
-
     return atoms
 
 
-def build_bulk(args):
-    L = args.lattice_constant.replace(',', ' ').split()
+def build_bulk(name, opts):
+    L = opts.lattice_constant.replace(',', ' ').split()
     d = dict([(key, float(x)) for key, x in zip('ac', L)])
-    atoms = bulk(args.name, crystalstructure=args.crystal_structure,
+    atoms = bulk(name, crystalstructure=opts.crystal_structure,
                  a=d.get('a'), c=d.get('c'),
-                 orthorhombic=args.orthorhombic, cubic=args.cubic)
+                 orthorhombic=opts.orthorhombic, cubic=opts.cubic)
 
     M, X = {'Fe': (2.3, 'bcc'),
             'Co': (1.2, 'hcp'),
-            'Ni': (0.6, 'fcc')}.get(args.name, (None, None))
-    if M is not None and args.crystal_structure == X:
+            'Ni': (0.6, 'fcc')}.get(name, (None, None))
+    if M is not None and opts.crystal_structure == X:
         atoms.set_initial_magnetic_moments([M] * len(atoms))
 
     return atoms

@@ -12,9 +12,8 @@ from ase.spacegroup import spacegroup, findsym, xtal
 from ase.geometry import geometry, cell
 from ase.build import tools
 from ase.io import ulm
-import ase.eos as eos
 
-modules = [xtal, spacegroup, cell, findsym, ulm, atoms, eos]
+modules = [xtal, spacegroup, cell, findsym, ulm, atoms]
 
 if scipy:
     modules.extend([geometry, tools])

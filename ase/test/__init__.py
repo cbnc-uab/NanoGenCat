@@ -1,5 +1,6 @@
 from __future__ import print_function
 import os
+import platform
 import sys
 import shutil
 import subprocess
@@ -9,11 +10,11 @@ from glob import glob
 
 from ase.calculators.calculator import names as calc_names, get_calculator
 from ase.parallel import paropen
-from ase.utils import devnull
-from ase.cli.info import print_info
+from ase.utils import import_module, devnull
 
 
-NotAvailable = unittest.SkipTest
+class NotAvailable(Exception):
+    pass
 
 
 test_calculator_names = []
@@ -48,13 +49,20 @@ class ScriptTestCase(unittest.TestCase):
         try:
             with open(self.filename) as fd:
                 exec(compile(fd.read(), self.filename, 'exec'), {})
+        except KeyboardInterrupt:
+            raise RuntimeError('Keyboard interrupt')
         except ImportError as ex:
             module = ex.args[0].split()[-1].replace("'", '').split('.')[0]
             if module in ['scipy', 'matplotlib', 'Scientific', 'lxml',
-                          'flask', 'gpaw', 'GPAW']:
-                raise unittest.SkipTest('no {} module'.format(module))
+                          'flask', 'gpaw', 'GPAW', 'argparse']:
+                sys.__stdout__.write('skipped (no {0} module) '.format(module))
             else:
                 raise
+        except NotAvailable as notavailable:
+            sys.__stdout__.write('skipped ')
+            msg = str(notavailable)
+            if msg:
+                sys.__stdout__.write('({0}) '.format(msg))
 
     def id(self):
         return self.filename
@@ -66,12 +74,16 @@ class ScriptTestCase(unittest.TestCase):
         return "ScriptTestCase(filename='%s')" % self.filename
 
 
-def get_tests(files=None):
+def test(verbosity=1, calculators=[],
+         testdir=None, stream=sys.stdout, files=None):
+    test_calculator_names.extend(calculators)
+    disable_calculators([name for name in calc_names
+                         if name not in calculators])
+    ts = unittest.TestSuite()
     if files:
         files = [os.path.join(__path__[0], f) for f in files]
     else:
         files = glob(__path__[0] + '/*')
-
     sdirtests = []  # tests from subdirectories: only one level assumed
     tests = []
     for f in files:
@@ -85,25 +97,25 @@ def get_tests(files=None):
     tests.sort()
     sdirtests.sort()
     tests.extend(sdirtests)  # run test subdirectories at the end
-    tests = [test for test in tests if not test.endswith('__.py')]
-    return tests
-
-
-def test(verbosity=1, calculators=[],
-         testdir=None, stream=sys.stdout, files=None):
-    test_calculator_names.extend(calculators)
-    disable_calculators([name for name in calc_names
-                         if name not in calculators])
-
-    tests = get_tests(files)
-
-    ts = unittest.TestSuite()
-
     for test in tests:
+        if test.endswith('__.py'):
+            continue
         ts.addTest(ScriptTestCase(filename=os.path.abspath(test)))
 
-    if verbosity > 0:
-        print_info()
+    versions = [('platform', platform.platform()),
+                ('python-' + sys.version.split()[0], sys.executable)]
+    for name in ['ase', 'numpy', 'scipy']:
+        try:
+            module = import_module(name)
+        except ImportError:
+            versions.append((name, 'no'))
+        else:
+            versions.append((name + '-' + module.__version__,
+                            module.__file__.rsplit('/', 1)[0] + '/'))
+
+    if verbosity:
+        for a, b in versions:
+            print('{0:16}{1}'.format(a, b))
 
     sys.stdout = devnull
 
@@ -180,60 +192,10 @@ class must_raise:
         return issubclass(exc_type, self.exception)
 
 
-class CLICommand:
-    short_description = 'Test ASE'
-
-    @staticmethod
-    def add_arguments(parser):
-        parser.add_argument(
-            '-c', '--calculators',
-            help='Comma-separated list of calculators to test.')
-        parser.add_argument('-v', '--verbose', help='verbose mode',
-                            action='store_true')
-        parser.add_argument('-q', '--quiet', action='store_true',
-                            help='quiet mode')
-        parser.add_argument('--list', action='store_true',
-                            help='print all tests and exit')
-        parser.add_argument('--list-calculators', action='store_true',
-                            help='print all calculator names and exit')
-        parser.add_argument('tests', nargs='*')
-
-    @staticmethod
-    def run(args):
-        if args.calculators:
-            calculators = args.calculators.split(',')
-        else:
-            calculators = []
-
-        if args.list:
-            for testfile in get_tests():
-                print(testfile)
-            sys.exit(0)
-
-        if args.list_calculators:
-            for name in calc_names:
-                print(name)
-            sys.exit(0)
-
-        for calculator in calculators:
-            if calculator not in calc_names:
-                sys.stderr.write('No calculator named "{}".\n'
-                                 'Possible CALCULATORS are: '
-                                 '{}.\n'.format(calculator,
-                                                ', '.join(calc_names)))
-                sys.exit(1)
-
-        results = test(verbosity=1 + args.verbose - args.quiet,
-                       calculators=calculators,
-                       files=args.tests)
-        sys.exit(len(results.errors + results.failures))
-
-
 if __name__ == '__main__':
     # Run pyflakes3 on all code in ASE:
     try:
-        output = subprocess.check_output(['pyflakes3', 'ase', 'doc'],
-                                         stderr=subprocess.STDOUT)
+        output = subprocess.check_output(['pyflakes3', 'ase', 'doc'])
     except subprocess.CalledProcessError as ex:
         output = ex.output.decode()
 

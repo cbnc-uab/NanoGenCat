@@ -6,7 +6,6 @@ import time
 from math import sqrt
 from os.path import isfile
 
-from ase.calculators.calculator import PropertyNotImplementedError
 from ase.parallel import rank, barrier
 from ase.io.trajectory import Trajectory
 from ase.utils import basestring
@@ -15,8 +14,7 @@ import collections
 
 class Dynamics:
     """Base-class for all MD and structure optimization classes."""
-    def __init__(self, atoms, logfile, trajectory, 
-                  append_trajectory=False, master=None):
+    def __init__(self, atoms, logfile, trajectory, master=None):
         """Dynamics object.
 
         Parameters:
@@ -32,11 +30,6 @@ class Dynamics:
             Attach trajectory object.  If *trajectory* is a string a
             Trajectory will be constructed.  Use *None* for no
             trajectory.
-            
-        append_trajectory: boolean
-            Defaults to False, which causes the trajectory file to be overwriten
-            each time the dynamics is restarted from scratch. If True, the new
-            structures are appended to the trajectory file instead.
 
         master: boolean
             Defaults to None, which causes only rank 0 to save files.  If
@@ -60,8 +53,7 @@ class Dynamics:
 
         if trajectory is not None:
             if isinstance(trajectory, basestring):
-                mode = "a" if append_trajectory else "w"
-                trajectory = Trajectory(trajectory, mode=mode,
+                trajectory = Trajectory(trajectory, mode='w',
                                         atoms=atoms, master=master)
             self.attach(trajectory)
 
@@ -175,11 +167,10 @@ class Optimizer(Dynamics):
             self.log(f)
             self.call_observers()
             if self.converged(f):
-                return True
+                return
             self.step(f)
             self.nsteps += 1
             step += 1
-        return False
 
     def converged(self, forces=None):
         """Did the optimization converge?"""
@@ -221,7 +212,7 @@ class Optimizer(Dynamics):
         energies are supported by calculator; else False."""
         try:
             self.atoms.get_potential_energy(force_consistent=True)
-        except PropertyNotImplementedError:
+        except KeyError:
             self.force_consistent = False
         else:
             self.force_consistent = True

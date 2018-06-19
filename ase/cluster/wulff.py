@@ -2,7 +2,6 @@ from __future__ import print_function
 import numpy as np
 from ase.utils import basestring
 
-
 delta = 1e-10
 _debug = False
 
@@ -18,7 +17,7 @@ def wulff_construction(symbol, surfaces, energies, size, structure,
 
     Parameters:
 
-    symbol: The chemical symbol (or atomic number) of the desired element.
+    bulk: bulk structure of the desired material.
 
     surfaces: A list of surfaces. Each surface is an (h, k, l) tuple or
     list of integers.
@@ -67,7 +66,7 @@ def wulff_construction(symbol, surfaces, energies, size, structure,
         elif structure == 'graphite':
             from ase.cluster.hexagonal import Graphite as structure
         else:
-            error = 'Crystal structure %s is not supported.' % structure
+            error = 'bulk structure %s is not supported.' % structure
             raise NotImplementedError(error)
 
     # Check number of surfaces

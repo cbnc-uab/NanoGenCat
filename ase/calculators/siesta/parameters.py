@@ -1,9 +1,6 @@
 from ase.calculators.calculator import Parameters
 from ase.utils import basestring
 
-"""
-2017.04 - Pedro Brandimarte: changes for python 2-3 compatible
-"""
 
 class PAOBasisBlock(Parameters):
     """
@@ -13,7 +10,7 @@ class PAOBasisBlock(Parameters):
         """
         Parameters:
             -block : String. A block defining the basis set of a single
-                     species using the format of a PAO.Basis block.
+                     specie using the format of a PAO.Basis block.
                      The initial label should be left out since it is
                      determined programatically.
                      Example1: 2 nodes 1.0
@@ -40,7 +37,7 @@ class PAOBasisBlock(Parameters):
         return label + ' ' + self['block']
 
 
-class Species(Parameters):
+class Specie(Parameters):
     """
     Parameters for specifying the behaviour for a single species in the
     calculation. If the tag argument is set to an integer then atoms with
@@ -94,10 +91,10 @@ def format_value(value):
         - value : The value to format.
     """
     if isinstance(value, tuple):
-        sub_values = [format_value(v) for v in value]
+        sub_values = map(format_value, value)
         value = '\t'.join(sub_values)
     elif isinstance(value, list):
-        sub_values = [format_value(v) for v in value]
+        sub_values = map(format_value, value)
         value = '\n'.join(sub_values)
     else:
         value = str(value)

@@ -11,8 +11,8 @@ names = {'position': ('positions', np.zeros(3)),
          'tag': ('tags', 0),
          'momentum': ('momenta', np.zeros(3)),
          'mass': ('masses', None),
-         'magmom': ('initial_magmoms', 0.0),
-         'charge': ('initial_charges', 0.0)}
+         'magmom': ('magmoms', 0.0),
+         'charge': ('charges', 0.0)}
 
 
 def atomproperty(name, doc):
@@ -65,7 +65,7 @@ class Atom(object):
     symbol: str or int
         Can be a chemical symbol (str) or an atomic number (int).
     position: sequence of 3 floats
-        Atomic position.
+        Atomi position.
     tag: int
         Special purpose tag.
     momentum: sequence of 3 floats
@@ -192,7 +192,7 @@ class Atom(object):
     momentum = atomproperty('momentum', 'XYZ-momentum')
     mass = atomproperty('mass', 'Atomic mass')
     magmom = atomproperty('magmom', 'Initial magnetic moment')
-    charge = atomproperty('charge', 'Initial atomic charge')
+    charge = atomproperty('charge', 'Atomic charge')
     x = xyzproperty(0)
     y = xyzproperty(1)
     z = xyzproperty(2)

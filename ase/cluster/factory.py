@@ -9,6 +9,7 @@ from ase.utils import basestring
 
 
 class ClusterFactory(ClusterBase):
+    ##print('Call to ClusterFactory')
     directions = [[1, 0, 0],
                   [0, 1, 0],
                   [0, 0, 1]]
@@ -18,6 +19,7 @@ class ClusterFactory(ClusterBase):
     element_basis = None
 
     Cluster = Cluster   # Make it possible to change the class of the object returned.
+<<<<<<< HEAD
 
     def __call__(self, symbols, surfaces, layers, latticeconstant=None,
                  center=None, vacuum=0.0, debug=0):
@@ -61,27 +63,38 @@ class ClusterFactory(ClusterBase):
     def make_cluster(self, vacuum):
         # Make the base crystal by repeating the unit cell
         size = np.array(self.size)
+        print("size",size)##
+        ##ALL THE POSSIBLE TRANSLATIONS
         translations = np.zeros((size.prod(), 3))
         for h in range(size[0]):
             for k in range(size[1]):
                 for l in range(size[2]):
                     i = h * (size[1] * size[2]) + k * size[2] + l
+                    #print(i, h,k,l)
+                    ##THE LATTICE VECTORS ARE COVOLUTED TO EVERY TRANSLATION
                     translations[i] = np.dot([h, k, l], self.lattice_basis)
-
+                    ##print("translations",translations[i])         
+        ##POSITION OF ATOMS IN THE SUPERCELL BEFORE CUTTING
         atomic_basis = np.dot(self.atomic_basis, self.lattice_basis)
         positions = np.zeros((len(translations) * len(atomic_basis), 3))
         numbers = np.zeros(len(positions))
         n = len(atomic_basis)
         for i, trans in enumerate(translations):
             positions[n*i:n*(i+1)] = atomic_basis + trans
+            ##print("PROBLEM:self.atomic_numbers",self.atomic_numbers)
             numbers[n*i:n*(i+1)] = self.atomic_numbers
 
         # Remove all atoms that is outside the defined surfaces
         for s, l in zip(self.surfaces, self.layers):
             n = self.miller_to_direction(s)
             rmax = self.get_layer_distance(s, l + 0.1)
-
             r = np.dot(positions - self.center, n)
+            #print("positions \n",positions,
+            #      "positions - self.center \n",positions - self.center,
+            #      "n \n", n,
+            #      "r \n", r)
+            #print("self.center",self.center)
+            ##THIS CUTS OUT THE ATOMS OUTSIDE THE WULFF CONSTRUCTION (MAGIC)
             mask = np.less(r, rmax)
 
             if self.debug > 1:
@@ -101,6 +114,7 @@ class ClusterFactory(ClusterBase):
 
         cell = max - min + vacuum
         positions = positions - min + vacuum / 2.0
+        #print(positions.size)
         self.center = self.center - min + vacuum / 2.0
 
         return self.Cluster(symbols=numbers, positions=positions, cell=cell)
@@ -109,6 +123,7 @@ class ClusterFactory(ClusterBase):
         "Extract atomic number from element"
         # The types that can be elements: integers and strings
         atomic_numbers = []
+        ##print("self.element_basis",self.element_basis)
         if self.element_basis is None:
             if isinstance(symbols, basestring):
                 atomic_numbers.append(ref_atomic_numbers[symbols])
@@ -155,9 +170,14 @@ class ClusterFactory(ClusterBase):
         max = np.ones(3)
         min = -np.ones(3)
         v = np.linalg.inv(self.lattice_basis.T)
+        # print (self.lattice_basis.T,'matrix inicial')
+        # print (v,'matrix final')
+        # print('surfaces and layers')
+        # print(self.surfaces,self.layers)
         for s, l in zip(self.surfaces, self.layers):
             n = self.miller_to_direction(s) * self.get_layer_distance(s, l)
             k = np.round(np.dot(v, n), 2)
+            ##print('s',s,'l',l,'n',n,'k',k)
             for i in range(3):
                 if k[i] > 0.0:
                     k[i] = np.ceil(k[i])
@@ -174,14 +194,14 @@ class ClusterFactory(ClusterBase):
         self.size = (max - min + np.ones(3)).astype(int)
 
     def set_surfaces_layers(self, surfaces, layers):
+        ##THE INPUT ONES ARE THE IRREDUCIBLE ONES
         if len(surfaces) != len(layers):
             raise ValueError("Improper size of surface and layer arrays: %i != %i"
                              % (len(surfaces), len(layers)))
-
         sg = Spacegroup(self.spacegroup)
+        # print(sg)
         surfaces = np.array(surfaces)
         layers = np.array(layers)
-
         for i, s in enumerate(surfaces):
             s = reduce_miller(s)
             surfaces[i] = s
@@ -190,6 +210,7 @@ class ClusterFactory(ClusterBase):
         layers_full = layers.copy()
 
         for s, l in zip(surfaces, layers):
+            ##RETURN THE EQUIVALENT SURFACES
             equivalent_surfaces = sg.equivalent_reflections(s.reshape(-1, 3))
 
             for es in equivalent_surfaces:
@@ -227,7 +248,6 @@ def GCD(a,b):
         a,b = b%a,a
         #print a,b
     return b
-
 
 def reduce_miller(hkl):
     """Reduce Miller index to the lowest equivalent integers."""

@@ -7,11 +7,10 @@ http://www.mads-engelund.net
 
 Home of the SIESTA package:
 http://www.uam.es/departamentos/ciencias/fismateriac/siesta
-
-2017.04 - Pedro Brandimarte: changes for python 2-3 compatible
 """
 import os
 from os.path import join, isfile, islink
+import string
 import numpy as np
 import shutil
 from ase.units import Ry, eV, Bohr
@@ -21,7 +20,7 @@ from ase.calculators.siesta.import_functions import \
     get_valence_charge, read_vca_synth_block
 from ase.calculators.calculator import FileIOCalculator, ReadError
 from ase.calculators.calculator import Parameters, all_changes
-from ase.calculators.siesta.parameters import PAOBasisBlock, Species
+from ase.calculators.siesta.parameters import PAOBasisBlock, Specie
 from ase.calculators.siesta.parameters import format_fdf
 
 meV = 0.001 * eV
@@ -37,10 +36,10 @@ class SiestaParameters(Parameters):
             label='siesta',
             mesh_cutoff=200 * Ry,
             energy_shift=100 * meV,
-            kpts=None,
+            kpts=(1, 1, 1),
             xc='LDA',
             basis_set='DZP',
-            spin='UNPOLARIZED',
+            spin='COLLINEAR',
             species=tuple(),
             pseudo_qualifier=None,
             pseudo_path=None,
@@ -61,6 +60,7 @@ class BaseSiesta(FileIOCalculator):
     allowed_xc = {}
     allowed_fdf_keywords = {}
     unit_fdf_keywords = {}
+
     implemented_properties = (
         'energy',
         'forces',
@@ -92,7 +92,7 @@ class BaseSiesta(FileIOCalculator):
                             type of functions basis set.
             -spin         : "UNPOLARIZED"|"COLLINEAR"|"FULL". The level of spin
                             description to be used.
-            -species      : None|list of Species objects. The species objects
+            -species      : None|list of Specie objects. The species objects
                             can be used to to specify the basis set,
                             pseudopotential and whether the species is ghost.
                             The tag on the atoms object and the element is used
@@ -109,8 +109,6 @@ class BaseSiesta(FileIOCalculator):
             -restart      : str.  Prefix for restart file.
                             May contain a directory.
                             Default is  None, don't restart.
-            -siesta_default: Use siesta default parameter if the parameter
-                            is not explicitly set.
             -ignore_bad_restart_file: bool.
                             Ignore broken or missing restart file.
                             By default, it is an error if the restart
@@ -122,7 +120,6 @@ class BaseSiesta(FileIOCalculator):
                             in a single line.  ASE units are assumed in the
                             input.
         """
-
         # Put in the default arguments.
         parameters = self.default_parameters.__class__(**kwargs)
 
@@ -169,7 +166,7 @@ class BaseSiesta(FileIOCalculator):
             Parameters :
                 - atoms : An Atoms object.
         """
-        # For each element use default species from the species input, or set
+        # For each element use default specie from the species input, or set
         # up a default species  from the general default parameters.
         symbols = np.array(atoms.get_chemical_symbols())
         tags = atoms.get_tags()
@@ -180,26 +177,27 @@ class BaseSiesta(FileIOCalculator):
         default_symbols = [s['symbol'] for s in default_species]
         for symbol in symbols:
             if symbol not in default_symbols:
-                spec = Species(symbol=symbol,
-                               basis_set=self['basis_set'],
-                               tag=None)
-                default_species.append(spec)
+                specie = Specie(
+                    symbol=symbol,
+                    basis_set=self['basis_set'],
+                    tag=None)
+                default_species.append(specie)
                 default_symbols.append(symbol)
         assert len(default_species) == len(np.unique(symbols))
 
         # Set default species as the first species.
         species_numbers = np.zeros(len(atoms), int)
         i = 1
-        for spec in default_species:
-            mask = symbols == spec['symbol']
+        for specie in default_species:
+            mask = symbols == specie['symbol']
             species_numbers[mask] = i
             i += 1
 
         # Set up the non-default species.
         non_default_species = [s for s in species if not s['tag'] is None]
-        for spec in non_default_species:
-            mask1 = (tags == spec['tag'])
-            mask2 = (symbols == spec['symbol'])
+        for specie in non_default_species:
+            mask1 = (tags == specie['tag'])
+            mask2 = (symbols == specie['symbol'])
             mask = np.logical_and(mask1, mask2)
             if sum(mask) > 0:
                 species_numbers[mask] = i
@@ -216,7 +214,7 @@ class BaseSiesta(FileIOCalculator):
                            SiestaParameters.
         """
         # Find not allowed keys.
-        default_keys = list(self.__class__.default_parameters)
+        default_keys = self.__class__.default_parameters.keys()
         offending_keys = set(kwargs) - set(default_keys)
         if len(offending_keys) > 0:
             mess = "'set' does not take the keywords: %s "
@@ -233,20 +231,20 @@ class BaseSiesta(FileIOCalculator):
                 raise ValueError(mess)
 
         # Check the basis set input.
-        if 'basis_set' in kwargs:
+        if 'basis_set' in kwargs.keys():
             basis_set = kwargs['basis_set']
             allowed = self.allowed_basis_names
             if not (isinstance(basis_set, PAOBasisBlock) or
                     basis_set in allowed):
                 mess = "Basis must be either %s, got %s" % (allowed, basis_set)
-                raise ValueError(mess)
+                raise Exception(mess)
 
         # Check the spin input.
-        if 'spin' in kwargs:
+        if 'spin' in kwargs.keys():
             spin = kwargs['spin']
             if spin is not None and (spin not in self.allowed_spins):
                 mess = "Spin must be %s, got %s" % (self.allowed_spins, spin)
-                raise ValueError(mess)
+                raise Exception(mess)
 
         # Check the functional input.
         xc = kwargs.get('xc')
@@ -264,7 +262,7 @@ class BaseSiesta(FileIOCalculator):
             authors = self.allowed_xc[xc][0]
         else:
             found = False
-            for key, value in self.allowed_xc.items():
+            for key, value in self.allowed_xc.iteritems():
                 if xc in value:
                     found = True
                     functional = key
@@ -301,7 +299,7 @@ class BaseSiesta(FileIOCalculator):
             raise TypeError("fdf_arguments must be a dictionary.")
 
         # Check if keywords are allowed.
-        fdf_keys = set(fdf_arguments)
+        fdf_keys = set(fdf_arguments.keys())
         allowed_keys = set(self.allowed_fdf_keywords)
         if not fdf_keys.issubset(allowed_keys):
             offending_keys = fdf_keys.difference(allowed_keys)
@@ -367,15 +365,6 @@ class BaseSiesta(FileIOCalculator):
 
         # Start writing the file.
         with open(filename, 'w') as f:
-            # Write system name and label.
-            f.write(format_fdf('SystemName', self.label))
-            f.write(format_fdf('SystemLabel', self.label))
-            f.write("\n")
-
-            # Write the minimal arg
-            self._write_species(f, atoms)
-            self._write_structure(f, atoms)
-
             # First write explicitly given options to
             # allow the user to overwrite anything.
             self._write_fdf_arguments(f)
@@ -392,11 +381,17 @@ class BaseSiesta(FileIOCalculator):
             if 'density' in properties:
                 f.write(format_fdf('SaveRho', True))
 
-            # Force siesta to return error on no convergence.
-            # Why?? maybe we don't want to force convergency??
-            # f.write(format_fdf('SCFMustConverge', True))
+            # Write system name and label.
+            f.write(format_fdf('SystemName', self.label))
+            f.write(format_fdf('SystemLabel', self.label))
 
+            # Force siesta to return error on no convergence.
+            f.write(format_fdf('SCFMustConverge', True))
+
+            # Write the rest.
+            self._write_species(f, atoms)
             self._write_kpts(f)
+            self._write_structure(f, atoms)
 
     def read(self, filename):
         """Read parameters from file."""
@@ -409,28 +404,19 @@ class BaseSiesta(FileIOCalculator):
         """Write directly given fdf-arguments.
         """
         fdf_arguments = self.parameters['fdf_arguments']
-        fdf_arguments["XC.functional"], \
-            fdf_arguments["XC.authors"] = self.parameters['xc']
-        energy_shift = self['energy_shift']
-        fdf_arguments["PAO.EnergyShift"] = energy_shift
-        mesh_cutoff = '%.4f eV' % self['mesh_cutoff']
-        fdf_arguments["MeshCutoff"] = mesh_cutoff
-        if self['spin'] == 'UNPOLARIZED':
-            fdf_arguments["SpinPolarized"] = False
-        elif self['spin'] == 'COLLINEAR':
-            fdf_arguments["SpinPolarized"] = True
-        elif self['spin'] == 'FULL':
-            fdf_arguments["SpinPolarized"] = True
-            fdf_arguments["NonCollinearSpin"] = True
 
-        for key, value in self.allowed_fdf_keywords.items():
-            if key in fdf_arguments.keys():
-                if key in self.unit_fdf_keywords:
-                    val = '%.8f %s' % (fdf_arguments[key],
-                                       self.unit_fdf_keywords[key])
-                    f.write(format_fdf(key, val))
-                elif fdf_arguments[key] != value:
-                    f.write(format_fdf(key, fdf_arguments[key]))
+        # Early return
+        if fdf_arguments is None:
+            return
+
+        for key, value in fdf_arguments.iteritems():
+            if key in self.unit_fdf_keywords.keys():
+                value = '%.8f %s' % (value, self.unit_fdf_keywords[key])
+                f.write(format_fdf(key, value))
+            elif key in self.allowed_fdf_keywords:
+                f.write(format_fdf(key, value))
+            else:
+                raise ValueError("%s not in allowed keywords." % key)
 
     def remove_analysis(self):
         """ Remove all analysis files"""
@@ -446,15 +432,18 @@ class BaseSiesta(FileIOCalculator):
             - atoms: An atoms object.
         """
         unit_cell = atoms.get_cell()
+        xyz = atoms.get_positions()
         f.write('\n')
+        f.write(format_fdf('NumberOfAtoms', len(xyz)))
 
         # Write lattice vectors
-        if np.any(unit_cell):
+        default_unit_cell = np.eye(3, dtype=float)
+        if np.any(unit_cell != default_unit_cell):
             f.write(format_fdf('LatticeConstant', '1.0 Ang'))
             f.write('%block LatticeVectors\n')
             for i in range(3):
                 for j in range(3):
-                    s = ('    %.15f' % unit_cell[i, j]).rjust(16) + ' '
+                    s = string.rjust('    %.15f' % unit_cell[i, j], 16) + ' '
                     f.write(s)
                 f.write('\n')
             f.write('%endblock LatticeVectors\n')
@@ -490,20 +479,19 @@ class BaseSiesta(FileIOCalculator):
         f.write('%block AtomicCoordinatesAndAtomicSpecies\n')
         for atom, number in zip(atoms, species_numbers):
             xyz = atom.position
-            line = ('    %.9f' % xyz[0]).rjust(16) + ' '
-            line += ('    %.9f' % xyz[1]).rjust(16) + ' '
-            line += ('    %.9f' % xyz[2]).rjust(16) + ' '
+            line = string.rjust('    %.9f' % xyz[0], 16) + ' '
+            line += string.rjust('    %.9f' % xyz[1], 16) + ' '
+            line += string.rjust('    %.9f' % xyz[2], 16) + ' '
             line += str(number) + '\n'
             f.write(line)
         f.write('%endblock AtomicCoordinatesAndAtomicSpecies\n')
         f.write('\n')
 
         origin = tuple(-atoms.get_celldisp().flatten())
-        if any(origin):
-            f.write('%block AtomicCoordinatesOrigin\n')
-            f.write('     %.4f  %.4f  %.4f\n' % origin)
-            f.write('%endblock AtomicCoordinatesOrigin\n')
-            f.write('\n')
+        f.write('%block AtomicCoordinatesOrigin\n')
+        f.write('     %.4f  %.4f  %.4f\n' % origin)
+        f.write('%endblock AtomicCoordinatesOrigin\n')
+        f.write('\n')
 
     def _write_kpts(self, f):
         """Write kpts.
@@ -511,8 +499,6 @@ class BaseSiesta(FileIOCalculator):
         Parameters:
             - f : Open filename.
         """
-        if self["kpts"] is None:
-            return
         kpts = np.array(self['kpts'])
         f.write('\n')
         f.write('#KPoint grid\n')
@@ -544,7 +530,27 @@ class BaseSiesta(FileIOCalculator):
             - f:     An open file object.
             - atoms: An atoms object.
         """
+        energy_shift = '%.4f eV' % self['energy_shift']
+        f.write('\n')
+        f.write(format_fdf('PAO_EnergyShift', energy_shift))
+        mesh_cutoff = '%.4f eV' % self['mesh_cutoff']
+        f.write(format_fdf('MeshCutoff', mesh_cutoff))
+
         species, species_numbers = self.species(atoms)
+        if self['spin'] == 'UNPOLARIZED':
+            f.write(format_fdf('SpinPolarized', False))
+        elif self['spin'] == 'COLLINEAR':
+            f.write(format_fdf('SpinPolarized', True))
+        elif self['spin'] == 'FULL':
+            f.write(format_fdf('SpinPolarized', True))
+            f.write(format_fdf('NonCollinearSpin', True))
+
+        functional, authors = self.parameters['xc']
+        f.write('\n')
+        f.write(format_fdf('XC_functional', functional))
+        if authors is not None:
+            f.write(format_fdf('XC_authors', authors))
+        f.write('\n')
 
         if not self['pseudo_path'] is None:
             pseudo_path = self['pseudo_path']
@@ -555,18 +561,17 @@ class BaseSiesta(FileIOCalculator):
             raise Exception(mess)
 
         f.write(format_fdf('NumberOfSpecies', len(species)))
-        f.write(format_fdf('NumberOfAtoms', len(atoms)))
 
         pao_basis = []
         chemical_labels = []
         basis_sizes = []
         synth_blocks = []
-        for species_number, spec in enumerate(species):
+        for species_number, specie in enumerate(species):
             species_number += 1
-            symbol = spec['symbol']
+            symbol = specie['symbol']
             atomic_number = atomic_numbers[symbol]
 
-            if spec['pseudopotential'] is None:
+            if specie['pseudopotential'] is None:
                 if self.pseudo_qualifier() == '':
                     label = symbol
                     pseudopotential = label + '.psf'
@@ -574,7 +579,7 @@ class BaseSiesta(FileIOCalculator):
                     label = '.'.join([symbol, self.pseudo_qualifier()])
                     pseudopotential = label + '.psf'
             else:
-                pseudopotential = spec['pseudopotential']
+                pseudopotential = specie['pseudopotential']
                 label = os.path.basename(pseudopotential)
                 label = '.'.join(label.split('.')[:-1])
 
@@ -588,7 +593,7 @@ class BaseSiesta(FileIOCalculator):
             name = os.path.basename(pseudopotential)
             name = name.split('.')
             name.insert(-1, str(species_number))
-            if spec['ghost']:
+            if specie['ghost']:
                 name.insert(-1, 'ghost')
                 atomic_number = -atomic_number
             name = '.'.join(name)
@@ -598,11 +603,11 @@ class BaseSiesta(FileIOCalculator):
                     os.remove(name)
                 os.symlink(pseudopotential, name)
 
-            if not spec['excess_charge'] is None:
+            if not specie['excess_charge'] is None:
                 atomic_number += 200
                 n_atoms = sum(np.array(species_numbers) == species_number)
 
-                paec = float(spec['excess_charge']) / n_atoms
+                paec = float(specie['excess_charge']) / n_atoms
                 vc = get_valence_charge(pseudopotential)
                 fraction = float(vc + paec) / vc
                 pseudo_head = name[:-4]
@@ -628,10 +633,10 @@ class BaseSiesta(FileIOCalculator):
             label = '.'.join(np.array(name.split('.'))[:-1])
             string = '    %d %d %s' % (species_number, atomic_number, label)
             chemical_labels.append(string)
-            if isinstance(spec['basis_set'], PAOBasisBlock):
-                pao_basis.append(spec['basis_set'].script(label))
+            if isinstance(specie['basis_set'], PAOBasisBlock):
+                pao_basis.append(specie['basis_set'].script(label))
             else:
-                basis_sizes.append(("    " + label, spec['basis_set']))
+                basis_sizes.append((label, specie['basis_set']))
         f.write((format_fdf('ChemicalSpecieslabel', chemical_labels)))
         f.write('\n')
         f.write((format_fdf('PAO.Basis', pao_basis)))
@@ -673,40 +678,39 @@ class BaseSiesta(FileIOCalculator):
     def read_ion(self, atoms):
         """Read the ion.xml file of each specie
         """
-        from ase.calculators.siesta.import_ion_xml import get_ion
+        from import_ion_xml import get_ion
 
         species, species_numbers = self.species(atoms)
 
         self.results['ion'] = {}
-        for species_number, spec in enumerate(species):
+        for species_number, specie in enumerate(species):
             species_number += 1
+            if specie not in self.results['ion'].keys():
+                symbol = specie['symbol']
+                atomic_number = atomic_numbers[symbol]
 
-            symbol = spec['symbol']
-            atomic_number = atomic_numbers[symbol]
-
-            if spec['pseudopotential'] is None:
-                if self.pseudo_qualifier() == '':
-                    label = symbol
-                    pseudopotential = label + '.psf'
+                if specie['pseudopotential'] is None:
+                    if self.pseudo_qualifier() == '':
+                        label = symbol
+                        pseudopotential = label + '.psf'
+                    else:
+                        label = '.'.join([symbol, self.pseudo_qualifier()])
+                        pseudopotential = label + '.psf'
                 else:
-                    label = '.'.join([symbol, self.pseudo_qualifier()])
-                    pseudopotential = label + '.psf'
-            else:
-                pseudopotential = spec['pseudopotential']
-                label = os.path.basename(pseudopotential)
-                label = '.'.join(label.split('.')[:-1])
+                    pseudopotential = specie['pseudopotential']
+                    label = os.path.basename(pseudopotential)
+                    label = '.'.join(label.split('.')[:-1])
 
-            name = os.path.basename(pseudopotential)
-            name = name.split('.')
-            name.insert(-1, str(species_number))
-            if spec['ghost']:
-                name.insert(-1, 'ghost')
-                atomic_number = -atomic_number
-            name = '.'.join(name)
+                name = os.path.basename(pseudopotential)
+                name = name.split('.')
+                name.insert(-1, str(species_number))
+                if specie['ghost']:
+                    name.insert(-1, 'ghost')
+                    atomic_number = -atomic_number
+                name = '.'.join(name)
 
-            label = '.'.join(np.array(name.split('.'))[:-1])
+                label = '.'.join(np.array(name.split('.'))[:-1])
 
-            if label not in self.results['ion']:
                 fname = label + '.ion.xml'
                 self.results['ion'][label] = get_ion(fname)
 
@@ -720,7 +724,7 @@ class BaseSiesta(FileIOCalculator):
         """
 
         import warnings
-        from ase.calculators.siesta.import_functions import readHSX
+        from import_functions import readHSX
 
         filename = self.label + '.HSX'
         if isfile(filename):
@@ -740,7 +744,7 @@ class BaseSiesta(FileIOCalculator):
         """
 
         import warnings
-        from ase.calculators.siesta.import_functions import readDIM
+        from import_functions import readDIM
 
         filename = self.label + '.DIM'
         if isfile(filename):
@@ -760,7 +764,7 @@ class BaseSiesta(FileIOCalculator):
         """
 
         import warnings
-        from ase.calculators.siesta.import_functions import readPLD
+        from import_functions import readPLD
 
         filename = self.label + '.PLD'
         if isfile(filename):
@@ -778,7 +782,7 @@ class BaseSiesta(FileIOCalculator):
         """
 
         import warnings
-        from ase.calculators.siesta.import_functions import readWFSX
+        from import_functions import readWFSX
 
         if isfile(self.label + '.WFSX'):
             filename = self.label + '.WFSX'
@@ -828,7 +832,7 @@ class BaseSiesta(FileIOCalculator):
             has_energy = line.startswith('siesta: etot    =')
             if has_energy:
                 self.results['energy'] = float(line.split()[-1])
-                line = next(lines)
+                line = lines.next()
                 self.results['free_energy'] = float(line.split()[-1])
 
         if ('energy' not in self.results or
@@ -846,7 +850,7 @@ class BaseSiesta(FileIOCalculator):
         for i in range(3):
             line = stress_lines[i].strip().split(' ')
             line = [s for s in line if len(s) > 0]
-            stress[i] = [float(s) for s in line]
+            stress[i] = map(float, line)
 
         self.results['stress'] = np.array(
             [stress[0, 0], stress[1, 1], stress[2, 2],
@@ -858,7 +862,7 @@ class BaseSiesta(FileIOCalculator):
         self.results['forces'] = np.zeros((len(lines) - start, 3), float)
         for i in range(start, len(lines)):
             line = [s for s in lines[i].strip().split(' ') if len(s) > 0]
-            self.results['forces'][i - start] = [float(s) for s in line[2:5]]
+            self.results['forces'][i - start] = map(float, line[2:5])
 
         self.results['forces'] *= Ry / Bohr
 
@@ -890,7 +894,6 @@ class BaseSiesta(FileIOCalculator):
         lines = lines[2:-1]
         lines_per_kpt = (self.n_bands * n_spin_bands / 10 +
                          int((self.n_bands * n_spin_bands) % 10 != 0))
-        lines_per_kpt = int(lines_per_kpt)
         eig = dict()
         for i in range(len(self.weights)):
             tmp = lines[i * lines_per_kpt:(i + 1) * lines_per_kpt]

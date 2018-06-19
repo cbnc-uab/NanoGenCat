@@ -27,12 +27,10 @@ parameters = {
     'elk': dict(tasks=0, rgkmax=5.0, epsengy=1.0, epspot=1.0, tforce=True,
                 pbc=True),
     'jacapo': dict(pbc=True),
-    'vasp': dict(xc='LDA'),
-    'espresso': dict(pbc=True, tprnfor=True,
-                     pseudopotentials={'H': 'H.pbe-rrkjus_psl.0.1.UPF'})}
+    'vasp': dict(xc='LDA')}
 
 for name in test_calculator_names + ['emt']:
-    if name in ['cp2k', 'gromacs', 'lammpslib', 'mopac', 'turbomole', 'amber']:
+    if name in ['cp2k', 'gromacs', 'lammpslib', 'mopac', 'turbomole']:
         continue
     par = parameters.get(name, {})
     os.mkdir(name + '-test')

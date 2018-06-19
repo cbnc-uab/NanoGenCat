@@ -224,8 +224,7 @@ def read_magres(filename, include_unrecognised=False):
                      'atoms': parse_atoms_block,
                      'calculation': parse_generic_block, }
 
-    with open(filename) as f:
-        file_contents = f.read()
+    file_contents = open(filename).read()
 
     # This works as a validity check
     version = get_version(file_contents)
@@ -321,7 +320,7 @@ def read_magres(filename, include_unrecognised=False):
     atoms.new_array('labels', np.array(labels))
 
     # Now for the magres specific stuff
-    li_list = list(zip(labels, indices))
+    li_list = zip(labels, indices)
     mprops = {
         'ms': ('sigma', False),
         'efg': ('V', False),

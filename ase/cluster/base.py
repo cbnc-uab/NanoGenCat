@@ -10,11 +10,7 @@ class ClusterBase:
         ##print("JoyDivision:self.atomic_basis",self.atomic_basis)
         ##print("JoyDivision:self.lattice_basis",self.lattice_basis)
         ###print("**************",miller,"*****************")
-        """
-	I MODIFIED THIS THRESHOLD BECAUSE IT DIDN'T WORK WITH THE TiO2 (514) SURFACE
         threshold = 0.20000001
-        """
-        threshold = 0.12000001
         if new:
             # Create lattice sample
             size = np.zeros(3, int)

@@ -26,7 +26,7 @@ class AutoNEB(object):
 
     The user supplies at minimum the two end-points and possibly also some
     intermediate images.
-
+    
     The stages are:
         1) Define a set of images and name them sequentially.
                 Must at least have a relaxed starting and ending image
@@ -41,7 +41,7 @@ class AutoNEB(object):
            are further relaxed to smooth the path
         6) All the images between the highest point and the ending point are
            further relaxed to smooth the path
-
+           
            Step 4 and 5-6 are optional steps!
 
     Parameters:
@@ -95,7 +95,7 @@ class AutoNEB(object):
     currently in the NEB.
 
     The most recent NEB path can always be monitored by:
-        $ ase-gui -n -1 neb???.traj
+       ase-gui -n -1 iter prefix???.traj
     """
 
     def __init__(self, attach_calculators, prefix, n_simul, n_max,
@@ -104,7 +104,7 @@ class AutoNEB(object):
                  optimizer='FIRE',
                  remove_rotation_and_translation=False, space_energy_ratio=0.5,
                  world=None,
-                 parallel=True, smooth_curve=False, interpolate_method='idpp'):
+                 parallel=True, smooth_curve=False, interpolate_method='IDPP'):
         self.attach_calculators = attach_calculators
         self.prefix = prefix
         self.n_simul = n_simul
@@ -119,8 +119,8 @@ class AutoNEB(object):
         self.method = method
         self.remove_rotation_and_translation = remove_rotation_and_translation
         self.space_energy_ratio = space_energy_ratio
-        if interpolate_method not in ['idpp', 'linear']:
-            self.interpolate_method = 'idpp'
+        if interpolate_method not in ['IDPP', 'linear']:
+            self.interpolate_method = 'IDPP'
             print('Interpolation method not implementet.',
                   'Using the IDPP method.')
         else:
@@ -129,7 +129,7 @@ class AutoNEB(object):
             world = mpi.world
         self.world = world
         self.smooth_curve = smooth_curve
-
+        
         if optimizer == 'BFGS':
             self.optimizer = BFGS
         elif optimizer == 'FIRE':
@@ -137,7 +137,7 @@ class AutoNEB(object):
         else:
             raise Exception('Optimizer needs to be BFGS or FIRE')
         self.iter_folder = iter_folder
-        if not os.path.exists(self.iter_folder) and self.world.rank == 0:
+        if not os.path.exists(self.iter_folder):
             os.makedirs(self.iter_folder)
 
     def execute_one_neb(self, n_cur, to_run, climb=False, many_steps=False):
@@ -149,8 +149,7 @@ class AutoNEB(object):
             for i in range(n_cur):
                 if i not in to_run[1: -1]:
                     filename = '%s%03d.traj' % (self.prefix, i)
-                    t = Trajectory(filename, mode='w', atoms=self.all_images[i])
-                    t.write()
+                    self.all_images[i].write(filename)
                     filename_ref = self.iter_folder + \
                         '/%s%03diter%03d.traj' % (self.prefix, i,
                                                   self.iteration)
@@ -173,7 +172,7 @@ class AutoNEB(object):
                             logfile=self.iter_folder +
                             '/%s_log_iter%03d.log' % (self.prefix,
                                                       self.iteration))
-
+        
         # Find the ranks which are masters for each their calculation
         if self.parallel:
             nneb = to_run[0]
@@ -204,7 +203,7 @@ class AutoNEB(object):
                                   self.all_images[j])
                 qn.attach(seriel_writer(traj, i, num).write)
                 num += 1
-
+                
         if isinstance(self.maxsteps, (list, tuple)) and many_steps:
             steps = self.maxsteps[1]
         elif isinstance(self.maxsteps, (list, tuple)) and not many_steps:
@@ -225,7 +224,7 @@ class AutoNEB(object):
         # preperration for next iteration
         neb.distribute = types.MethodType(store_E_and_F_in_spc, neb)
         neb.distribute()
-
+        
     def run(self):
         '''Run the AutoNEB optimization algorithm.'''
         n_cur = self.__initialize__()
@@ -280,7 +279,7 @@ class AutoNEB(object):
         energies = self.get_energies()
 
         n_non_valid_energies = len([e for e in energies if e != e])
-
+            
         if self.world.rank == 0:
             print('Start of evaluation of the initial images')
 
@@ -294,7 +293,7 @@ class AutoNEB(object):
 
             energies = self.get_energies()
             n_non_valid_energies = len([e for e in energies if e != e])
-
+       
         if self.world.rank == 0:
             print('Finished initialisation phase.')
 
@@ -312,13 +311,13 @@ class AutoNEB(object):
                 spring_vec = self.all_images[j + 1].get_positions() - \
                     self.all_images[j].get_positions()
                 spring_lengths.append(np.linalg.norm(spring_vec))
-
+            
             total_vec = self.all_images[0].get_positions() - \
                 self.all_images[-1].get_positions()
             tl = np.linalg.norm(total_vec)
 
             fR = max(spring_lengths) / tl
-
+            
             e = self.get_energies()
             ed = []
             emin = min(e)
@@ -380,10 +379,10 @@ class AutoNEB(object):
 
             assert climb_safe, 'climb_safe should be true at this point!'
             self.execute_one_neb(n_cur, to_run, climb=True, many_steps=True)
-
+        
         if not self.smooth_curve:
             return self.all_images
-
+            
         # If a smooth_curve is requsted ajust the springs to follow two
         # gaussian distributions
         e = self.get_energies()
@@ -404,7 +403,7 @@ class AutoNEB(object):
                  self.all_images[i + 1].get_positions()) / 2 - \
                 self.all_images[0].get_positions()
             x1.append(np.linalg.norm(v))
-
+        
         for i in range(peak, len(self.all_images) - 1):
             v = (self.all_images[i].get_positions() +
                  self.all_images[i + 1].get_positions()) / 2 - \
@@ -443,7 +442,7 @@ class AutoNEB(object):
         if not os.path.isfile('%s000.traj' % self.prefix):
             raise IOError('No file with name %s000.traj' % self.prefix,
                           'was found. Should contain initial image')
-
+            
         # Find the images that exist
         index_exists = [i for i in range(self.n_max) if
                         os.path.isfile('%s%03d.traj' % (self.prefix, i))]
@@ -479,7 +478,8 @@ class AutoNEB(object):
         # And now lets read in the configurations
         for i in range(n_cur):
             if i in index_exists:
-                filename = '%s%03d.traj' % (self.prefix, i)
+                filename = self.iter_folder + \
+                    '/%s%03diter000.traj' % (self.prefix, i)
                 newim = read(filename)
                 self.all_images.append(newim)
             else:

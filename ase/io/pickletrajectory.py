@@ -174,19 +174,31 @@ class PickleTrajectory:
         self.offsets.append(self.fd.tell())
 
     def write(self, atoms=None):
-        if atoms is None:
-            atoms = self.atoms
-
-        for image in atoms._images_():
-            self._write_atoms(image)
-
-    def _write_atoms(self, atoms):
         """Write the atoms to the file.
 
         If the atoms argument is not given, the atoms object specified
         when creating the trajectory object is used.
         """
         self._call_observers(self.pre_observers)
+        if atoms is None:
+            atoms = self.atoms
+
+        if hasattr(atoms, 'interpolate'):
+            # seems to be a NEB
+            neb = atoms
+            assert not neb.parallel
+            try:
+                neb.get_energies_and_forces(all=True)
+            except AttributeError:
+                pass
+            for image in neb.images:
+                self.write(image)
+            return
+
+        while hasattr(atoms, 'atoms_for_saving'):
+            # Seems to be a Filter or similar, instructing us to
+            # save the original atoms.
+            atoms = atoms.atoms_for_saving
 
         if len(self.offsets) == 0:
             self.write_header(atoms)
@@ -234,9 +246,9 @@ class PickleTrajectory:
                 except (PropertyNotImplementedError, AttributeError):
                     pass
 
-        if 'magmoms' not in d and atoms.has('initial_magmoms'):
+        if 'magmoms' not in d and atoms.has('magmoms'):
             d['magmoms'] = atoms.get_initial_magnetic_moments()
-        if 'charges' not in d and atoms.has('initial_charges'):
+        if 'charges' not in d and atoms.has('charges'):
             charges = atoms.get_initial_charges()
             if (charges != 0).any():
                 d['charges'] = charges
