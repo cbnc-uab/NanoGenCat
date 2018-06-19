@@ -1,4 +1,4 @@
-from ase.cluster.factory import ClusterFactory
+from ase.cluster.bcn_factory import ClusterFactory
 
 class CutClusterFactory(ClusterFactory):
     ##print('Call to CutClusterFactory')
