@@ -1,16 +1,13 @@
 # encoding: utf-8
-"""surfaceslab.py - Window for setting up surfaces
-"""
+'''surfaceslab.py - Window for setting up surfaces
+'''
 from __future__ import division, unicode_literals
-from ase.gui.i18n import _
+from ase.gui.i18n import _, ngettext
 
 import ase.gui.ui as ui
 import ase.build as build
-import ase
-import numpy as np
-
-
-pack = error = cancel_apply_ok = PyButton = SetupWindow = 42
+from ase.data import reference_states
+from ase.gui.widgets import Element, pybutton
 
 introtext = _("""\
   Use this dialog to create surface slabs.  Select the element by
@@ -23,236 +20,208 @@ cases the non-orthogonal unit cell will contain fewer atoms.
 look up the lattice constant, otherwise you have to specify it
 yourself.""")
 
-# Name, structure, orthogonal, support-nonorthogonal, function
-surfaces = [(_('FCC(100)'), _('fcc'), True, False, build.fcc100),
-            (_('FCC(110)'), _('fcc'), True, False, build.fcc110),
-            (_('FCC(111) non-orthogonal'), _('fcc'), False, True,
-             build.fcc111),
-            (_('FCC(111) orthogonal'), _('fcc'), True, True, build.fcc111),
-            (_('BCC(100)'), _('bcc'), True, False, build.bcc100),
-            (_('BCC(110) non-orthogonal'), _('bcc'), False, True,
-             build.bcc110),
-            (_('BCC(110) orthogonal'), _('bcc'), True, True, build.bcc110),
-            (_('BCC(111) non-orthogonal'), _('bcc'), False, True,
-             build.bcc111),
-            (_('BCC(111) orthogonal'), _('bcc'), True, True, build.bcc111),
-            (_('HCP(0001) non-orthogonal'), _('hcp'), False, True,
-             build.hcp0001),
-            (_('HCP(0001) orthogonal'), _('hcp'), True, True, build.hcp0001),
-            (_('HCP(10-10) orthogonal'), _('hcp'), True, False,
-             build.hcp10m10),
-            (_('DIAMOND(100) orthogonal'), _('diamond'), True, False,
-             build.diamond100),
-            (_('DIAMOND(111) non-orthogonal'), _('diamond'), False, True,
-             build.diamond111)]
+# Name, structure, orthogonal, function
+surfaces = [(_('FCC(100)'), _('fcc'), 'ortho', build.fcc100),
+            (_('FCC(110)'), _('fcc'), 'ortho', build.fcc110),
+            (_('FCC(111)'), _('fcc'), 'both', build.fcc111),
+            (_('FCC(211)'), _('fcc'), 'ortho', build.fcc211),
+            (_('BCC(100)'), _('bcc'), 'ortho', build.bcc100),
+            (_('BCC(110)'), _('bcc'), 'both', build.bcc110),
+            (_('BCC(111)'), _('bcc'), 'both', build.bcc111),
+            (_('HCP(0001)'), _('hcp'), 'both', build.hcp0001),
+            (_('HCP(10-10)'), _('hcp'), 'ortho', build.hcp10m10),
+            (_('DIAMOND(100)'), _('diamond'), 'ortho', build.diamond100),
+            (_('DIAMOND(111)'), _('diamond'), 'non-ortho', build.diamond111)]
+
+structures, crystal, orthogonal, functions = zip(*surfaces)
 
 py_template = """
-from ase.build import %(func)s
+from ase.build import {func}
 
-atoms = %(func)s(symbol='%(symbol)s', size=%(size)s,
-    a=%(a).3f, vacuum=%(vacuum).3f%(orthoarg)s)
+atoms = {func}(symbol='{symbol}', size={size},
+    a={a}, {c}vacuum={vacuum}, orthogonal={ortho})
 """
 
 
 class SetupSurfaceSlab:
-    """Window for setting up a surface."""
+    '''Window for setting up a surface.'''
     def __init__(self, gui):
-        SetupWindow.__init__(self)
-        self.set_title(_('Surface'))
-        self.atoms = None
+        self.element = Element('', self.make)
+        self.structure = ui.ComboBox(structures, structures,
+                                     self.structure_changed)
+        self.structure_warn = ui.Label('', 'red')
+        self.orthogonal = ui.CheckButton('', True, self.make)
+        self.lattice_a = ui.SpinBox(3.2, 0.0, 10.0, 0.001, self.make)
+        self.retrieve = ui.Button(_('Get from database'),
+                                  self.structure_changed)
+        self.lattice_c = ui.SpinBox(None, 0.0, 10.0, 0.001, self.make)
+        self.x = ui.SpinBox(1, 1, 30, 1, self.make)
+        self.x_warn = ui.Label('', 'red')
+        self.y = ui.SpinBox(1, 1, 30, 1, self.make)
+        self.y_warn = ui.Label('', 'red')
+        self.z = ui.SpinBox(1, 1, 30, 1, self.make)
+        self.vacuum_check = ui.CheckButton('', False, self.vacuum_checked)
+        self.vacuum = ui.SpinBox(5, 0, 40, 0.01, self.make)
+        self.description = ui.Label('')
 
-        vbox = ui.VBox()
+        win = self.win = ui.Window(_('Surface'))
+        win.add(ui.Text(introtext))
+        win.add(self.element)
+        win.add([_('Structure:'), self.structure, self.structure_warn])
+        win.add([_('Orthogonal cell:'), self.orthogonal])
+        win.add([_('Lattice constant:\ta'), self.lattice_a, (u'Å'),
+                 self.retrieve])
+        win.add([_('\t\tc'), self.lattice_c, (u'Å')])
+        win.add([_('Size: \tx: '), self.x, _(' unit cells'), self.x_warn])
+        win.add([_('\ty: '), self.y, _(' unit cells'), self.y_warn])
+        win.add([_('\tz: '), self.z, _(' unit cells')])
+        win.add([_('Vacuum: '), self.vacuum_check, self.vacuum, (u'Å')])
+        win.add(self.description)
+        # TRANSLATORS: This is a title of a window.
+        win.add([pybutton(_('Creating a surface.'), self.make),
+                 ui.Button(_('Apply'), self.apply),
+                 ui.Button(_('OK'), self.ok)])
 
-        # Intoductory text
-        self.packtext(vbox, introtext)
-
-        # Choose the element
-        label = ui.Label(_('Element: '))
-        element = ui.Entry(max=3)
-        self.element = element
-        self.elementinfo = ui.Label('')
-        pack(vbox, [label, element, self.elementinfo])
-        self.element.connect('activate', self.update)
-        self.legal_element = False
-
-        # Choose the surface structure
-        label = ui.Label(_('Structure: '))
-        self.structchoice = ui.combo_box_new_text()
-        self.surfinfo = {}
-        for s in surfaces:
-            assert len(s) == 5
-            self.structchoice.append_text(s[0])
-            self.surfinfo[s[0]] = s
-        pack(vbox, [label, self.structchoice])
-        self.structchoice.connect('changed', self.update)
-
-        # Choose the lattice constant
-        tbl = ui.Table(2, 3)
-        label = ui.Label(_('Lattice constant: '))
-        tbl.attach(label, 0, 1, 0, 1)
-        vbox2 = ui.VBox()          # For the non-HCP stuff
-        self.vbox_hcp = ui.VBox()  # For the HCP stuff.
-        self.lattice_const = ui.Adjustment(3.0, 0.0, 1000.0, 0.01)
-        lattice_box = ui.SpinButton(self.lattice_const, 10.0, 3)
-        lattice_box.numeric = True
-        pack(vbox2, [ui.Label(_('a:')), lattice_box, ui.Label(_(u'Å'))])
-        tbl.attach(vbox2, 1, 2, 0, 1)
-        lattice_button = ui.Button(_('Get from database'))
-        tbl.attach(lattice_button, 2, 3, 0, 1)
-        # HCP stuff
-        self.hcp_ideal = (8 / 3)**(1 / 3)
-        self.lattice_const_c = ui.Adjustment(self.lattice_const.value *
-                                              self.hcp_ideal,
-                                              0.0, 1000.0, 0.01)
-        lattice_box_c = ui.SpinButton(self.lattice_const_c, 10.0, 3)
-        lattice_box_c.numeric = True
-        pack(self.vbox_hcp, [ui.Label('c:'),
-                             lattice_box_c, ui.Label(u'Å')])
-        self.hcp_c_over_a_format = 'c/a: %.3f ' + _('(%.1f %% of ideal)')
-        self.hcp_c_over_a_label = ui.Label(self.hcp_c_over_a_format %
-                                            (self.hcp_ideal, 100.0))
-        pack(self.vbox_hcp, [self.hcp_c_over_a_label])
-        tbl.attach(self.vbox_hcp, 1, 2, 1, 2)
-        tbl.show_all()
-        pack(vbox, [tbl])
-        self.lattice_const.connect('value-changed', self.update)
-        self.lattice_const_c.connect('value-changed', self.update)
-        lattice_button.connect('clicked', self.get_lattice_const)
-        pack(vbox, ui.Label(''))
-
-        # System size
-        self.size = [ui.Adjustment(1, 1, 100, 1) for i in range(3)]
-        buttons = [ui.SpinButton(s, 0, 0) for s in self.size]
-        self.vacuum = ui.Adjustment(10.0, 0, 100.0, 0.1)
-        vacuum_box = ui.SpinButton(self.vacuum, 0.0, 1)
-        pack(vbox, [ui.Label(_('Size: \tx: ')), buttons[0],
-                    ui.Label(_(' unit cells'))])
-        pack(vbox, [ui.Label(_('\t\ty: ')), buttons[1],
-                    ui.Label(_(' unit cells'))])
-        pack(vbox, [ui.Label(_('      \t\tz: ')), buttons[2],
-                    ui.Label(_(' layers,  ')),
-                    vacuum_box, ui.Label(_(u' Å vacuum'))])
-        self.nosize = _('\t\tNo size information yet.')
-        self.sizelabel = ui.Label(self.nosize)
-        pack(vbox, [self.sizelabel])
-        for s in self.size:
-            s.connect('value-changed', self.update)
-        self.vacuum.connect('value-changed', self.update)
-        pack(vbox, ui.Label(''))
-
-        # Buttons
-        self.pybut = PyButton(_('Creating a surface slab.'))
-        self.pybut.connect('clicked', self.update)
-        buts = cancel_apply_ok(cancel=lambda widget: self.destroy(),
-                               apply=self.apply,
-                               ok=self.ok)
-        pack(vbox, [self.pybut, buts], end=True, bottom=True)
-
-        self.add(vbox)
-        vbox.show()
-        self.show()
         self.gui = gui
+        self.atoms = None
+        self.lattice_c.active = False
+        self.vacuum.active = False
+        self.structure_changed()
 
-        # Hide the HCP stuff to begin with.
-        self.vbox_hcp.hide_all()
-
-    # update_element inherited from SetupWindow
-
-    def update(self, *args):
-        "Called when something has changed."
-        struct = self.structchoice.get_active_text()
-        if struct:
-            structinfo = self.surfinfo[struct]
-            if structinfo[1] == 'hcp':
-                self.vbox_hcp.show_all()
-                ca = self.lattice_const_c.value / self.lattice_const.value
-                self.hcp_c_over_a_label.set_text(self.hcp_c_over_a_format %
-                                                 (ca,
-                                                  100 * ca / self.hcp_ideal))
-            else:
-                self.vbox_hcp.hide_all()
-        # Abort if element or structure is invalid
-        if not (self.update_element() and struct):
-            self.sizelabel.set_text(self.nosize)
-            self.atoms = None
-            self.pybut.python = None
-            return False
-        # Make the atoms
-        assert self.legal_element
-        kw = {}
-        kw2 = {}
-        if structinfo[3]:  # Support othogonal keyword?
-            kw['orthogonal'] = structinfo[2]
-            kw2['orthoarg'] = ', orthogonal=' + str(kw['orthogonal'])
+    def vacuum_checked(self, *args):
+        if self.vacuum_check.var.get():
+            self.vacuum.active = True
         else:
-            kw2['orthoarg'] = ''
-        kw2['func'] = structinfo[4].__name__
-        kw['symbol'] = self.legal_element
-        kw['size'] = [int(s.value) for s in self.size]
-        kw['a'] = self.lattice_const.value
-        kw['vacuum'] = self.vacuum.value
-        # Now create the atoms
-        try:
-            self.atoms = structinfo[4](**kw)
-        except ValueError as e:
-            # The values were illegal - for example some size
-            # constants must be even for some structures.
-            self.pybut.python = None
-            self.atoms = None
-            self.sizelabel.set_text(str(e).replace('.  ', '.\n'))
-            return False
-        kw2.update(kw)
-        self.pybut.python = py_template % kw2
-        # Find the heights of the unit cell
-        h = np.zeros(3)
-        uc = self.atoms.get_cell()
-        for i in range(3):
-            norm = np.cross(uc[i - 1], uc[i - 2])
-            norm /= np.sqrt(np.dot(norm, norm))
-            h[i] = np.abs(np.dot(norm, uc[i]))
-        natoms = len(self.atoms)
-        txt = ('\t\t%.2f Å x %.2f Å x %.2f Å,  %s'
-               % (h[0], h[1], h[2], _('%i atoms.') % natoms))
-        self.sizelabel.set_text(txt)
-        return True
+            self.vacuum.active = False
+        self.make()
 
-    def get_lattice_const(self, *args):
-        if not self.update_element():
-            error(_('Invalid element.'))
+    def get_lattice(self, *args):
+        if self.element.symbol is None:
             return
-        z = ase.data.atomic_numbers[self.legal_element]
-        ref = ase.data.reference_states[z]
-        surface = self.structchoice.get_active_text()
-        if not surface:
-            error(_('No structure specified!'))
-            return
-        struct = self.surfinfo[surface][1]
-        if ref is None or ref['symmetry'] != struct:
-            from ase.data.alternatives import alternative_structures
-            alt = alternative_structures[z]
-            if alt and alt['symmetry'] == struct:
-                ref = alt
-            else:
-                error(_('%(struct)s lattice constant unknown for %(element)s.')
-                     % dict(struct=struct.upper(), element=self.legal_element))
+        ref = reference_states[self.element.Z]
+        symmetry = "unknown"
+        for struct in surfaces:
+            if struct[0] == self.structure.value:
+                symmetry = struct[1]
+        if ref['symmetry'] != symmetry:
+            self.structure_warn.text = ('Error: Reference values assume {}'
+                                        'crystal structure for {}!'.
+                                        format(ref['symmetry'],
+                                               self.element.symbol))
+        else:
+            if symmetry == 'fcc' or symmetry == 'bcc' or symmetry == 'diamond':
+                self.lattice_a.value = ref['a']
+            elif symmetry == 'hcp':
+                self.lattice_a.value = ref['a']
+                self.lattice_c.value = ref['a'] * ref['c/a']
+        self.make()
 
-        a = ref['a']
-        self.lattice_const.set_value(a)
-        if struct == 'hcp':
-            c = ref['c/a'] * a
-            self.lattice_const_c.set_value(c)
+    def structure_changed(self, *args):
+        for surface in surfaces:
+            if surface[0] == self.structure.value:
+                if surface[2] == 'ortho':
+                    self.orthogonal.var.set(True)
+                    self.orthogonal.check['state'] = ['disabled']
+                elif surface[2] == 'non-ortho':
+                    self.orthogonal.var.set(False)
+                    self.orthogonal.check['state'] = ['disabled']
+                else:
+                    self.orthogonal.check['state'] = ['normal']
+
+                if surface[1] == _('hcp'):
+                    self.lattice_c.active = True
+                    self.lattice_c.value = round(self.lattice_a.value *
+                                                 ((8.0/3.0) ** (0.5)), 3)
+                else:
+                    self.lattice_c.active = False
+                    self.lattice_c.value = 'None'
+        self.get_lattice()
+
+    def make(self, *args):
+        symbol = self.element.symbol
+        self.atoms = None
+        self.description.text = ''
+        self.python = None
+        self.x_warn.text = ''
+        self.y_warn.text = ''
+        if symbol is None:
+            return
+
+        x = self.x.value
+        y = self.y.value
+        z = self.z.value
+        size = (x, y, z)
+        a = self.lattice_a.value
+        c = self.lattice_c.value
+        vacuum = self.vacuum.value
+        if not self.vacuum_check.var.get():
+            vacuum = None
+        ortho = self.orthogonal.var.get()
+
+        ortho_warn_even = _('Please enter an even value for orthogonal cell')
+
+        struct = self.structure.value
+        if struct == _('BCC(111)') and (not (y % 2 == 0) and ortho):
+            self.y_warn.text = ortho_warn_even
+            return
+        if struct == _('BCC(110)') and (not (y % 2 == 0) and ortho):
+            self.y_warn.text = ortho_warn_even
+            return
+        if struct == _('FCC(111)') and (not (y % 2 == 0) and ortho):
+            self.y_warn.text = ortho_warn_even
+            return
+        if struct == _('FCC(211)') and (not (x % 3 == 0) and ortho):
+            self.x_warn.text = _('Please enter a value divisible by 3'
+                                 ' for orthogonal cell')
+            return
+        if struct == _('HCP(0001)') and (not (y % 2 == 0) and ortho):
+            self.y_warn.text = ortho_warn_even
+            return
+        if struct == _('HCP(10-10)') and (not (y % 2 == 0) and ortho):
+            self.y_warn.text = ortho_warn_even
+            return
+
+        for surface in surfaces:
+            if surface[0] == struct:
+                c_py = ""
+                if surface[1] == _('hcp'):
+                    self.atoms = surface[3](symbol, size, a, c, vacuum, ortho)
+                    c_py = "{}, ".format(c)
+                else:
+                    self.atoms = surface[3](symbol, size, a, vacuum, ortho)
+
+                if vacuum is not None:
+                    vacuumtext =_(' Vacuum: {} Å.').format(vacuum)
+                else:
+                    vacuumtext = ''
+
+                natoms = len(self.atoms)
+                label = ngettext(
+                    # TRANSLATORS: e.g. "Au fcc100 surface with 2 atoms."
+                    # or "Au fcc100 surface with 2 atoms. Vacuum: 5 Å."
+                    '{symbol} {surf} surface with one atom.{vacuum}',
+                    '{symbol} {surf} surface with {natoms} atoms.{vacuum}',
+                    natoms).format(symbol=symbol,
+                                   surf=surface[3].__name__,
+                                   natoms=natoms,
+                                   vacuum=vacuumtext)
+
+                self.description.text = label
+                return py_template.format(func=surface[3].__name__, a=a,
+                                          c=c_py, symbol=symbol, size=size,
+                                          ortho=ortho, vacuum=vacuum)
 
     def apply(self, *args):
-        self.update()
+        self.make()
         if self.atoms is not None:
             self.gui.new_atoms(self.atoms)
             return True
         else:
-            error(_('No valid atoms.'),
-                 _('You have not (yet) specified '
-                   'a consistent set of parameters.'))
+            ui.error(_('No valid atoms.'),
+                     _('You have not (yet) specified a consistent '
+                       'set of parameters.'))
             return False
 
     def ok(self, *args):
         if self.apply():
-            self.destroy()
+            self.win.close()

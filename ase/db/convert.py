@@ -31,9 +31,9 @@ def convert(name, opts):
                         kvp[key] = np.nan
 
             con2.write(row, data=row.get('data'), **kvp)
-        
+
         assert row is not None, 'Your database is empty!'
-        
+
     c = con2._connect()
     for statement in index_statements:
         c.execute(statement)
@@ -41,17 +41,18 @@ def convert(name, opts):
 
     os.rename(name, name[:-2] + 'old.db')
     os.rename(newname, name)
-    
-    
+
+
 def main():
     parser = optparse.OptionParser()
-    parser.add_option('-S', '--convert-strings-to-numbers', action='store_true')
+    parser.add_option('-S', '--convert-strings-to-numbers',
+                      action='store_true')
     parser.add_option('-N', '--convert-minus-to-not-a-number',
                       action='store_true')
     opts, args = parser.parse_args()
     for name in args:
         convert(name, opts)
-  
-        
+
+
 if __name__ == '__main__':
     main()

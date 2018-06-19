@@ -47,12 +47,12 @@ class Langevin(MolecularDynamics):
     def __init__(self, atoms, timestep, temperature, friction, fixcm=True,
                  trajectory=None, logfile=None, loginterval=1,
                  communicator=world):
-        MolecularDynamics.__init__(self, atoms, timestep, trajectory,
-                                   logfile, loginterval)
         self.temp = temperature
         self.fr = friction
         self.fixcm = fixcm  # will the center of mass be held fixed?
         self.communicator = communicator
+        MolecularDynamics.__init__(self, atoms, timestep, trajectory,
+                                   logfile, loginterval)
         self.updatevars()
 
     def todict(self):

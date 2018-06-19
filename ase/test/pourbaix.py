@@ -1,7 +1,7 @@
 from __future__ import print_function
-from ase.test import NotAvailable
+from unittest import SkipTest
 
-raise NotAvailable
+raise SkipTest('WIP')
 
 import numpy as np
 
@@ -12,7 +12,7 @@ if 0:
     N = 80
     A = np.zeros((N, N), int)
     A[:] = -1
-    
+
     def f(x, y):
         dmin = 100
         for i, (a, b) in enumerate([(0, 0), (0, 2), (1, 1)]):
@@ -28,7 +28,7 @@ if 0:
     import matplotlib.pyplot as plt
     plt.imshow(A)
     plt.show()
-    
+
 
 if 0:
     con = ase.db.connect('cubic_perovskites.db')
@@ -61,7 +61,7 @@ else:
             ({'Zn': 1}, 0.0),
             ({'Zn': 2, 'O': 2}, -5.33991412178575),
             ({'Zn': 4, 'O': 8}, -7.594)]
-            
+
 
 pb = Pourbaix(refs + solvated('SrTi'), Sr=1, Ti=1, O=3)
 #pb = Pourbaix(refs, Zn=1, O=1)

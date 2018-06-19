@@ -1,23 +1,37 @@
-body {margin: auto;
-      padding: 0px;
-      font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
-      min-width: 59em;
-      max-width: 70em;
-      color: #333333}
-table, th, td {border: 1px solid black; border-collapse: collapse}
-.right {text-align: right}
-tr.even {background-color: #FFEEDD}
-td.right {text-align: right}
-a {color: #dc3c01; text-decoration: none}
-a:hover {color:#ff4500; text-decoration: underline}
-tr.click:hover {background-color:#FF4500}
-img.right {float: right}
-div.bar {background-color: #E0E0E0;
-         padding: 1px;
-         font-size: 0.8em;
-         text-align: right}
-div.bar1 {background-color: #EEEEEE;
-          padding: 3px;
-          font-size: 1.6em;
-          color: #0c3762}
-div.footer {font-size: 11px; text-align: center}
+
+.myrow {
+font-size: 0;
+}
+.myrow > * {
+float: none;
+display: inline-block;
+font-size: 14px; /* if using LESS it's quicker to just use @font-size-base */
+cursor: pointer;
+}
+.myrow > *:nth-last-child(2) {
+vertical-align: bottom;
+}
+.myrow p:nth-last-child(2) {
+margin-bottom: 0; /* optional */
+}
+
+.col-centered{
+float: none;
+margin: 0 auto;
+}
+
+.ui-autocomplete {
+        max-height: 200px;
+        overflow-y: auto;
+        /* prevent horizontal scrollbar */
+        overflow-x: hidden;
+}
+
+.item:hover .media-object {
+    height: 70px;
+    width: 140px;
+}
+
+#rowentry {background-color: #FFFFFF;}
+#rowentry:hover {background-color: #DDDDDD;
+	         cursor: pointer}

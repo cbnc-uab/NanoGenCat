@@ -1,133 +1,203 @@
-{% extends "layout.html" %}
-{% set d = s.row %}
-{% block title %}Summary{% endblock %}
-{% block bar1 %}
-SUMMARY
-{% endblock %}
-{% block content %}
-{% if not open_ase_gui %}
-    <script src="{{ url_for('static', filename='jsmol/JSmol.min.js') }}">
-    </script>
-    <script>
-    Jmol._isAsync = false;
-    var jmolApplet0;
-    jmol_isReady = function(applet) {
-        Jmol._getElement(applet, "appletdiv").style.border="1px solid black";
-        Jmol.script(jmolApplet0, "load /cif/{{ d.id }}.cif;");
-    }
+{% extends 'layout.html' %}
 
-    var Info = {
-        width: 400,
-        height: 400,
-        debug: false,
-        color: "0xFFFFFF",
-        addSelectionOptions: false,
-        use: "HTML5",   // JAVA HTML5 WEBGL are all options
-        j2sPath: "/static/jsmol/j2s", // XXX how coded for now.
-        //serverURL: "http://chemapps.stolaf.edu/jmol/jsmol/php/jsmol.php",
-        readyFunction: jmol_isReady,
-        disableJ2SLoadMonitor: true,
-        disableInitialConsole: true,
-        allowJavaScript: false
-    };
-
-    function repeatCell(repeat) {
-        if (repeat == 2) {
-            Jmol.script(jmolApplet0, 'load "" {2 2 2}');
-        } else {
-            Jmol.script(jmolApplet0, 'load "" {1 1 1}');
-        }
-    }
-
-    $(document).ready(function() {
-    $("#appdiv").html(Jmol.getAppletHtml("jmolApplet0", Info))})
-    </script>
-{% endif %}
-Download:
-<a href="/xyz/{{ d.id }}">xyz</a>,
-<a href="/sqlite/{{ d.id }}">db</a>,
-<a href="/json/{{ d.id }}">json</a>
-<br>
+{% macro atoms() %}
 {% if d.numbers|length %}
-    {% if open_ase_gui %}
-        <a href="/gui/{{ d.id }}">
-        <img src="/image/{{ d.id }}.png">
-        </a>
-    {% else %}
+<div class="row">
+    <center>
         <div id="appdiv"></div>
-        Unitcell: <button onclick="repeatCell(1)"> Single </button>
-                  <button onclick="repeatCell(2)"> 2x2x2</button>
-
+    {% if open_ase_gui %}
+        <img src="/image/{{ d.id }}.png?project={{ project }}">
     {% endif %}
+    </center>
+    <div class="row">
+      <div class="col-md-1"></div>
+      <div class="col-md-4">
+        {% if open_ase_gui %}
+        <a class="btn" href="/gui/{{ d.id }}?project={{ project }}">
+        Open ASE's GUI</a>
+        {% endif %}
+        <div class="btn-group pull-right">
+            <button type="button" class="btn btn-link dropdown-toggle btn-sm" data-toggle="dropdown">
+                Unit cell <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a onclick="repeatCell(1, 1, 1);">1x1x1</a></li>
+                <li><a onclick="repeatCell({{ n1 }}, {{ n2 }}, {{ n3 }});"> {{ n1 }}x{{ n2 }}x{{ n3 }}</a></li>
+            </ul>
+        </div>
+        <div class="btn-group pull-right">
+            <button type="button" class="btn btn-link dropdown-toggle btn-sm" data-toggle="dropdown">
+                Download <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a href="/xyz/{{ d.id }}?project={{ project }}">xyz</a></li>
+                <li><a href="/sqlite/{{ d.id }}?project={{ project }}">db</a></li>
+                <li><a href="/json/{{ d.id }}?project={{ project }}">json</a></li>
+            </ul>
+        </div>
+      </div>
+      <div class="col-md-1"></div>
+    </div>
+</div>
 {% endif %}
-<br>
-<br>
-{% for name in s.plots %}
-<img src="/plot/{{ name }}-{{ d.id }}.png"><br>
-{% endfor %}
+{% endmacro %}
 
-<table>
-<tr><th>name</th><th>unit</th><th>value</th></tr>
-{% for name, unit, value in s.table %}
-    <tr class={{ loop.cycle('even', 'odd') }}>
-        <td> {{ name }} </td>
-        <td> {{ unit }} </td>
-        <td>{{ value|safe }}</td>
-    </tr>
-{% endfor %}
-</table>
-Unit cell in Ang:
-<table>
-<tr><th>axis</th><th>periodic</th><th>x</th><th>y</th><th>z</th></tr>
-{% for axis in s.cell %}
-<tr class={{ loop.cycle('even', 'odd') }}>
-<td>{{ loop.index }}</td>
-<td>{{ d.pbc[loop.index0] }}</td>
-{% for a in axis %} <td class=right>{{ a }}</td>{% endfor %}</tr>
-{% endfor %}
-</table>
-
-{% if s.key_value_pairs %}
-Key-value pairs:
-<table>
-<tr><th>Key</th><th>Value</th></tr>
-{% for key, value in s.key_value_pairs %}
-<tr class={{ loop.cycle('even', 'odd') }}>
-<td>{{ key }}</td><td>{{ value }}</td></tr>
-{% endfor %}
-</table>
-{% endif %}
-
+{% macro forces() %}
 {% if s.forces %}
-Forces in ev/Ang:
-<table>
-<tr><th>#</th><th>symbol</th><th>x</th><th>y</th><th>z</th></tr>
-{% for f in s.forces %}
-<tr class={{ loop.cycle('even', 'odd') }}>
-<td>{{ f[0] }}</td><td>{{ f[1] }}</td>
-<td class=right>{{ f[2] }}</td>
-<td class=right>{{ f[3] }}</td>
-<td class=right>{{ f[4] }}</td>
+<h4>Relaxtion forces in eV/Å</h4>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>#</th>
+<th>symbol</th>
+<th>x</th>
+<th>y</th>
+<th>z</th>
 </tr>
-{% endfor %}
+</thead>
+<tbody>
+                {% for f in s.forces %}
+<tr>
+<td>{{ f[0] }}</td>
+<td>{{ f[1] }}</td>
+<td>{{ f[2] }}</td>
+<td>{{ f[3] }}</td>
+<td>{{ f[4] }}</td>
+</tr>
+                {% endfor %}
+</tbody>
 </table>
 {% endif %}
+{% endmacro %}
 
-{% if s.stress %}
-Stress tensor (xx, yy, zz, zy, zx, yx) in eV/Ang<sup>3</sup>:<br>
-{{ s.stress }}
+{% macro cell() %}
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Axis</th>
+<th>x</th>
+<th>y</th>
+<th>z</th>
+<th>Periodic</th>
+</tr>
+</thead>
+<tbody>
+            {% for axis in s.cell %}
+<tr>
+<td>{{ loop.index }}</td>
+                {% for a in axis %} <td>{{ a }}</td>{% endfor %}
+<td>{{ d.pbc[loop.index0] }}</td>
+</tr>
+            {% endfor %}
+</tbody>
+</table>
+<table class="table table-striped">
+<tbody>
+<tr><td>Lengths:</td>{% for L in s.lengths %} <td>{{ L }}</td>{% endfor %}</tr>
+<tr><td>Angles:</td>{% for a in s.angles %} <td>{{ a }}</td>{% endfor %}</tr>
+</tbody>
+</table>
+{% endmacro %}
+
+{% macro table(thing) %}
+{% set subtitle, rows = thing %}
+<table class="table table-striped">
+<colgroup>
+<col class="col-xs-7">
+<col class="col-xs-3">
+<col class="col-xs-2">
+</colgroup>
+<thead>
+<tr>
+<th>{{ subtitle }}</th>
+<th class="text-center">Value</th>
+<th class="text-center">Unit</th>
+</tr>
+</thead>
+<tbody>
+            {% for key, value, unit in rows %}
+<tr>
+<td> {{ key }} </td>
+<td class="text-center"> {{ value|safe }} </td>
+<td class="text-center"> {{ unit|safe }} </td>
+</tr>
+            {% endfor %}
+</tbody>
+</table>
+{% endmacro %}
+
+{% block title %}
+{{proj}} - Summary
+{% endblock %}
+
+{% set d = s.row %}
+
+{% block head %}
+{% if not open_ase_gui %}
+<script src="{{ url_for('static', filename='jsmol/JSmol.min.js') }}"></script>
+
+<script>
+jmol_isReady = function(applet)
+{
+    Jmol._getElement(applet, "appletdiv").style.border="1px solid lightgray";
+    Jmol.script(jmolApplet0, "set displaycellparameters false;")
+    Jmol.script(jmolApplet0, "load /cif/{{ d.id }}.cif?project={{ project }} { {{ n1 }} {{ n2 }} {{ n3 }} };");
+    }
+</script>
+
+<script src="{{ url_for('static', filename='summary.js') }}"></script>
 {% endif %}
+{% endblock %}
 
-{% if s.dipole %}
-Dipole moment in e*Ang: ({{ s.dipole }})
-{% endif %}
+{% block content %}
 
-{% if s.constraints %}
-Constraints: {{ s.constraints }}
-{% endif %}
+<div class="container">
 
-{% if s.data %}
-Data keys: {{ s.data }}
-{% endif %}
+<h1>
+{{ s.formula|safe }}
+</h1>
 
+<div class="panel-group">
+
+{% for title, things in s.layout %}
+
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <h4 class="panel-title">
+        <a class="btn-block" data-toggle="collapse" href="#collapse{{ loop.index0 }}">
+        {{ title }}
+        </a>
+        </h4>
+    </div>
+
+    <div id="collapse{{ loop.index0 }}" class="panel-collapse collapse {% if loop.index0 == 0 %}in{% endif %}">
+        <div class="panel-body">
+    {% for column in things %}
+        <div class="col-md-6">
+    {% for thing in column %}
+            <div class="row">
+        {% if thing == 'ATOMS' %}
+            {{ atoms() }}
+        {% elif thing == 'FORCES' %}
+            {{ forces() }}
+        {% elif thing == 'CELL' %}
+            {{ cell() }}
+        {% elif thing is none %}
+        {% elif thing|length == 2 %}
+            {{ table(thing) }}
+        {% else %}
+                    <img
+                    src="/plot/{{ d.id }}-{{ thing }}?project={{ project }}" width="100%">
+        {% endif %}
+                </div> <!--END ROW-->
+    {% endfor %}
+            </div> <!--END col-md-6-->
+    {% endfor %}
+        </div> <!--END PANEL BODY-->
+    </div> <!--END COLLAPSE-->
+</div> <!--END PANEL-->
+{% endfor %}
+</div> <!--END PANEL GROUP-->
+</div>
 {% endblock content %}
+

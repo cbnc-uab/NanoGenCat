@@ -3,14 +3,15 @@
 http://www.nwchem-sw.org/
 """
 import os
-
+import re
 import numpy as np
 
 from warnings import warn
 from ase.atoms import Atoms
 from ase.units import Hartree, Bohr
 from ase.io.nwchem import write_nwchem
-from ase.calculators.calculator import FileIOCalculator, Parameters, ReadError
+from ase.calculators.calculator import (FileIOCalculator, Parameters,
+                                        ReadError, EigenvalOccupationMixin)
 
 
 class KPoint:
@@ -20,8 +21,9 @@ class KPoint:
         self.f_n = []
 
 
-class NWChem(FileIOCalculator):
-    implemented_properties = ['energy', 'forces', 'dipole', 'magmom']
+class NWChem(FileIOCalculator, EigenvalOccupationMixin):
+    implemented_properties = ['energy', 'forces', 'dipole', 'magmom',
+                              'orbitals']
     command = 'nwchem PREFIX.nw > PREFIX.out'
 
     default_parameters = dict(
@@ -195,6 +197,7 @@ class NWChem(FileIOCalculator):
         dipole = self.read_dipole_moment()
         if dipole is not None:
             self.results['dipole'] = dipole
+        self.read_mos()
 
     def get_ibz_k_points(self):
         return np.array([0., 0., 0.])
@@ -280,6 +283,11 @@ class NWChem(FileIOCalculator):
                 energy = float(line.split()[-1])
         self.results['energy'] = energy * Hartree
 
+        # All lines have been 'eaten' while iterating; loop from scratch.
+        # (We could insert a break, but I (askhl) don't know if multiple
+        # energies might be listed; then we would not get the last one.
+        lines = text.split('\n')
+
         # Eigenstates
         spin = -1
         kpts = []
@@ -334,6 +342,79 @@ class NWChem(FileIOCalculator):
 
         self.atoms.set_positions(np.array(positions) * Bohr)
 
+    def read_mos(self):
+        """
+        Read the molecular orbitals and molecular orbital energies
+        The output can be requested by specification of the print keyword
+            {'print': '\"final vectors analysis\" \"final vectors\"'}
+        when constructing the calculator object.
+        """
+        orbitals = []
+        orbital_coefficients = []
+        orbital_coefficients_line = []
+        filename = self.label + '.out'
+        orb_number = None
+        mo_read = False
+        mo_init = False
+        ev_number = 0
+        for line in open(filename, 'r'):
+            if 'Final MO vectors' in line:
+                mo_read = True
+                mo_init = False
+                orb_number = None
+                orbital_coefficients = []
+                orbital_coefficients_line = []
+                continue
+            if mo_read:
+                regex = (
+                    r'^\s*(\d+)(\s+[+-]?\d+\.\d+)(\s+[+-]?\d+\.\d+)?'
+                    r'(\s+[+-]?\d+\.\d+)?(\s+[+-]?\d+\.\d+)?'
+                    r'(\s+[+-]?\d+\.\d+)?(\s+[+-]?\d+\.\d+)?'
+                )
+                match = re.search(regex, line)
+                if match:
+                    orb_number = int(match.group(1))
+                    for i in range(2, 8):
+                        if match.group(i):
+                            coeff = float(match.group(i))
+                            orbital_coefficients_line.append(coeff)
+                    if mo_init:
+                        orbital_coefficients[orb_number-1].extend(
+                            orbital_coefficients_line
+                        )
+                    else:
+                        orbital_coefficients.append(orbital_coefficients_line)
+                    orbital_coefficients_line = []
+                elif orb_number:
+                    if orb_number == len(orbital_coefficients):
+                        mo_init = True
+                    if orb_number == len(orbital_coefficients[0]):
+                        mo_read = False
+                        continue
+            if 'Vector' in line:
+                regex = (
+                    r'Vector\s+(\d+)\s+Occ=\s*([\w\.+-]+)\s+E=\s*([+-\.\w]+)'
+                )
+                match = re.search(regex, line)
+                if match:
+                    ev_number += 1
+                    # for the case of geometry optimization output
+                    if int(match.group(1)) < ev_number:
+                        orbitals = []
+                        ev_number = int(match.group(1))
+                    orbitals.append({
+                        'number': int(match.group(1)),
+                        'occupation': float(re.sub('[dD]', 'E', match.group(2))),
+                        'energy': float(re.sub('[dD]', 'E', match.group(3)))
+                        })
+        if len(orbital_coefficients) > 0:
+            # this is to transpose the nested list
+            mos = [[x[i] for x in orbital_coefficients]
+                   for i in range(len(orbital_coefficients[0]))]
+            for orbital in orbitals:
+                orbital['coefficients'] = mos.pop(0)
+            self.results['orbitals'] = orbitals
+
     def get_eigenvalues(self, kpt=0, spin=0):
         """Return eigenvalue array."""
         return np.array(self.kpts[spin].eps_n) * Hartree
@@ -351,3 +432,15 @@ class NWChem(FileIOCalculator):
     def get_spin_polarized(self):
         """Is it a spin-polarized calculation?"""
         return len(self.kpts) == 2
+
+    def get_mos(self, atoms):
+        """ return eigenvectors and eigenvalues as matrices (numpy arrays) """
+        orbital_coefficients = []
+        eigen_energies = []
+        for orbital in self.get_property('orbitals'):
+            orbital_coefficients.append(orbital['coefficients'])
+            eigen_energies.append(orbital['energy'])
+        return [
+            np.array(orbital_coefficients),
+            np.diag(np.array(eigen_energies)*Hartree)
+        ]

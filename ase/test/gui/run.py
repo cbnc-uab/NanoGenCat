@@ -63,7 +63,7 @@ def nanotube(gui):
 
     nt.element[1].value = 'C'
     nt.ok()
-    assert gui.images.natoms == 20
+    assert len(gui.images[0]) == 20
 
 
 @test
@@ -72,7 +72,7 @@ def nanopartickle(gui):
     n.element.symbol = 'Cu'
     n.apply()
     n.set_structure_data()
-    assert gui.images.natoms == 675
+    assert len(gui.images[0]) == 675
     n.method.value = 'wulff'
     n.update_gui_method()
     n.apply()

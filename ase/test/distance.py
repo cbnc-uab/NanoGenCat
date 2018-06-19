@@ -29,13 +29,13 @@ for axis in ['x', '-y', 'z', np.array([1, 1, 1] / np.sqrt(3))]:
     for rot in [20, 200]:
         new = org.copy()
         new.translate(-new.get_center_of_mass())
-        new.rotate(axis, np.pi * rot / 180)
+        new.rotate(rot, axis)
         dist = distance(org, new, True)
         dist2 = distance(org, new, False)
         print('rotation', axis, ', angle', rot, '-> distance', dist)
         assert dist < maxdist
         assert dist == dist2
-    
+
 if 0:
     # reflect
     new = Atoms()
@@ -50,11 +50,10 @@ for i, a in enumerate(org):
     if i < 3:
         a.symbol = 'H'
 
-if hasattr(itertools, 'permutations'):
-    for indxs in itertools.permutations(range(3)):
-        new = org.copy()
-        for c in range(3):
-            new[c].position = org[indxs[c]].position
-        dist = distance(org, new)
-        print('permutation', indxs, '-> distance', dist)
-        assert dist < maxdist
+for indxs in itertools.permutations(range(3)):
+    new = org.copy()
+    for c in range(3):
+        new[c].position = org[indxs[c]].position
+    dist = distance(org, new)
+    print('permutation', indxs, '-> distance', dist)
+    assert dist < maxdist

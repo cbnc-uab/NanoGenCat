@@ -2,18 +2,19 @@ from __future__ import print_function
 import os
 
 import numpy as np
-from lxml import etree as ET
-
+import xml.etree.ElementTree as ET
 from ase.io.exciting import atoms2etree
 from ase.units import Bohr, Hartree
 from ase.calculators.calculator import PropertyNotImplementedError
 from ase.utils import basestring
+from xml.dom import  minidom
+
 
 class Exciting:
     def __init__(self, dir='calc', paramdict=None,
                  speciespath=None,
                  bin='excitingser', kpts=(1, 1, 1),
-                 autormt=False, **kwargs):
+                 autormt=False, tshift=True, **kwargs):
         """Exciting calculator object constructor
 
         dir: string
@@ -34,11 +35,11 @@ class Exciting:
             Bla bla?
         kwargs: dictionary like
             list of key value pairs to be converted into groundstate attributes
-        
+
         """
         self.dir = dir
         self.energy = None
-        
+
         self.paramdict = paramdict
         if speciespath is None:
             speciespath = os.environ['EXCITINGROOT'] + '/species'
@@ -46,10 +47,11 @@ class Exciting:
         self.converged = False
         self.excitingbinary = bin
         self.autormt = autormt
+        self.tshift = tshift
         self.groundstate_attributes = kwargs
-        if  (not 'ngridk' in kwargs.keys() and (not (self.paramdict))):
+        if ('ngridk' not in kwargs.keys() and (not (self.paramdict))):
             self.groundstate_attributes['ngridk'] = ' '.join(map(str, kpts))
- 
+
     def update(self, atoms):
         if (not self.converged or
             len(self.numbers) != len(atoms) or
@@ -69,8 +71,7 @@ class Exciting:
         """
         returns potential Energy
         """
-        if self.energy is None:
-            self.update(atoms)
+        self.update(atoms)
         return self.energy
 
     def get_forces(self, atoms):
@@ -98,12 +99,17 @@ class Exciting:
         root = atoms2etree(atoms)
         root.find('structure').attrib['speciespath'] = self.speciespath
         root.find('structure').attrib['autormt'] = str(self.autormt).lower()
+        root.find('structure').attrib['tshift'] = str(self.tshift).lower()
+
+        def prettify(elem):
+            rough_string = ET.tostring(elem, 'utf-8')
+            reparsed = minidom.parseString(rough_string)
+            return reparsed.toprettyxml(indent="\t")
 
         if(self.paramdict):
             self.dicttoxml(self.paramdict, root)
             fd = open('%s/input.xml' % self.dir, 'w')
-            fd.write(ET.tostring(root, method='xml', pretty_print=True,
-                                 xml_declaration=True, encoding='UTF-8'))
+            fd.write(prettify(root))
             fd.close()
         else:
             groundstate = ET.SubElement(root, 'groundstate', tforce='true')
@@ -113,8 +119,7 @@ class Exciting:
                 else:
                     groundstate.attrib[key] = str(value)
             fd = open('%s/input.xml' % self.dir, 'w')
-            fd.write(ET.tostring(root, method='xml', pretty_print=True,
-                                 xml_declaration=True, encoding='UTF-8'))
+            fd.write(prettify(root))
             fd.close()
 
     def dicttoxml(self, pdict, element):
@@ -145,15 +150,16 @@ class Exciting:
         except IOError:
             raise RuntimeError("output doesn't exist")
         info = ET.parse(fd)
-        self.energy = float(info.xpath('//@totalEnergy')[-1]) * Hartree
+        self.energy = float(info.findall(
+            'groundstate/scl/iter/energies')[-1].attrib['totalEnergy']) * Hartree
         forces = []
-        forcesnodes = info.xpath(
-            '//structure[last()]/species/atom/forces/totalforce/@*')
+        forcesnodes = info.findall(
+            'groundstate/scl/structure')[-1].findall('species/atom/forces/totalforce')
         for force in forcesnodes:
-            forces.append(np.array(float(force)))
+            forces.append(np.array(list(force.attrib.values())).astype(np.float))
         self.forces = np.reshape(forces, (-1, 3)) * Hartree / Bohr
-        
-        if str(info.xpath('//groundstate/@status')[0]) == 'finished':
+
+        if str(info.find('groundstate').attrib['status']) == 'finished':
             self.converged = True
         else:
             raise RuntimeError('calculation did not finish correctly')

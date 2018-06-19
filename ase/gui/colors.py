@@ -6,6 +6,7 @@ from ase.gui.i18n import _
 import numpy as np
 
 import ase.gui.ui as ui
+from ase.gui.utils import get_magmoms
 
 
 class ColorWindow:
@@ -14,12 +15,13 @@ class ColorWindow:
         self.win = ui.Window(_('Colors'))
         self.gui = gui
         self.win.add(ui.Label(_('Choose how the atoms are colored:')))
-        values = ['jmol', 'tag', 'force', 'velocity', 'charge', 'magmom']
+        values = ['jmol', 'tag', 'force', 'velocity',
+                  'initial charge', 'magmom']
         labels = [_('By atomic number, default "jmol" colors'),
                   _('By tag'),
                   _('By force'),
                   _('By velocity'),
-                  _('By charge'),
+                  _('By initial charge'),
                   _('By magnetic moment')]
 
         self.radio = ui.RadioButtons(labels, values, self.toggle,
@@ -32,19 +34,23 @@ class ColorWindow:
 
     def activate(self):
         images = self.gui.images
+        atoms = self.gui.atoms
         radio = self.radio
-        radio['tag'].active = images.T.any()
-        radio['force'].active = np.isfinite(images.F).all()
-        radio['velocity'].active = np.isfinite(images.V).all()
-        radio['charge'].active = images.q.any()
-        radio['magmom'].active = images.M.any()
+        radio['tag'].active = atoms.has('tags')
+
+        # XXX not sure how to deal with some images having forces,
+        # and other images not.  Same goes for below quantities
+        F = images.get_forces(atoms)
+        radio['force'].active = F is not None
+        radio['velocity'].active = atoms.has('momenta')
+        radio['initial charge'].active = atoms.has('initial_charges')
+        radio['magmom'].active = get_magmoms(atoms).any()
 
     def toggle(self, value):
+        self.gui.colormode = value
         if value == 'jmol':
-            self.gui.set_colors()
             text = ''
         else:
-            self.gui.colormode = value
             scalars = np.array([self.gui.get_color_scalars(i)
                                 for i in range(len(self.gui.images))])
             mn = scalars.min()
@@ -57,6 +63,7 @@ class ColorWindow:
                     'force': 'eV/Ang',
                     'velocity': '??',
                     'charge': '|e|',
+                    'initial charge': '|e|',
                     u'magmom': 'μB'}[value]
             text = '[{0},{1}]: [{2:.6f},{3:.6f}] {4}'.format(
                 _('Green'), _('Yellow'), mn, mx, unit)

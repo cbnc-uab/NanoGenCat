@@ -79,7 +79,7 @@ def read_color_file(fname):
 
     for i in range(len(L)):
         nb = np.array(str2float(L[i]))
-        species = recover_specie(L[i])
+        species = recover_species(L[i])
         atom.append([species, nb])
 
     return atom
@@ -95,7 +95,7 @@ def readSiestaFA(fname):
     return Forces
 
 
-def readBasis_spec(fname, nb_specie):
+def readBasis_spec(fname, nb_species):
     """
     Example Basis_specs from siesta output
     <basis_specs>
@@ -119,20 +119,20 @@ def readBasis_spec(fname, nb_specie):
 
     L = read_file(fname)
 
-    specie_charac = {}
+    species_charac = {}
     line = 0
     len_basis = len('<basis_specs>')
     i = 0
-    while i < nb_specie:
+    while i < nb_species:
         if L[line][0:len_basis] == '<basis_specs>':
             i = i + 1
             info = str2float(L[line + 2])
             if L[line + 2][1] == ' ':
-                specie_charac[
+                species_charac[
                     L[line + 2][0]] = {'Z': info[0],
                                        'Mass': info[1], 'Charge': info[2]}
             else:
-                specie_charac[
+                species_charac[
                     L[line + 2][0:2]] = {'Z': info[0],
                                          'Mass': info[1], 'Charge': info[2]}
 
@@ -141,7 +141,7 @@ def readBasis_spec(fname, nb_specie):
         else:
             line = line + 1
 
-    return specie_charac
+    return species_charac
 
 
 def str2float(string):
@@ -184,9 +184,9 @@ def str2int(string):
     return np.array(nb)
 
 
-def recover_specie(string):
+def recover_species(string):
     """
-    Select specie in a string of caractere from
+    Select species in a string of caractere from
     a .xyz file
     Input parameters:
       string (str): the string to analyse
@@ -194,7 +194,7 @@ def recover_specie(string):
       string_p (str): the specie
     """
 
-    specie = list()
+    species = list()
     comp = 0
     letter = string[0]
     if letter == ' ':
@@ -203,18 +203,18 @@ def recover_specie(string):
             comp = comp + 1
         while letter != ' ' or comp >= len(string):
             letter = string[comp]
-            specie.append(letter)
+            species.append(letter)
             comp = comp + 1
     else:
         while letter != ' ' or comp >= len(string):
             letter = string[comp]
-            specie.append(letter)
+            species.append(letter)
             comp = comp + 1
 
-    specie.remove(' ')
+    species.remove(' ')
 
     string_p = ''
-    for i in specie:
+    for i in species:
         string_p = string_p + i
 
     return string_p

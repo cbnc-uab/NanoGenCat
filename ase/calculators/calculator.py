@@ -7,8 +7,10 @@ import numpy as np
 
 from ase.dft.kpoints import bandpath, monkhorst_pack
 
+
 class ReadError(Exception):
     pass
+
 
 class PropertyNotImplementedError(NotImplementedError):
     pass
@@ -24,17 +26,19 @@ all_changes = ['positions', 'numbers', 'cell', 'pbc',
 
 # Recognized names of calculators sorted alphabetically:
 names = ['abinit', 'aims', 'amber', 'asap', 'castep', 'cp2k', 'demon', 'dftb',
-         'eam', 'elk', 'emt', 'exciting', 'fleur', 'gaussian', 'gpaw',
-         'gromacs', 'hotbit', 'jacapo', 'lammps', 'lammpslib', 'lj', 'mopac',
-         'morse', 'nwchem', 'octopus', 'onetep', 'siesta', 'tip3p',
-         'turbomole', 'vasp']
+         'dmol', 'eam', 'elk', 'emt', 'espresso', 'exciting', 'fleur',
+         'gaussian', 'gpaw', 'gromacs', 'gulp', 'hotbit', 'jacapo', 'lammps',
+         'lammpslib', 'lj', 'mopac', 'morse', 'nwchem', 'octopus', 'onetep',
+         'siesta', 'tip3p', 'turbomole', 'vasp']
 
 
 special = {'cp2k': 'CP2K',
+           'dmol': 'DMol3',
            'eam': 'EAM',
            'elk': 'ELK',
            'emt': 'EMT',
            'fleur': 'FLEUR',
+           'gulp': 'GULP',
            'lammps': 'LAMMPS',
            'lammpslib': 'LAMMPSlib',
            'lj': 'LennardJones',
@@ -169,6 +173,33 @@ def kpts2ndarray(kpts, atoms=None):
     return np.array(kpts)
 
 
+class EigenvalOccupationMixin:
+    """Define 'eigenvalues' and 'occupations' properties on class.
+
+    eigenvalues and occupations will be arrays of shape (spin, kpts, nbands).
+
+    Classes must implement the old-fashioned get_eigenvalues and
+    get_occupations methods."""
+
+    @property
+    def eigenvalues(self):
+        return self.build_eig_occ_array(self.get_eigenvalues)
+
+    @property
+    def occupations(self):
+        return self.build_eig_occ_array(self.get_occupation_numbers)
+
+    def build_eig_occ_array(self, getter):
+        nspins = self.get_number_of_spins()
+        nkpts = len(self.get_ibz_k_points())
+        nbands = self.get_number_of_bands()
+        arr = np.zeros((nspins, nkpts, nbands))
+        for s in range(nspins):
+            for k in range(nkpts):
+                arr[s, k, :] = getter(spin=s, kpt=k)
+        return arr
+
+
 class Parameters(dict):
     """Dictionary for parameters.
 
@@ -184,18 +215,6 @@ class Parameters(dict):
     def __setattr__(self, key, value):
         self[key] = value
 
-    def update(self, other=None, **kwargs):
-        if isinstance(other, dict):
-            self.update(other.items())
-        else:
-            for key, value in other:
-                if isinstance(value, dict) and isinstance(self[key], dict):
-                    self[key].update(value)
-                else:
-                    self[key] = value
-        if kwargs:
-            self.update(kwargs)
-
     @classmethod
     def read(cls, filename):
         """Read parameters from file."""
@@ -207,7 +226,7 @@ class Parameters(dict):
     def tostring(self):
         keys = sorted(self)
         return 'dict(' + ',\n     '.join(
-            '%s=%r' % (key, self[key]) for key in keys) + ')\n'
+            '{}={!r}'.format(key, self[key]) for key in keys) + ')\n'
 
     def write(self, filename):
         file = open(filename, 'w')
@@ -421,6 +440,11 @@ class Calculator:
     def get_potential_energy(self, atoms=None, force_consistent=False):
         energy = self.get_property('energy', atoms)
         if force_consistent:
+            if 'free_energy' not in self.results:
+                name = self.__class__.__name__
+                raise PropertyNotImplementedError(
+                    'Force consistent/free energy ("free_energy") '
+                    'not provided by {0} calculator'.format(name))
             return self.results['free_energy']
         else:
             return energy
@@ -446,7 +470,8 @@ class Calculator:
 
     def get_property(self, name, atoms=None, allow_calculation=True):
         if name not in self.implemented_properties:
-            raise PropertyNotImplementedError
+            raise PropertyNotImplementedError('{} property not implemented'
+                                              .format(name))
 
         if atoms is None:
             atoms = self.atoms
@@ -469,7 +494,8 @@ class Calculator:
         if name not in self.results:
             # For some reason the calculator was not able to do what we want,
             # and that is OK.
-            raise PropertyNotImplementedError
+            raise PropertyNotImplementedError('{} not present in this '
+                                              'calculation'.format(name))
 
         result = self.results[name]
         if isinstance(result, np.ndarray):
@@ -477,6 +503,7 @@ class Calculator:
         return result
 
     def calculation_required(self, atoms, properties):
+        assert not isinstance(properties, str)
         system_changes = self.check_state(atoms)
         if system_changes:
             return True
@@ -538,11 +565,11 @@ class Calculator:
             x = np.eye(3)
             x[i, i] += d
             atoms.set_cell(np.dot(cell, x), scale_atoms=True)
-            eplus = atoms.get_potential_energy()
+            eplus = atoms.get_potential_energy(force_consistent=True)
 
             x[i, i] -= 2 * d
             atoms.set_cell(np.dot(cell, x), scale_atoms=True)
-            eminus = atoms.get_potential_energy()
+            eminus = atoms.get_potential_energy(force_consistent=True)
 
             stress[i, i] = (eplus - eminus) / (2 * d * V)
             x[i, i] += d
@@ -551,12 +578,12 @@ class Calculator:
             x[i, j] = d
             x[j, i] = d
             atoms.set_cell(np.dot(cell, x), scale_atoms=True)
-            eplus = atoms.get_potential_energy()
+            eplus = atoms.get_potential_energy(force_consistent=True)
 
             x[i, j] = -d
             x[j, i] = -d
             atoms.set_cell(np.dot(cell, x), scale_atoms=True)
-            eminus = atoms.get_potential_energy()
+            eminus = atoms.get_potential_energy(force_consistent=True)
 
             stress[i, j] = (eplus - eminus) / (4 * d * V)
             stress[j, i] = stress[i, j]
@@ -572,8 +599,14 @@ class Calculator:
 
     def band_structure(self):
         """Create band-structure object for plotting."""
-        from ase.dft.band_structure import BandStructure
-        return BandStructure(calc=self)
+        from ase.dft.band_structure import get_band_structure
+        # XXX This calculator is supposed to just have done a band structure
+        # calculation, but the calculator may not have the correct Fermi level
+        # if it updated the Fermi level after changing k-points.
+        # This will be a problem with some calculators (currently GPAW), and
+        # the user would have to override this by providing the Fermi level
+        # from the selfconsistent calculation.
+        return get_band_structure(calc=self)
 
 
 class FileIOCalculator(Calculator):
@@ -604,20 +637,16 @@ class FileIOCalculator(Calculator):
         Calculator.calculate(self, atoms, properties, system_changes)
         self.write_input(self.atoms, properties, system_changes)
         if self.command is None:
-            raise RuntimeError('Please set $%s environment variable ' %
-                               ('ASE_' + self.name.upper() + '_COMMAND') +
-                               'or supply the command keyword')
+            raise RuntimeError(
+                'Please set ${} environment variable '
+                .format('ASE_' + self.name.upper() + '_COMMAND') +
+                'or supply the command keyword')
         command = self.command.replace('PREFIX', self.prefix)
-        olddir = os.getcwd()
-        try:
-            os.chdir(self.directory)
-            errorcode = subprocess.call(command, shell=True)
-        finally:
-            os.chdir(olddir)
+        errorcode = subprocess.call(command, shell=True, cwd=self.directory)
 
         if errorcode:
-            raise RuntimeError('%s returned an error: %d' %
-                               (self.name, errorcode))
+            raise RuntimeError('{} in {} returned an error: {}'
+                               .format(self.name, self.directory, errorcode))
         self.read_results()
 
     def write_input(self, atoms, properties=None, system_changes=None):

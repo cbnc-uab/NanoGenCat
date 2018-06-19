@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 
 import numpy as np
 from ase import Atoms
@@ -21,40 +22,53 @@ try:
 except ImportError:
     Scientific = 0
 
-a = 5.0
-d = 1.9
-c = a / 2
-atoms = Atoms('AuH',
-              positions=[(0, c, c), (d, c, c)],
-              cell=(2 * d, a, a),
-              pbc=(1, 0, 0))
-extra = np.array([2.3, 4.2])
-atoms.set_array('extra', extra)
-atoms *= (2, 1, 1)
 
-# attach some results to the Atoms. These are serialised by the extxyz writer.
-spc = SinglePointCalculator(atoms,
-                            energy=-1.0,
-                            stress=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-                            forces=-1.0 * atoms.positions)
-atoms.set_calculator(spc)
-images = [atoms, atoms]
+def get_atoms():
+    a = 5.0
+    d = 1.9
+    c = a / 2
+    atoms = Atoms('AuH',
+                  positions=[(0, c, c), (d, c, c)],
+                  cell=(2 * d, a, a),
+                  pbc=(1, 0, 0))
+    extra = np.array([2.3, 4.2])
+    atoms.set_array('extra', extra)
+    atoms *= (2, 1, 1)
+
+    # attach some results to the Atoms.
+    # These are serialised by the extxyz writer.
+
+    spc = SinglePointCalculator(atoms,
+                                energy=-1.0,
+                                stress=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+                                forces=-1.0 * atoms.positions)
+    atoms.set_calculator(spc)
+    return atoms
 
 
-def check(a, format):
-    assert abs(a.positions - atoms.positions).max() < 1e-6, (a.positions -
-                                                             atoms.positions)
+def check(a, ref_atoms, format):
+    assert abs(a.positions - ref_atoms.positions).max() < 1e-6, \
+        (a.positions - ref_atoms.positions)
     if format in ['traj', 'cube', 'cfg', 'struct', 'gen', 'extxyz',
                   'db', 'json', 'trj']:
-        assert abs(a.cell - atoms.cell).max() < 1e-6
+        assert abs(a.cell - ref_atoms.cell).max() < 1e-6
     if format in ['cfg', 'extxyz']:
         assert abs(a.get_array('extra') -
-                   atoms.get_array('extra')).max() < 1e-6
+                   ref_atoms.get_array('extra')).max() < 1e-6
     if format in ['extxyz', 'traj', 'trj', 'db', 'json']:
-        assert (a.pbc == atoms.pbc).all()
-        assert a.get_potential_energy() == atoms.get_potential_energy()
-        assert (a.get_stress() == atoms.get_stress()).all()
-        assert abs(a.get_forces() - atoms.get_forces()).max() < 1e-12
+        assert (a.pbc == ref_atoms.pbc).all()
+        assert a.get_potential_energy() == ref_atoms.get_potential_energy()
+        assert (a.get_stress() == ref_atoms.get_stress()).all()
+        assert abs(a.get_forces() - ref_atoms.get_forces()).max() < 1e-12
+
+
+testdir = 'tmp_io_testdir'
+if os.path.isdir(testdir):
+    import shutil
+    shutil.rmtree(testdir)
+
+os.mkdir(testdir)
+
 
 for format in sorted(all_formats):
     if format in ['abinit', 'castep-cell', 'dftb', 'eon', 'gaussian']:
@@ -63,6 +77,10 @@ for format in sorted(all_formats):
 
     if format in ['v-sim']:
         # Standalone test used as not compatible with 1D periodicity
+        continue
+
+    if format in ['dmol-arc', 'dmol-car', 'dmol-incoor']:
+        # We have a standalone dmol test
         continue
 
     if format in ['postgresql', 'trj', 'vti', 'vtu']:
@@ -78,14 +96,18 @@ for format in sorted(all_formats):
     if not Scientific and format == 'etsf':
         continue
 
+    atoms = get_atoms()
+
+    images = [atoms, atoms]
+
     io = get_ioformat(format)
     print('{0:20}{1}{2}{3}{4}'.format(format,
                                       ' R'[bool(io.read)],
                                       ' W'[bool(io.write)],
                                       '+1'[io.single],
                                       'SF'[io.acceptsfd]))
-    fname1 = 'io-test.1.' + format
-    fname2 = 'io-test.2.' + format
+    fname1 = '{}/io-test.1.{}'.format(testdir, format)
+    fname2 = '{}/io-test.2.{}'.format(testdir, format)
     if io.write:
         write(fname1, atoms, format=format)
         if not io.single:
@@ -93,7 +115,7 @@ for format in sorted(all_formats):
 
         if io.read:
             for a in [read(fname1, format=format), read(fname1)]:
-                check(a, format)
+                check(a, atoms, format)
 
             if not io.single:
                 if format in ['json', 'db']:
@@ -105,4 +127,4 @@ for format in sorted(all_formats):
                     aa.append(a)
                 assert len(aa) == 6, aa
                 for a in aa:
-                    check(a, format)
+                    check(a, atoms, format)

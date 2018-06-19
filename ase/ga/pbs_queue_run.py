@@ -75,7 +75,7 @@ class PBSQueueRun(object):
         self.__cleanup__()
         p = Popen(['`which {0}` -u `whoami`'.format(self.qstat_command)],
                   shell=True, stdin=PIPE, stdout=PIPE, stderr=PIPE,
-                  close_fds=True)
+                  close_fds=True, universal_newlines=True)
         fout = p.stdout
         lines = fout.readlines()
         n_running = 0

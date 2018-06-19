@@ -1,7 +1,7 @@
 """Simple and efficient pythonic file-format.
 
-Stores ndarrays as binary data and Python's built-in datatypes (int, float,
-bool, str, dict, list) as json.
+Stores ndarrays as binary data and Python's built-in datatypes
+(bool, int, float, complex, str, dict, list, tuple, None) as json.
 
 File layout when there is only a single item::
 
@@ -18,6 +18,7 @@ File layout when there is only a single item::
 
 Writing:
 
+>>> import numpy as np
 >>> import ase.io.ulm as ulm
 >>> w = ulm.open('x.ulm', 'w')
 >>> w.write(a=np.ones(7), b=42, c='abc')
@@ -54,7 +55,6 @@ Versions:
 """
 
 from __future__ import print_function
-import optparse
 import os
 import sys
 
@@ -170,7 +170,11 @@ class Writer:
         self.dtype = None
 
     def add_array(self, name, shape, dtype=float):
-        """Add ndarray object."""
+        """Add ndarray object.
+
+        Set name, shape and dtype for array and fill in the data in chunks
+        later with the fill() method.
+        """
 
         self._write_header()
 
@@ -198,6 +202,7 @@ class Writer:
             self.header = b''
 
     def fill(self, a):
+        """Fill in ndarray chunks for array currently beeing written."""
         assert a.dtype == self.dtype
         assert a.shape[1:] == self.shape[len(self.shape) - a.ndim + 1:]
         self.nmissing -= a.size
@@ -249,7 +254,11 @@ class Writer:
 
             writer.write('n', 7)
             writer.write(n=7)
-            writer.write(n=7, s='abc', a=np.zeros(3), density=density)
+            writer.write(n=7, s='abc', a=np.zeros(3), abc=obj)
+
+        If obj is not one of the supported data types (bool, int, float,
+        complex, tupl, list, dict, None or ndarray) then it must have a
+        obj.write(childwriter) method.
         """
 
         if args:
@@ -270,11 +279,13 @@ class Writer:
                 value.write(self.child(name))
 
     def child(self, name):
+        """Create child-writer object."""
         self._write_header()
         dct = self.data[name + '.'] = {}
         return Writer(self.fd, data=dct)
 
     def close(self):
+        """Close file."""
         n = int('_little_endian' in self.data)
         if len(self.data) > n:
             # There is more than the "_little_endian" key.
@@ -407,6 +418,7 @@ class Reader:
             yield self
 
     def get(self, attr, value=None):
+        """Get attr or value if no such attr."""
         try:
             return self.__getattr__(attr)
         except KeyError:
@@ -530,25 +542,47 @@ def print_ulm_info(filename, index=None, verbose=False):
         print(b[i].tostr(verbose))
 
 
-def main():
-    parser = optparse.OptionParser(
-        usage='Usage: %prog [options] ulm-file [item number]',
-        description='Show content of ulm-file')
+def copy(reader, writer, exclude=set(), name=''):
+    """Copy from reader to writer except for keys in exclude."""
+    close_reader = False
+    close_writer = False
+    if isinstance(reader, str):
+        reader = open(reader)
+        close_reader = True
+    if isinstance(writer, str):
+        writer = open(writer, 'w')
+        close_writer = True
+    for key, value in reader._data.items():
+        if name + '.' + key in exclude:
+            continue
+        if isinstance(value, NDArrayReader):
+            value = value.read()
+        if isinstance(value, Reader):
+            copy(value, writer.child(key), exclude, name + '.' + key)
+        else:
+            writer.write(key, value)
+    if close_reader:
+        reader.close()
+    if close_writer:
+        writer.close()
 
-    add = parser.add_option
-    add('-v', '--verbose', action='store_true')
-    opts, args = parser.parse_args()
 
-    if len(args) not in [1, 2]:
-        parser.error('Wrong number of arguments')
+class CLICommand:
+    short_description = 'Manipulate/show content of ulm-file'
 
-    filename = args.pop(0)
-    if args:
-        index = int(args[0])
-    else:
-        index = None
-    print_ulm_info(filename, index, verbose=opts.verbose)
+    @staticmethod
+    def add_arguments(parser):
+        add = parser.add_argument
+        add('filename')
+        add('-n', '--index', type=int)
+        add('-d', '--delete', metavar='key')
+        add('-v', '--verbose', action='store_true')
 
-
-if __name__ == '__main__':
-    main()
+    @staticmethod
+    def run(args):
+        if args.delete:
+            exclude = set('.' + key for key in args.delete.split(','))
+            copy(args.filename, args.filename + '.temp', exclude)
+            os.rename(args.filename + '.temp', args.filename)
+        else:
+            print_ulm_info(args.filename, args.index, verbose=args.verbose)

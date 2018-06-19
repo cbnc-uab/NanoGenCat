@@ -1,6 +1,6 @@
 from ase.units import Ry, eV
 from ase.io import read
-from ase.calculators.siesta.parameters import Specie, PAOBasisBlock
+from ase.calculators.siesta.parameters import Species, PAOBasisBlock
 from ase.calculators.siesta.siesta import Siesta
 from ase.optimize import QuasiNewton
 from ase import Atoms
@@ -27,13 +27,13 @@ c_basis = """2 nodes 1.00
 6.00 5.00
 1.00 0.95"""
 
-specie = Specie(symbol='C', basis_set=PAOBasisBlock(c_basis))
+species = Species(symbol='C', basis_set=PAOBasisBlock(c_basis))
 calc = Siesta(
     label='ch4',
     basis_set='SZ',
     xc='LYP',
     mesh_cutoff=300 * Ry,
-    species=[specie],
+    species=[species],
     restart='ch4.XV',
     ignore_bad_restart_file=True,
     fdf_arguments={'DM.Tolerance': 1E-5,

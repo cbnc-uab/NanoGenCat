@@ -5,7 +5,7 @@ import numpy as np
 
 from ase.units import Ry, eV
 from ase.calculators.siesta.siesta import Siesta
-from ase.calculators.siesta.parameters import Specie, PAOBasisBlock
+from ase.calculators.siesta.parameters import Species, PAOBasisBlock
 from ase.calculators.calculator import FileIOCalculator
 from ase import Atoms
 from ase.utils import basestring
@@ -98,13 +98,13 @@ assert 'ON.eta  27.21138602 eV\n' in lines
 atoms = ch4.copy()
 species, numbers = siesta.species(atoms)
 assert all(numbers == np.array([1, 2, 2, 2, 2]))
-siesta = Siesta(species=[Specie(symbol='C', tag=1)])
+siesta = Siesta(species=[Species(symbol='C', tag=1)])
 species, numbers = siesta.species(atoms)
 assert all(numbers == np.array([1, 2, 2, 2, 2]))
 atoms.set_tags([0, 0, 0, 1, 0])
 species, numbers = siesta.species(atoms)
 assert all(numbers == np.array([1, 2, 2, 2, 2]))
-siesta = Siesta(species=[Specie(symbol='H', tag=1, basis_set='SZ')])
+siesta = Siesta(species=[Species(symbol='H', tag=1, basis_set='SZ')])
 species, numbers = siesta.species(atoms)
 assert all(numbers == np.array([1, 2, 2, 3, 2]))
 siesta = Siesta(label='test_label', species=species)
@@ -128,8 +128,8 @@ c_basis = """2 nodes 1.00
 6.00 5.00
 1.00 0.95"""
 basis_set = PAOBasisBlock(c_basis)
-specie = Specie(symbol='C', basis_set=basis_set)
-siesta = Siesta(label='test_label', species=[specie])
+species = Species(symbol='C', basis_set=basis_set)
+siesta = Siesta(label='test_label', species=[species])
 siesta.write_input(atoms, properties=['energy'])
 with open('test_label.fdf', 'r') as f:
     lines = f.readlines()

@@ -96,7 +96,8 @@ class MPI4PY:
 # Check for special MPI-enabled Python interpreters:
 if '_gpaw' in sys.builtin_module_names:
     # http://wiki.fysik.dtu.dk/gpaw
-    from gpaw.mpi import world
+    import _gpaw
+    world = _gpaw.Communicator()
 elif '_asap' in sys.builtin_module_names:
     # Modern version of Asap
     # http://wiki.fysik.dtu.dk/asap
@@ -141,15 +142,23 @@ def broadcast(obj, root=0, comm=world):
 
 
 def parallel_function(func):
-    """Decorator for broadcasting from master to slaves using MPI."""
+    """Decorator for broadcasting from master to slaves using MPI.
+
+    Disable by passing parallel=False to the function.  For a method,
+    you can also disable the parallel behavior by giving the instance
+    a self.serial = True.
+    """
+
     if world.size == 1:
         return func
 
     @functools.wraps(func)
     def new_func(*args, **kwargs):
-        # Hook to disable.  Use self.serial = True
-        if args and getattr(args[0], 'serial', False):
+        if (args and getattr(args[0], 'serial', False) or
+            not kwargs.pop('parallel', True)):
+            # Disable:
             return func(*args, **kwargs)
+
         ex = None
         result = None
         if world.rank == 0:
@@ -161,21 +170,30 @@ def parallel_function(func):
         if ex is not None:
             raise ex
         return result
+
     return new_func
 
 
 def parallel_generator(generator):
-    """Decorator for broadcasting yields from master to slaves using MPI."""
+    """Decorator for broadcasting yields from master to slaves using MPI.
+
+    Disable by passing parallel=False to the function.  For a method,
+    you can also disable the parallel behavior by giving the instance
+    a self.serial = True.
+    """
+
     if world.size == 1:
         return generator
 
     @functools.wraps(generator)
     def new_generator(*args, **kwargs):
-        # Hook to disable.  Use self.serial = True
-        if args and getattr(args[0], 'serial', False):
+        if (args and getattr(args[0], 'serial', False) or
+            not kwargs.pop('parallel', True)):
+            # Disable:
             for result in generator(*args, **kwargs):
                 yield result
             return
+
         if world.rank == 0:
             try:
                 for result in generator(*args, **kwargs):
@@ -194,6 +212,7 @@ def parallel_generator(generator):
                 ex, result = broadcast((None, None))
                 if ex is not None:
                     raise ex
+
     return new_generator
 
 

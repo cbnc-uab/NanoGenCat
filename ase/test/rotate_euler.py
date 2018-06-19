@@ -1,9 +1,9 @@
-from math import pi, sqrt
-from ase import Atoms, Atom
+from math import sqrt
+from ase import Atoms
 
 d = 1.14
-a = Atoms([Atom('C', (0, 0, 0)), Atom('O', (d, 0, 0))])
-a.rotate_euler(phi=pi/2, theta=pi/4, psi=pi)
+a = Atoms('CO', [(0, 0, 0), (d, 0, 0)])
+a.euler_rotate(phi=90, theta=45, psi=180)
 for p in a[0].position:
     assert p == 0.0
 assert abs(a[1].position[0]) < 1e-15

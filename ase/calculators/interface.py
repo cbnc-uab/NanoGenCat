@@ -15,16 +15,16 @@ class Calculator:
 
     def get_potential_energy(self, atoms=None, force_consistent=False):
         """Return total energy.
-        
+
         Both the energy extrapolated to zero Kelvin and the energy
         consistent with the forces (the free energy) can be
         returned."""
         return 0.0
-        
+
     def get_forces(self, atoms):
         """Return the forces."""
         return np.zeros((len(atoms), 3))
-                        
+
     def get_stress(self, atoms):
         """Return the stress."""
         return np.zeros(6)
@@ -36,9 +36,9 @@ class Calculator:
         been calculated for the atomic configuration *atoms*.  The
         quantities can be one or more of: 'energy', 'forces', 'stress',
         'charges' and 'magmoms'.
-        
+
         This method is used to check if a quantity is available without
-        further calculations.  For this reason, calculators should 
+        further calculations.  For this reason, calculators should
         react to unknown/unsupported quantities by returning True,
         indicating that the quantity is *not* available."""
         return False
@@ -46,23 +46,23 @@ class Calculator:
 
 class DFTCalculator(Calculator):
     """Class for demonstrating the ASE interface to DFT-calculators."""
-    
+
     def get_number_of_bands(self):
         """Return the number of bands."""
         return 42
-  
+
     def get_xc_functional(self):
         """Return the XC-functional identifier.
-        
+
         'LDA', 'PBE', ..."""
         return 'LDA'
- 
+
     def get_bz_k_points(self):
         """Return all the k-points in the 1. Brillouin zone.
 
         The coordinates are relative to reciprocal latice vectors."""
         return np.zeros((1, 3))
- 
+
     def get_number_of_spins(self):
         """Return the number of spins in the calculation.
 
@@ -72,7 +72,7 @@ class DFTCalculator(Calculator):
     def get_spin_polarized(self):
         """Is it a spin-polarized calculation?"""
         return False
-    
+
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone.
 
@@ -80,14 +80,14 @@ class DFTCalculator(Calculator):
         return np.zeros((1, 3))
 
     def get_k_point_weights(self):
-        """Weights of the k-points. 
-        
+        """Weights of the k-points.
+
         The sum of all weights is one."""
         return np.ones(1)
 
     def get_pseudo_density(self, spin=None, pad=True):
         """Return pseudo-density array.
-        
+
         If *spin* is not given, then the total density is returned.
         Otherwise, the spin up or down density is returned (spin=0 or
         1)."""
@@ -105,11 +105,11 @@ class DFTCalculator(Calculator):
     def get_eigenvalues(self, kpt=0, spin=0):
         """Return eigenvalue array."""
         return np.arange(42, float)
-    
+
     def get_occupation_numbers(self, kpt=0, spin=0):
         """Return occupation number array."""
         return np.ones(42)
-        
+
     def get_fermi_level(self):
         """Return the Fermi level."""
         return 0.0
@@ -134,5 +134,3 @@ class DFTCalculator(Calculator):
     def get_number_of_grid_points(self):
         """Return the shape of arrays."""
         return self.gd.N_c
-
-

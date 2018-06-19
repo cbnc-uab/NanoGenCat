@@ -100,7 +100,7 @@ class POVRAY(EPS):
                     if i:
                         self.constrainatoms += [n]
 
-    def cell_to_lines(self, A):
+    def cell_to_lines(self, cell):
         return np.empty((0, 3)), None, None
 
     def write(self, filename, **settings):
@@ -241,25 +241,33 @@ class POVRAY(EPS):
         w('#end\n')
         w('\n')
 
-        z0 = self.X[:, 2].max()
-        self.X -= (self.w / 2, self.h / 2, z0)
+        z0 = self.positions[:, 2].max()
+        self.positions -= (self.w / 2, self.h / 2, z0)
 
         # Draw unit cell
-        if self.C is not None:
-            self.C -= (self.w / 2, self.h / 2, z0)
-            self.C.shape = (2, 2, 2, 3)
+        if self.cell_vertices is not None:
+            self.cell_vertices -= (self.w / 2, self.h / 2, z0)
+            self.cell_vertices.shape = (2, 2, 2, 3)
             for c in range(3):
                 for j in ([0, 0], [1, 0], [1, 1], [0, 1]):
-                    w('cylinder {')
+                    parts = []
                     for i in range(2):
                         j.insert(c, i)
-                        w(pa(self.C[tuple(j)]) + ', ')
+                        parts.append(self.cell_vertices[tuple(j)])
                         del j[c]
+
+                    distance = np.linalg.norm(parts[1] - parts[0])
+                    if distance < 1e-12:
+                        continue
+
+                    w('cylinder {')
+                    for i in range(2):
+                        w(pa(parts[i]) + ', ')
                     w('Rcell pigment {Black}}\n')
 
         # Draw atoms
         a = 0
-        for loc, dia, color in zip(self.X, self.d, self.colors):
+        for loc, dia, color in zip(self.positions, self.d, self.colors):
             tex = 'ase3'
             trans = 0.
             if self.textures is not None:
@@ -277,9 +285,9 @@ class POVRAY(EPS):
                 offset = (0, 0, 0)
             else:
                 a, b, offset = pair
-            R = np.dot(offset, self.A)
-            mida = 0.5 * (self.X[a] + self.X[b] + R)
-            midb = 0.5 * (self.X[a] + self.X[b] - R)
+            R = np.dot(offset, self.cell)
+            mida = 0.5 * (self.positions[a] + self.positions[b] + R)
+            midb = 0.5 * (self.positions[a] + self.positions[b] - R)
             if self.textures is not None:
                 texa = self.textures[a]
                 texb = self.textures[b]
@@ -295,15 +303,17 @@ class POVRAY(EPS):
             fmt = ('cylinder {%s, %s, Rbond texture{pigment '
                    '{color %s transmit %s} finish{%s}}}\n')
             w(fmt %
-              (pa(self.X[a]), pa(mida), pc(self.colors[a]), transa, texa))
+              (pa(self.positions[a]), pa(mida),
+                  pc(self.colors[a]), transa, texa))
             w(fmt %
-              (pa(self.X[b]), pa(midb), pc(self.colors[b]), transb, texb))
+              (pa(self.positions[b]), pa(midb),
+                  pc(self.colors[b]), transb, texb))
 
         # Draw constraints if requested
         if self.exportconstraints:
             for a in self.constrainatoms:
                 dia = self.d[a]
-                loc = self.X[a]
+                loc = self.positions[a]
                 trans = 0.0
                 if self.transmittances is not None:
                     trans = self.transmittances[a]
@@ -311,14 +321,19 @@ class POVRAY(EPS):
                     pa(loc), dia / 2., tex, a, trans))
 
 
-def write_pov(filename, atoms, run_povray=False, **parameters):
+def write_pov(filename, atoms, run_povray=False,
+              stderr=None, **parameters):
     if isinstance(atoms, list):
         assert len(atoms) == 1
         atoms = atoms[0]
     assert 'scale' not in parameters
     POVRAY(atoms, **parameters).write(filename)
     if run_povray:
-        cmd = 'povray %s.ini 2> /dev/null' % filename[:-4]
+        cmd = 'povray {}.ini'.format(filename[:-4])
+        if stderr != '-':
+            if stderr is None:
+                stderr = '/dev/null'
+            cmd += ' 2> {}'.format(stderr)
         errcode = os.system(cmd)
         if errcode != 0:
             raise OSError('Povray command ' + cmd +

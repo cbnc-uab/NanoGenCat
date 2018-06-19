@@ -59,6 +59,10 @@ class AdsorbateOperator(OffspringCreator):
         min_adsorbate_distance: float
             the radius of the sphere inside which no other
             adsorbates should be found
+        
+        tilt_angle: float
+            Tilt the adsorbate with an angle (in degress) relative to
+            the surface normal.
         """
         i = 0
         while self.is_site_occupied(atoms, sites_list[i],
@@ -79,7 +83,7 @@ class AdsorbateOperator(OffspringCreator):
             avg_pos = np.average(ads[1:].positions, 0)
             ads.rotate(avg_pos - ads[0].position, normal)
             pvec = np.cross(np.random.rand(3) - ads[0].position, normal)
-            ads.rotate(pvec, tilt_angle, center=ads[0].position)
+            ads.rotate(tilt_angle, pvec, center=ads[0].position)
         ads.translate(pos - ads[0].position)
 
         atoms.extend(ads)
@@ -438,15 +442,27 @@ class CutSpliceCrossoverWithAdsorbates(AdsorbateOperator):
 
     Parameters:
 
-    adsorbate: str or Atoms object
+    adsorbate: str or Atoms
         specifies the type of adsorbate, it will not be taken into account
         when keeping the correct size and composition
     
-    blmin: dictionary of minimum distance between atomic numbers.
+    blmin: dict
+        Dictionary of minimum distance between atomic numbers.
         e.g. {(28,29): 1.5}
     
-    keep_composition: boolean that signifies if the composition should
-        be the same as in the parents.
+    keep_composition: boolean
+        Should the composition be the same as in the parents
+    
+    rotate_vectors: list
+        A list of vectors that the part of the structure that is cut
+        is able to rotate around, the size of rotation is set in
+        rotate_angles.
+        Default None meaning no rotation is performed
+
+    rotate_angles: list
+        A list of angles that the structure cut can be rotated. The vector
+        being rotated around is set in rotate_vectors.
+        Default None meaning no rotation is performed
     """
     def __init__(self, adsorbate, blmin, keep_composition=True,
                  fix_coverage=False, adsorption_sites=None,
@@ -491,13 +507,13 @@ class CutSpliceCrossoverWithAdsorbates(AdsorbateOperator):
                     angle = random.choice(self.rangs)
                 except TypeError:
                     angle = self.rangs
-                f.rotate(vec, angle, center=fna_geo_mid)
+                f.rotate(angle, vec, center=fna_geo_mid)
                 vec = random.choice(self.rvecs)
                 try:
                     angle = random.choice(self.rangs)
                 except TypeError:
                     angle = self.rangs
-                m.rotate(vec, angle, center=mna_geo_mid)
+                m.rotate(angle, vec, center=mna_geo_mid)
                 
         theta = random.random() * 2 * np.pi  # 0,2pi
         phi = random.random() * np.pi  # 0,pi

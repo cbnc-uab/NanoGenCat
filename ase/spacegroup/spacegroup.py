@@ -9,9 +9,23 @@ This module only depends on NumPy and the space group database.
 
 import os
 import warnings
+from functools import total_ordering
 
 import numpy as np
 from ase.utils import basestring
+
+# check if we have access to get_spacegroup from spglib
+# https://atztogo.github.io/spglib/
+has_spglib = False
+try:
+    import spglib                   # For version 1.9 or later
+    has_spglib = True
+except ImportError:
+    try:
+        from pyspglib import spglib  # For versions 1.8.x or before
+        has_spglib = True
+    except ImportError:
+        pass
 
 __all__ = ['Spacegroup']
 
@@ -31,6 +45,7 @@ class SpacegroupValueError(SpacegroupError):
     pass
 
 
+@total_ordering
 class Spacegroup(object):
     """A space group class.
 
@@ -67,11 +82,12 @@ class Spacegroup(object):
     lattice = property(
         lambda self: self._symbol[0],
         doc="""Lattice type:
-            P      primitive
-            I      body centering, h+k+l=2n
-            F      face centering, h,k,l all odd or even
-            A,B,C  single face centering, k+l=2n, h+l=2n, h+k=2n
-            R      rhombohedral centering, -h+k+l=3n (obverse); h-k+l=3n (reverse)
+
+    P     primitive
+    I     body centering, h+k+l=2n
+    F     face centering, h,k,l all odd or even
+    A,B,C single face centering, k+l=2n, h+l=2n, h+k=2n
+    R     rhombohedral centering, -h+k+l=3n (obverse); h-k+l=3n (reverse)
             """)
     centrosymmetric = property(
         lambda self: self._centrosymmetric,
@@ -188,18 +204,15 @@ class Spacegroup(object):
         retval.append('\n')
         return ''.join(retval)
 
-    def __cmp__(self, other):
-        """Compares *self* with *other* by number and setting."""
-        if self.no > other.no:
-            return 1
-        elif self.no < other.no:
-            return -1
-        elif self.setting > other.setting:
-            return 1
-        elif self.setting < other.setting:
-            return -1
-        else:
-            return 0
+    def __eq__(self, other):
+        return self.no == other.no and self.setting == other.setting
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return self.no < other.no or (
+            self.no == other.no and self.setting < other.setting)
 
     def __index__(self):
         return self.no
@@ -613,7 +626,7 @@ def _read_datafile_entry(spg, no, symbol, setting, f):
     spg._centrosymmetric = bool(int(f.readline().split()[1]))
     # primitive vectors
     f.readline()
-    spg._scaled_primitive_cell = np.array([[floats[s]
+    spg._scaled_primitive_cell = np.array([[float(floats.get(s, s))
                                             for s in f.readline().split()]
                                            for i in range(3)],
                                           dtype=np.float)
@@ -625,12 +638,13 @@ def _read_datafile_entry(spg, no, symbol, setting, f):
                                     dtype=np.int)
     # subtranslations
     spg._nsubtrans = int(f.readline().split()[0])
-    spg._subtrans = np.array([[floats[t] for t in f.readline().split()]
+    spg._subtrans = np.array([[float(floats.get(t, t))
+                               for t in f.readline().split()]
                               for i in range(spg._nsubtrans)],
                              dtype=np.float)
     # symmetry operations
     nsym = int(f.readline().split()[0])
-    symop = np.array([[floats[s] for s in f.readline().split()]
+    symop = np.array([[float(floats.get(s, s)) for s in f.readline().split()]
                       for i in range(nsym)],
                      dtype=np.float)
     spg._nsymop = nsym
@@ -765,3 +779,89 @@ def spacegroup_from_data(no=None, symbol=None, setting=1,
                                        'translations')
         spg._nsymop = spg._rotations.shape[0]
     return spg
+
+
+def get_spacegroup(atoms, symprec=1e-5, method='phonopy'):
+    """Determine the spacegroup to which belongs the Atoms object.
+
+    When PhonoPy/SPGlib is NOT available, a pure ASE python implementation is
+    used. The pure ASE method is NOT recommended for large systems (SLOW).
+
+    Parameters:
+
+    atoms: Atoms object
+        Types, positions and unit-cell.
+    symprec: float
+        Symmetry tolerance, i.e. distance tolerance in Cartesian
+        coordinates to find crystal symmetry.
+    method: str
+        'phonopy' or 'spglib' when available, or 'ase' (fallback).
+
+    The Spacegroup object is returned.
+
+    Example:
+
+    >>> from ase.build import bulk
+    >>> atoms = bulk("Cu", "fcc", a=3.6, cubic=True)
+    >>> sg = get_spacegroup(atoms)
+    >>> sg
+    Spacegroup(225, setting=1)
+    >>> sg.no
+    225
+    """
+
+    # use spglib when it is available (and return)
+    if has_spglib and method in ['phonopy', 'spglib']:
+        sg = spglib.get_spacegroup(atoms)
+        sg_no = int(sg[sg.find('(') + 1:sg.find(')')])
+        return Spacegroup(sg_no)
+
+    # no spglib, we use our own spacegroup finder. Not as fast as spglib.
+    # we center the Atoms positions on each atom in the cell, and find the
+    # spacegroup of highest symmetry
+    found = None
+    for kind, pos in enumerate(atoms.get_scaled_positions()):
+        sg = _get_spacegroup(atoms, symprec=1e-5, center=kind)
+        if found is None or sg.no > found.no:
+            found = sg
+
+    return found
+
+
+def _get_spacegroup(atoms, symprec=1e-5, center=None):
+    """ASE implementation of get_spacegroup, pure python."""
+
+    # we try all available spacegroups from 230 to 1, backwards
+    # a Space group is the collection of all symmetry operations which lets the
+    # unit cell invariant.
+    found = None
+    positions = atoms.get_scaled_positions(wrap=True)  # in the lattice frame
+
+    # make sure we are insensitive to translation. this choice is arbitrary and
+    # could lead to a 'slightly' wrong guess for the Space group, e.g. do not
+    # guess centro-symmetry.
+    if center is not None:
+        try:
+            positions -= positions[center]
+        except IndexError:
+            pass
+
+    # search space groups from the highest symmetry to the lowest
+    # retain the first match
+    for nb in range(230, 0, -1):
+        sg = Spacegroup(nb)
+        #
+        # now we scan all atoms in the cell and look for equivalent sites
+        sites, kinds = sg.equivalent_sites(positions,
+                                           onduplicates='keep',
+                                           symprec=symprec)
+
+        # the equivalent sites should match all other atom locations in the
+        # cell as the spacegroup transforms the unit cell in itself
+        # we test on the number of equivalent sites
+        if len(sites) == len(positions):
+            # store the space group into the list
+            found = sg
+            break
+
+    return found

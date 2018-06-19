@@ -15,27 +15,38 @@ def split_description(desc):
     return d[0], d[1]
 
 
+def test_raw_score(atoms):
+    """Test that raw_score can be extracted."""
+    err_msg = "raw_score not put in atoms.info['key_value_pairs']"
+    assert 'raw_score' in atoms.info['key_value_pairs'], err_msg
+
+
 class DataConnection(object):
-    """ Class that handles all database communication.
+    """Class that handles all database communication.
 
-        All data communication is collected in this class in order to
-        make a decoupling of the data representation and the GA method.
+    All data communication is collected in this class in order to
+    make a decoupling of the data representation and the GA method.
 
-        Parameters:
+    A new candidate must be added with one of the functions
+    add_unrelaxed_candidate or add_relaxed_candidate this will correctly
+    initialize a configuration id used to keep track of candidates in the
+    database.
+    After one of the add_*_candidate functions have been used, if the candidate
+    is further modified or relaxed the functions add_unrelaxed_step or
+    add_relaxed_step must be used. This way the configuration id carries
+    through correctly.
 
-        db_file_name: Path to the ase.db data file.
+    Parameters:
+
+    db_file_name: Path to the ase.db data file.
     """
+
     def __init__(self, db_file_name):
         self.db_file_name = db_file_name
         if not os.path.isfile(self.db_file_name):
             raise IOError('DB file {0} not found'.format(self.db_file_name))
         self.c = ase.db.connect(self.db_file_name)
         self.already_returned = set()
-
-        # slab = self.get_slab()
-        # atom_numbers = list(slab.numbers)
-        # atom_numbers.extend(list(self.get_atom_numbers_to_optimize()))
-        # self.atom_numbers = np.array(atom_numbers)
 
     def get_number_of_unrelaxed_candidates(self):
         """ Returns the number of candidates not yet queued or relaxed. """
@@ -47,8 +58,6 @@ class DataConnection(object):
         if len(to_get) == 0:
             raise ValueError('No unrelaxed candidate to return')
 
-        # a = self.c.get_atoms(gaid=to_get[0],
-        #                      add_additional_information=True)
         a = self.__get_latest_traj_for_confid__(to_get[0])
         a.info['confid'] = to_get[0]
         if 'data' not in a.info:
@@ -69,7 +78,7 @@ class DataConnection(object):
                 a.info['data'] = {}
             res.append(a)
         return res
-    
+
     def __get_ids_of_all_unrelaxed_candidates__(self):
         """ Helper method used by the two above methods. """
 
@@ -106,15 +115,19 @@ class DataConnection(object):
 
     def add_relaxed_step(self, a, find_neighbors=None,
                          perform_parametrization=None):
-        """ After a candidate is relaxed it must be marked
-            as such. As well add the possible neighbor list
-            and parametrization parameters to screen
-            candidates before relaxation (default not in use) """
+        """After a candidate is relaxed it must be marked
+        as such. Use this function if the candidate has already been in the
+        database in an unrelaxed version, i.e. add_unrelaxed_candidate has
+        been used.
+
+        Neighbor list and parametrization parameters to screen
+        candidates before relaxation can be added. Default is not to use.
+        """
         # test that raw_score can be extracted
-        try:
-            a.info['key_value_pairs']['raw_score']
-        except KeyError:
-            print("raw_score not put in atoms.info['key_value_pairs']")
+        err_msg = "raw_score not put in atoms.info['key_value_pairs']"
+        assert 'raw_score' in a.info['key_value_pairs'], err_msg
+
+        #  confid has already been set in add_unrelaxed_candidate
         gaid = a.info['confid']
 
         if 'generation' not in a.info['key_value_pairs']:
@@ -126,35 +139,81 @@ class DataConnection(object):
         if perform_parametrization is not None:
             set_parametrization(a, perform_parametrization(a))
 
-        relax_id = self.c.write(a, gaid=gaid, relaxed=1,
+        relax_id = self.c.write(a, relaxed=1, gaid=gaid,
                                 key_value_pairs=a.info['key_value_pairs'],
                                 data=a.info['data'])
         a.info['relax_id'] = relax_id
 
-#         if not np.array_equal(a.numbers, self.atom_numbers):
-#             raise ValueError('Wrong stoichiometry')
+    def add_relaxed_candidate(self, a, find_neighbors=None,
+                              perform_parametrization=None):
+        """After a candidate is relaxed it must be marked
+        as such. Use this function if the candidate has *not* been in the
+        database in an unrelaxed version, i.e. add_unrelaxed_candidate has
+        *not* been used.
 
-#         self.c.write(a, gaid=gaid, relaxed=1)
+        Neighbor list and parametrization parameters to screen
+        candidates before relaxation can be added. Default is not to use.
+        """
+        test_raw_score(a)
+
+        if 'generation' not in a.info['key_value_pairs']:
+            g = self.get_generation_number()
+            a.info['key_value_pairs']['generation'] = g
+
+        if find_neighbors is not None:
+            set_neighbor_list(a, find_neighbors(a))
+        if perform_parametrization is not None:
+            set_parametrization(a, perform_parametrization(a))
+
+        relax_id = self.c.write(a, relaxed=1,
+                                key_value_pairs=a.info['key_value_pairs'],
+                                data=a.info['data'])
+        self.c.update(relax_id, gaid=relax_id)
+        a.info['confid'] = relax_id
+        a.info['relax_id'] = relax_id
 
     def add_more_relaxed_steps(self, a_list):
-        """Add more relaxed steps quickly"""
+        # This function will be removed soon as the function name indicates
+        # that unrelaxed candidates are added beforehand
+        print('Please use add_more_relaxed_candidates instead')
+        self.add_more_relaxed_candidates(a_list)
+
+    def add_more_relaxed_candidates(self, a_list):
+        """Add more relaxed candidates quickly"""
         for a in a_list:
             try:
                 a.info['key_value_pairs']['raw_score']
             except KeyError:
                 print("raw_score not put in atoms.info['key_value_pairs']")
-            
+
         g = self.get_generation_number()
-        
+
+        # Insert gaid by getting the next available id and assuming that the
+        # entire a_list will be written without interuption
+        next_id = self.get_next_id()
         with self.c as con:
-            for a in a_list:
+            for j, a in enumerate(a_list):
                 if 'generation' not in a.info['key_value_pairs']:
                     a.info['key_value_pairs']['generation'] = g
-                relax_id = con.write(a, gaid=a.info['confid'], relaxed=1,
+
+                gaid = next_id + j
+                relax_id = con.write(a, relaxed=1, gaid=gaid,
                                      key_value_pairs=a.info['key_value_pairs'],
                                      data=a.info['data'])
+                assert gaid == relax_id
+                a.info['confid'] = relax_id
                 a.info['relax_id'] = relax_id
-                
+
+    def get_next_id(self):
+        """Get the id of the next candidate to be added to the database.
+        This is a hacky way of obtaining the id and it only works on a
+        sqlite database.
+        """
+        con = self.c._connect()
+        last_id = self.c.get_last_id(con.cursor())
+        con.close()
+        return last_id + 1
+
     def get_largest_in_db(self, var):
         return self.c.select(sort='-{0}'.format(var)).next().get(var)
 
@@ -169,9 +228,6 @@ class DataConnection(object):
         if 'generation' not in candidate.info['key_value_pairs']:
             kwargs.update({'generation': self.get_generation_number()})
 
-        # if not np.array_equal(candidate.numbers, self.atom_numbers):
-        #     raise ValueError('Wrong stoichiometry')
-
         gaid = self.c.write(candidate,
                             key_value_pairs=candidate.info['key_value_pairs'],
                             data=candidate.info['data'],
@@ -184,16 +240,15 @@ class DataConnection(object):
             This method is typically used when a
             candidate has been mutated. """
 
-        # if not np.array_equal(candidate.numbers, self.atom_numbers):
-        #     raise ValueError('Wrong stoichiometry')
-
+        # confid has already been set by add_unrelaxed_candidate
         gaid = candidate.info['confid']
+
         t, desc = split_description(description)
         kwargs = {'relaxed': 0,
                   'extinct': 0,
                   t: 1,
-                  'description': desc,
-                  'gaid': gaid}
+                  'description': desc, 'gaid': gaid}
+
         self.c.write(candidate,
                      key_value_pairs=candidate.info['key_value_pairs'],
                      data=candidate.info['data'],
@@ -331,7 +386,9 @@ class DataConnection(object):
 
     def get_param(self, parameter):
         """ Get a parameter saved when creating the database. """
-        return self.c.get(1).data.get(parameter)
+        if self.c.get(1).get('data'):
+            return self.c.get(1).data.get(parameter, None)
+        return None
 
     def remove_old_queued(self):
         pass
@@ -361,6 +418,7 @@ class PrepareDB(object):
         db_file_name: Database file to use
 
     """
+
     def __init__(self, db_file_name, simulation_cell=None, **kwargs):
         if os.path.exists(db_file_name):
             raise IOError('DB file {0} already exists'.format(db_file_name))
@@ -380,24 +438,22 @@ class PrepareDB(object):
     def add_unrelaxed_candidate(self, candidate, **kwargs):
         """ Add an unrelaxed starting candidate. """
         gaid = self.c.write(candidate, origin='StartingCandidateUnrelaxed',
-                            relaxed=False, generation=0, extinct=0, **kwargs)
+                            relaxed=0, generation=0, extinct=0, **kwargs)
         self.c.update(gaid, gaid=gaid)
+        candidate.info['confid'] = gaid
 
-    def add_relaxed_candidate(self, candidate):
+    def add_relaxed_candidate(self, candidate, **kwargs):
         """ Add a relaxed starting candidate. """
+        test_raw_score(candidate)
+
+        if 'data' in candidate.info:
+            data = candidate.info['data']
+        else:
+            data = {}
+
         gaid = self.c.write(candidate, origin='StartingCandidateRelaxed',
-                            relaxed=True, generation=0, extinct=0)
+                            relaxed=1, generation=0, extinct=0,
+                            key_value_pairs=candidate.info['key_value_pairs'],
+                            data=data, **kwargs)
         self.c.update(gaid, gaid=gaid)
-
-
-# class PrepareGenericDB(PrepareDB):
-#     def __init__(self, db_file_name, simulation_cell, stoichiometry):
-#         if os.path.exists(db_file_name):
-#             raise IOError('DB file {0} already exists'.format(db_file_name))
-#         self.db_file_name = db_file_name
-
-#         self.c = ase.db.connect(self.db_file_name)
-
-#         self.c.write(simulation_cell,
-#                      data={'optimization_stoichiometry': stoichiometry},
-#                      simulation_cell=True)
+        candidate.info['confid'] = gaid

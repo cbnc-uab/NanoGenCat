@@ -111,7 +111,6 @@ class NeighborList:
                         self.nneighbors += len(i)
                         self.neighbors[a] = np.concatenate(
                             (self.neighbors[a], i))
-                        #print("Here",self.neighbors[a])
                         disp = np.empty((len(i), 3), int)
                         disp[:] = (n1, n2, n3)
                         disp += offsets[i] - offsets[a]
@@ -148,7 +147,6 @@ class NeighborList:
                     mask = np.logical_not(mask)
                     self.neighbors[a] = self.neighbors[a][mask]
                     self.displacements[a] = self.displacements[a][mask]
-        #print("And here",self.neighbors[0])
 
         self.nupdates += 1
 
@@ -166,5 +164,5 @@ class NeighborList:
         Notice that if get_neighbors(a) gives atom b as a neighbor,
         then get_neighbors(b) will not return a as a neighbor - unless
         bothways=True was used."""
-        #print("And finally here",self.neighbors[0])
+
         return self.neighbors[a], self.displacements[a]

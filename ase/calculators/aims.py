@@ -174,7 +174,7 @@ class Aims(FileIOCalculator):
             self.reset()
         return changed_parameters
 
-    def write_input(self, atoms, properties=None, system_changes=None,
+    def write_input(self, atoms, scaled = False, properties=None, system_changes=None,
                     ghosts=None):
         FileIOCalculator.write_input(self, atoms, properties, system_changes)
 
@@ -185,7 +185,7 @@ class Aims(FileIOCalculator):
             raise RuntimeError('Found lattice vectors but no k-grid!')
         if not have_lattice_vectors and have_k_grid:
             raise RuntimeError('Found k-grid but no lattice vectors!')
-        write_aims(os.path.join(self.directory, 'geometry.in'), atoms, ghosts)
+        write_aims(os.path.join(self.directory, 'geometry.in'), atoms, scaled, ghosts)
         self.write_control(atoms, os.path.join(self.directory, 'control.in'))
         self.write_species(atoms, os.path.join(self.directory, 'control.in'))
         self.parameters.write(os.path.join(self.directory, 'parameters.ase'))

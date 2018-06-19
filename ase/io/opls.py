@@ -137,8 +137,8 @@ class OPLSff:
                 'angles': alist,
                 'angle types': atypes,
                 'dihedrals': dlist,
-                'dihedral types': dtypes,
-                }
+                'dihedral types': dtypes}
+
             self.write_lammps_definitions(atoms, btypes, atypes, dtypes)
             self.write_lammps_in()
 
@@ -218,13 +218,12 @@ minimize        1.0e-14 1.0e-5 100000 100000
             molid = atoms.get_array('molid')
         else:
             molid = [1] * len(atoms)
-        for i, r in enumerate(map(p.pos_to_lammps_str,
-                                  atoms.get_positions())):
+        for i, r in enumerate(
+            p.positions_to_lammps_strs(atoms.get_positions())):
             q = self.data['one'][atoms.types[tag[i]]][2]
             fileobj.write('%6d %3d %3d %s %s %s %s' % ((i + 1, molid[i],
                                                         tag[i] + 1,
-                                                        q)
-                                                       + tuple(r)))
+                                                        q) + tuple(r)))
             fileobj.write(' # ' + atoms.types[tag[i]] + '\n')
 
         # velocities
@@ -314,8 +313,8 @@ minimize        1.0e-14 1.0e-5 100000 100000
                         print('Warning: cutoff %s-%s not found'
                               % (iname, jname))
                     continue  # don't have it
-                dist = np.linalg.norm(atom.position - atoms[j].position
-                                      - np.dot(offset, cell))
+                dist = np.linalg.norm(atom.position - atoms[j].position -
+                                      np.dot(offset, cell))
                 if dist > cut:
                     continue  # too far away
                 name, val = self.bonds.name_value(iname, jname)
@@ -353,8 +352,8 @@ minimize        1.0e-14 1.0e-5 100000 100000
                 cut = cutoffs.value(iname, jname)
                 if cut is None:
                     continue  # don't have it
-                dist = np.linalg.norm(atom.position - atoms[j].position
-                                      - np.dot(offsetj, cell))
+                dist = np.linalg.norm(atom.position - atoms[j].position -
+                                      np.dot(offsetj, cell))
                 if dist > cut:
                     continue  # too far away
 
@@ -415,38 +414,38 @@ minimize        1.0e-14 1.0e-5 100000 100000
             indicesi, offsetsi = self.nl.get_neighbors(i)
             for l, offsetl in zip(indicesi, offsetsi):
                 if l == j:
-                    continue # avoid double count
+                    continue  # avoid double count
                 lname = types[tags[l]]
                 cut = cutoffs.value(iname, lname)
                 if cut is None:
-                    continue # don't have it
-                dist = np.linalg.norm(atoms[i].position - atoms[l].position
-                                      - np.dot(offsetl, cell))
+                    continue  # don't have it
+                dist = np.linalg.norm(atoms[i].position - atoms[l].position -
+                                      np.dot(offsetl, cell))
                 if dist > cut:
-                    continue # too far away
+                    continue  # too far away
                 name, val = self.dihedrals.name_value(lname, iname,
                                                       jname, kname)
                 if name is None:
-                    continue # don't have it
+                    continue  # don't have it
                 append(name, l, i, j, k)
 
             # search for i-j-k-l
             indicesk, offsetsk = self.nl.get_neighbors(k)
             for l, offsetl in zip(indicesk, offsetsk):
                 if l == j:
-                    continue # avoid double count
+                    continue  # avoid double count
                 lname = types[tags[l]]
                 cut = cutoffs.value(kname, lname)
                 if cut is None:
-                    continue # don't have it
-                dist = np.linalg.norm(atoms[k].position - atoms[l].position
-                                      - np.dot(offsetl, cell))
+                    continue  # don't have it
+                dist = np.linalg.norm(atoms[k].position - atoms[l].position -
+                                      np.dot(offsetl, cell))
                 if dist > cut:
-                    continue # too far away
+                    continue  # too far away
                 name, val = self.dihedrals.name_value(iname, jname,
                                                       kname, lname)
                 if name is None:
-                    continue # don't have it
+                    continue  # don't have it
                 append(name, i, j, k, l)
 
         return dih_types, dih_list
@@ -460,8 +459,7 @@ minimize        1.0e-14 1.0e-5 100000 100000
 
         fileobj.write('# OPLS potential\n')
         fileobj.write('# write_lammps' +
-                      str(time.asctime(
-                    time.localtime(time.time()))))
+                      str(time.asctime(time.localtime(time.time()))))
 
         # bonds
         if len(btypes):
@@ -526,8 +524,7 @@ class OPLSStructure(Atoms):
         'Li': 'Li',
         'Mg': 'Mg',
         'Al': 'Al',
-        'Ar': 'Ar',
-        }
+        'Ar': 'Ar'}
 
     def __init__(self, filename=None, *args, **kwargs):
         Atoms.__init__(self, *args, **kwargs)
@@ -655,7 +652,7 @@ class OPLSStructure(Atoms):
             w = lines.pop(0).split()
             assert(int(w[0]) == (i + 1))
             positions[i] = np.array([float(w[4 + c]) for c in range(3)])
-            ##            print(w, positions[i])
+            # print(w, positions[i])
 
         key = next_key()
 
@@ -734,10 +731,12 @@ class OPLSStructure(Atoms):
 
         if 'bonds' in header:
             assert(len(bonds) == header['bonds'])
-            self.connectivities['bond types'] = list(range(header['bond types']))
+            self.connectivities['bond types'] = list(
+                range(header['bond types']))
         if 'angles' in header:
             assert(len(angles) == header['angles'])
-            self.connectivities['angle types'] = list(range(header['angle types']))
+            self.connectivities['angle types'] = list(
+                range(header['angle types']))
         if 'dihedrals' in header:
             assert(len(dihedrals) == header['dihedrals'])
             self.connectivities['dihedral types'] = list(range(

@@ -1,30 +1,30 @@
 import os
-import tempfile
 import subprocess
+import sys
+import tempfile
 
 from ase.io import write
 import ase.parallel as parallel
 
 
-def view(atoms, data=None, viewer='ase-gui', repeat=None, block=False):
+def view(atoms, data=None, viewer='ase', repeat=None, block=False):
     # Ignore for parallel calculations:
     if parallel.size != 1:
         return
 
     vwr = viewer.lower()
-    
-    if vwr == 'ase-gui':
+
+    if vwr == 'ase':
         format = 'traj'
-        if repeat is None:
-            command = 'ase-gui'
-        else:
-            command = 'ase-gui --repeat=%d,%d,%d' % tuple(repeat)
+        command = sys.executable + ' -m ase gui'
+        if repeat is not None:
+            command += ' --repeat={},{},{}'.format(*repeat)
             repeat = None
     elif vwr == 'vmd':
         format = 'cube'
         command = 'vmd'
     elif vwr == 'rasmol':
-        format = 'pdb'
+        format = 'proteindatabank'
         command = 'rasmol -pdb'
     elif vwr == 'xmakemol':
         format = 'xyz'
@@ -39,6 +39,43 @@ def view(atoms, data=None, viewer='ase-gui', repeat=None, block=False):
         from ase.visualize.sage import view_sage_jmol
         view_sage_jmol(atoms)
         return
+    elif vwr in ('ngl', 'nglview'):
+        from ase.visualize.nglview import view_ngl
+        return view_ngl(atoms)
+    elif vwr == 'x3d':
+        from ase.visualize.x3d import view_x3d
+        return view_x3d(atoms)
+    elif vwr == 'paraview':
+        # macro for showing atoms in paraview
+        macro = """\
+from paraview.simple import *
+version_major = servermanager.vtkSMProxyManager.GetVersionMajor()
+source = GetActiveSource()
+renderView1 = GetRenderView()
+atoms = Glyph(Input=source,
+              GlyphType='Sphere',
+#              GlyphMode='All Points',
+              Scalars='radii',
+              ScaleMode='scalar',
+              )
+RenameSource('Atoms', atoms)
+atomsDisplay = Show(atoms, renderView1)
+if version_major <= 4:
+    atoms.SetScaleFactor = 0.8
+    atomicnumbers_PVLookupTable = GetLookupTableForArray( "atomic numbers", 1)
+    atomsDisplay.ColorArrayName = ('POINT_DATA', 'atomic numbers')
+    atomsDisplay.LookupTable = atomicnumbers_PVLookupTable
+else:
+    atoms.ScaleFactor = 0.8
+    ColorBy(atomsDisplay, 'atomic numbers')
+    atomsDisplay.SetScalarBarVisibility(renderView1, True)
+Render()
+        """
+        script_name = os.path.join(tempfile.gettempdir(), 'draw_atoms.py')
+        with open(script_name, 'w') as f:
+            f.write(macro)
+        format = 'vtu'
+        command = 'paraview --script=' + script_name
     else:
         raise RuntimeError('Unknown viewer: ' + viewer)
 
@@ -50,8 +87,8 @@ def view(atoms, data=None, viewer='ase-gui', repeat=None, block=False):
     else:
         write(filename, atoms, format=format, data=data)
     if block:
-        subprocess.call([command, filename])
+        subprocess.call(command.split() + [filename])
         os.remove(filename)
     else:
-        subprocess.Popen([command, filename])
+        subprocess.Popen(command.split() + [filename])
         subprocess.Popen(['sleep 60; rm {0}'.format(filename)], shell=True)

@@ -10,18 +10,11 @@ from ase import Atoms
 class Mutation(OffspringCreator):
     """Base class for all particle mutation type operators.
     Do not call this class directly."""
+
     def __init__(self, num_muts=1):
         OffspringCreator.__init__(self, num_muts=num_muts)
         self.descriptor = 'Mutation'
         self.min_inputs = 1
-
-    @classmethod
-    def interchange2(cls, atoms, i1, i2):
-        """Switches identity of the atoms on index i1 and i2 in
-        the supplied atoms object."""
-        p1 = atoms[int(i1)].position.copy()
-        atoms[int(i1)].position = atoms[int(i2)].position.copy()
-        atoms[int(i2)].position = p1
 
     @classmethod
     def get_atomic_configuration(cls, atoms, elements=None, eps=4e-2):
@@ -86,6 +79,7 @@ class Mutation(OffspringCreator):
 
 class RandomMutation(Mutation):
     """Moves a random atom the supplied length in a random direction."""
+
     def __init__(self, length=2., num_muts=1):
         Mutation.__init__(self, num_muts=num_muts)
         self.descriptor = 'RandomMutation'
@@ -105,9 +99,15 @@ class RandomMutation(Mutation):
     def get_new_individual(self, parents):
         f = parents[0]
 
-        indi = self.mutate(f)
-        indi = self.initialize_individual(f, indi)
+        indi = self.initialize_individual(f)
         indi.info['data']['parents'] = [f.info['confid']]
+
+        to_mut = f.copy()
+        for _ in range(self.num_muts):
+            to_mut = self.mutate(to_mut)
+
+        for atom in to_mut:
+            indi.append(atom)
 
         return (self.finalize_individual(indi),
                 self.descriptor + ':Parent {0}'.format(f.info['confid']))
@@ -126,6 +126,7 @@ class RandomPermutation(Mutation):
     Parameters:
 
     num_muts: the number of times to perform this operation."""
+
     def __init__(self, elements=None, num_muts=1):
         Mutation.__init__(self, num_muts=num_muts)
         self.descriptor = 'RandomPermutation'
@@ -160,7 +161,7 @@ class RandomPermutation(Mutation):
         i2 = random.choice(indices)
         while atoms[i1].symbol == atoms[i2].symbol:
             i2 = random.choice(indices)
-        Mutation.interchange2(atoms, i1, i2)
+        atoms.positions[[i1, i2]] = atoms.positions[[i2, i1]]
 
 
 class COM2surfPermutation(Mutation):
@@ -169,10 +170,10 @@ class COM2surfPermutation(Mutation):
     S. Lysgaard et al., Top. Catal., 2014, 57 (1-4), pp 33-39
 
     Parameters:
-    
+
     elements: which elements should be included in this permutation,
         for example: include all metals and exclude all adsorbates
-    
+
     min_ratio: minimum ratio of each element in the core or surface region.
         If elements=[a, b] then ratio of a is Na / (Na + Nb) (N: Number of).
         If less than minimum ratio is present in the core, the region defining
@@ -183,6 +184,7 @@ class COM2surfPermutation(Mutation):
 
     num_muts: the number of times to perform this operation.
     """
+
     def __init__(self, elements=None, min_ratio=0.25, num_muts=1):
         Mutation.__init__(self, num_muts=num_muts)
         self.descriptor = 'COM2surfPermutation'
@@ -217,7 +219,7 @@ class COM2surfPermutation(Mutation):
         syms = ac.get_chemical_symbols()
         for el in set(syms):
             assert syms.count(el) / float(len(syms)) > min_ratio
-            
+
         atomic_conf = Mutation.get_atomic_configuration(atoms,
                                                         elements=elements)
         core = COM2surfPermutation.get_core_indices(atoms,
@@ -229,8 +231,8 @@ class COM2surfPermutation(Mutation):
         permuts = Mutation.get_list_of_possible_permutations(atoms,
                                                              core,
                                                              shell)
-        swap = random.choice(permuts)
-        Mutation.interchange2(atoms, *swap)
+        swap = list(random.choice(permuts))
+        atoms.positions[swap] = atoms.positions[swap[::-1]]
 
     @classmethod
     def get_core_indices(cls, atoms, atomic_conf, min_ratio, recurs=0):
@@ -292,7 +294,7 @@ class _NeighborhoodPermutation(Mutation):
         # in the average bond length
         nndist = get_nndist(atoms, dm) + 0.2
         same_neighbors = {}
-        
+
         def f(x):
             return x[1]
         for i, atom in enumerate(atoms):
@@ -331,6 +333,7 @@ class Poor2richPermutation(_NeighborhoodPermutation):
 
     elements: Which elements to take into account in this permutation
     """
+
     def __init__(self, elements=[], num_muts=1):
         _NeighborhoodPermutation.__init__(self, num_muts=num_muts)
         self.descriptor = 'Poor2richPermutation'
@@ -338,13 +341,13 @@ class Poor2richPermutation(_NeighborhoodPermutation):
 
     def get_new_individual(self, parents):
         f = parents[0].copy()
-    
+
         diffatoms = len(set(f.numbers))
         assert diffatoms > 1, 'Permutations with one atomic type is not valid'
-        
+
         indi = self.initialize_individual(f)
         indi.info['data']['parents'] = [f.info['confid']]
-        
+
         for _ in range(self.num_muts):
             Poor2richPermutation.mutate(f, self.elements)
 
@@ -362,8 +365,8 @@ class Poor2richPermutation(_NeighborhoodPermutation):
         del ac[[atom.index for atom in ac
                 if atom.symbol not in elements]]
         permuts = _NP.get_possible_poor2rich_permutations(ac)
-        swap = random.choice(permuts)
-        Mutation.interchange2(atoms, *swap)
+        swap = list(random.choice(permuts))
+        atoms.positions[swap] = atoms.positions[swap[::-1]]
 
 
 class Rich2poorPermutation(_NeighborhoodPermutation):
@@ -379,6 +382,7 @@ class Rich2poorPermutation(_NeighborhoodPermutation):
 
     elements: Which elements to take into account in this permutation
     """
+
     def __init__(self, elements=None, num_muts=1):
         _NeighborhoodPermutation.__init__(self, num_muts=num_muts)
         self.descriptor = 'Rich2poorPermutation'
@@ -405,7 +409,7 @@ class Rich2poorPermutation(_NeighborhoodPermutation):
 
         return (self.finalize_individual(indi),
                 self.descriptor + ':Parent {0}'.format(f.info['confid']))
-        
+
     @classmethod
     def mutate(cls, atoms, elements):
         _NP = _NeighborhoodPermutation
@@ -414,8 +418,8 @@ class Rich2poorPermutation(_NeighborhoodPermutation):
                 if atom.symbol not in elements]]
         permuts = _NP.get_possible_poor2rich_permutations(ac,
                                                           inverse=True)
-        swap = random.choice(permuts)
-        Mutation.interchange2(atoms, *swap)
+        swap = list(random.choice(permuts))
+        atoms.positions[swap] = atoms.positions[swap[::-1]]
 
 
 class SymmetricSubstitute(Mutation):
@@ -424,6 +428,7 @@ class SymmetricSubstitute(Mutation):
     these are all equivalent under the particle point group symmetry.
 
     """
+
     def __init__(self, elements=None, num_muts=1):
         Mutation.__init__(self, num_muts=num_muts)
         self.descriptor = 'SymmetricSubstitute'
@@ -456,6 +461,7 @@ class SymmetricSubstitute(Mutation):
 class RandomSubstitute(Mutation):
     """Substitutes one atom with another atom type. The possible atom types
     are supplied in the parameter elements"""
+
     def __init__(self, elements=None, num_muts=1):
         Mutation.__init__(self, num_muts=num_muts)
         self.descriptor = 'RandomSubstitute'

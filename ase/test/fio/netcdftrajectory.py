@@ -12,7 +12,9 @@ from ase import Atom, Atoms
 from ase.io import NetCDFTrajectory
 
 co = Atoms([Atom('C', (0, 0, 0)),
-            Atom('O', (0, 0, 1.2))], pbc=True)
+            Atom('O', (0, 0, 1.2))],
+            cell=[3, 3, 3],
+            pbc=True)
 traj = NetCDFTrajectory('1.nc', 'w', co)
 for i in range(5):
     co.positions[:, 2] += 0.1

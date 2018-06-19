@@ -46,10 +46,10 @@ f.close()
 a = ase.io.read('structure.xyz')
 os.unlink('structure.xyz')
 
-# read xyz with / in key value
+# read xyz with / and @ signs in key value
 f = open('slash.xyz', 'w')
 f.write("""4
-key1=a key2=a/b
+key1=a key2=a/b key3=a@b key4="a@b"
 Mg        -4.25650        3.79180       -2.54123
 C         -1.15405        2.86652       -1.26699
 C         -5.53758        3.70936        0.63504
@@ -59,6 +59,8 @@ f.close()
 a = ase.io.read('slash.xyz')
 assert a.info['key1'] == r'a'
 assert a.info['key2'] == r'a/b'
+assert a.info['key3'] == r'a@b'
+assert a.info['key4'] == r'a@b'
 os.unlink('slash.xyz')
 
 struct = Atoms('H4', pbc=[True, True, True],

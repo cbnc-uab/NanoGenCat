@@ -79,7 +79,11 @@ class EMT(Calculator):
             self.rc_list = self.rc + 0.5
         for Z in self.numbers:
             if Z not in self.par:
-                p = parameters[chemical_symbols[Z]]
+                sym = chemical_symbols[Z]
+                if sym not in parameters:
+                    raise NotImplementedError('No EMT-potential for {0}'
+                                              .format(sym))
+                p = parameters[sym]
                 s0 = p[1] * Bohr
                 eta2 = p[3] / Bohr
                 kappa = p[4] / Bohr
@@ -180,6 +184,7 @@ class EMT(Calculator):
                     self.interact2(a1, a2, d, r, p1, p2, ksi[Z2])
 
         self.results['energy'] = self.energy
+        self.results['free_energy'] = self.energy
         self.results['forces'] = self.forces
 
     def interact1(self, a1, a2, d, r, p1, p2, ksi):

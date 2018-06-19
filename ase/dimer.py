@@ -29,12 +29,12 @@ def parallel_vector(vector, base):
     """Extract the components of *vector* that are parallel to *base*"""
     return np.vdot(vector, base) * base
 
-    
+
 def perpendicular_vector(vector, base):
     """Remove the components of *vector* that are parallel to *base*"""
     return vector - parallel_vector(vector, base)
 
-    
+
 def rotate_vectors(v1i, v2i, angle):
     """Rotate vectors *v1i* and *v2i* by *angle*"""
     cAng = cos(angle)
@@ -491,6 +491,7 @@ class DimerControl(MinModeControl):
             self.logfile.write(l)
             self.logfile.flush()
 
+
 class MinModeAtoms:
     """Wrapper for Atoms with information related to minimum mode searching.
 
@@ -518,7 +519,7 @@ class MinModeAtoms:
         The seed used for the random number generator. Defaults to
         modified version the current time.
 
-    References:
+    References: [1]_ [2]_ [3]_ [4]_
 
     .. [1] Henkelman and Jonsson, JCP 111, 7010 (1999)
     .. [2] Olsen, Kroes, Henkelman, Arnaldsson, and Jonsson, JCP 121,
@@ -779,7 +780,7 @@ class MinModeAtoms:
 
     def __len__(self):
         return len(self.atoms)
-        
+
     def displace(self, displacement_vector=None, mask=None, method=None,
                  displacement_center=None, radius=None, number_of_atoms=None,
                  gauss_std=None, mic=True, log=True):

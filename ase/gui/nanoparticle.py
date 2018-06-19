@@ -201,6 +201,8 @@ class SetupNanoparticle:
         self.smaller_button = None
         self.largeer_button = None
 
+        self.element[1].entry.focus_set()
+
     def default_direction_table(self):
         'Set default directions and values for the current crystal structure.'
         self.direction_table = []

@@ -1,7 +1,7 @@
 """This is a module to handle generic ASE (gui) defaults ...
 
 ... from a ~/.ase/gui.py configuration file, if it exists. It is imported when
-opening ase-gui and can then be modified at runtime, if necessary. syntax for
+opening ASE-GUI and can then be modified at runtime, if necessary. syntax for
 each entry:
 
 gui_default_settings['key'] = value

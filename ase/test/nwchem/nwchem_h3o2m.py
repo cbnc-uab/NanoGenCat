@@ -37,14 +37,15 @@ for i in range(3):
 images.append(final.copy())
 neb = NEB(images, climb=True)
 
-calculator = NWChem(task='gradient',
-                    geometry='nocenter noautosym noautoz',
-                    charge=-1)
+def calculator():
+    return NWChem(task='gradient',
+                  geometry='nocenter noautosym noautoz',
+                  charge=-1)
 
 # Set constraints and calculator:
 constraint = FixAtoms(indices=[1, 3])  # fix OO
 for image in images:
-    image.set_calculator(calculator)
+    image.set_calculator(calculator())
     image.set_constraint(constraint)
 
 # Relax initial and final states:

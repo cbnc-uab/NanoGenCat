@@ -217,6 +217,9 @@ class Abinit(FileIOCalculator):
         fh.write('acell\n')
         fh.write('%.14f %.14f %.14f Angstrom\n' % (1.0, 1.0, 1.0))
         fh.write('rprim\n')
+        if atoms.number_of_lattice_vectors != 3:
+            raise RuntimeError('Abinit requires a 3D cell, but cell is {}'
+                               .format(atoms.cell))
         for v in atoms.cell:
             fh.write('%.14f %.14f %.14f\n' %  tuple(v))
 
@@ -265,7 +268,7 @@ class Abinit(FileIOCalculator):
         FileIOCalculator.read(self, label)
         filename = self.label + '.txt'
         if not os.path.isfile(filename):
-            raise ReadError
+            raise ReadError('ABINIT output file '+filename+' is missing.')
 
         self.atoms = read_abinit(self.label + '.in')
         self.parameters = Parameters.read(self.label + '.ase')
@@ -276,12 +279,10 @@ class Abinit(FileIOCalculator):
     def read_results(self):
         filename = self.label + '.txt'
         text = open(filename).read().lower()
-        
-        if ('error' in text or
-            'was not enough scf cycles to converge' in text):
-            raise ReadError
 
         for line in iter(text.split('\n')):
+            if line.rfind('error') > -1 or line.rfind('was not enough scf cycles to converge') > -1:
+                raise ReadError(line)
             if line.rfind('natom  ') > -1:
                 natoms = int(line.split()[-1])
 
@@ -425,15 +426,15 @@ class Abinit(FileIOCalculator):
                         # warning: see download.sh in
                         # abinit-pseudopotentials*tar.gz for additional
                         # information!
-                        filenames = max(filenames)  # Semicore or hard
+                        filenames[0] = max(filenames)  # Semicore or hard
                     elif pps == 'hgh':
-                        filenames = min(filenames)  # Lowest valence electron count
+                        filenames[0] = min(filenames)  # Lowest valence electron count
                     elif pps == 'hgh.k':
-                        filenames = max(filenames)  # Semicore - highest electron count
+                        filenames[0] = max(filenames)  # Semicore - highest electron count
                     elif pps == 'tm':
-                        filenames = max(filenames)  # Semicore - highest electron count
+                        filenames[0] = max(filenames)  # Semicore - highest electron count
                     elif pps == 'hgh.sc':
-                        filenames = max(filenames)  # Semicore - highest electron count
+                        filenames[0] = max(filenames)  # Semicore - highest electron count
 
                     if filenames:
                         found = True
@@ -452,7 +453,7 @@ class Abinit(FileIOCalculator):
         niter = None
         for line in open(self.label + '.txt'):
             if line.find(' At SCF step') != -1: # find the last iteration number
-                niter = int(line.split(',')[0].split()[-1].strip())
+                niter = int(line.split()[3].rstrip(','))
         return niter
 
     def get_electronic_temperature(self):

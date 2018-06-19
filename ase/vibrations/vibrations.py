@@ -374,12 +374,12 @@ class Vibrations:
         intensity.
         """
 
-        self.type = type.lower()
-        assert self.type in ['gaussian', 'lorentzian']
+        lctype = type.lower()
+        assert lctype in ['gaussian', 'lorentzian']
         if not npts:
             npts = int((end - start) / width * 10 + 1)
         prefactor = 1
-        if type == 'lorentzian':
+        if lctype == 'lorentzian':
             intensities = intensities * width * pi / 2.
             if normalize:
                 prefactor = 2. / width / pi
@@ -393,7 +393,7 @@ class Vibrations:
         energies = np.linspace(start, end, npts)
         for i, energy in enumerate(energies):
             energies[i] = energy
-            if type == 'lorentzian':
+            if lctype == 'lorentzian':
                 spectrum[i] = (intensities * 0.5 * width / pi /
                                ((frequencies - energy)**2 +
                                 0.25 * width**2)).sum()

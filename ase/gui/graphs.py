@@ -62,8 +62,8 @@ class Graphs:
 
         process = subprocess.Popen([sys.executable, '-m', 'ase.gui.graphs'],
                                    stdin=subprocess.PIPE)
-        pickle.dump((data, self.gui.frame, expr, type), process.stdin,
-                    protocol=0)
+        pickledata = (data, self.gui.frame, expr, type)
+        pickle.dump(pickledata, process.stdin, protocol=0)
         process.stdin.close()
         self.gui.graphs.append(process)
 
@@ -85,9 +85,8 @@ class Graphs:
 
 def make_plot(data, i, expr, type):
     import matplotlib.pyplot as plt
-
-    x = 4
-    plt.figure(figsize=(x * 2.5**0.5, x))
+    basesize = 4
+    plt.figure(figsize=(basesize * 2.5**0.5, basesize))
     m = len(data)
 
     if type is None:

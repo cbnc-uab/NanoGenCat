@@ -16,4 +16,5 @@ if 1:
 # read again
 t = io.read(txt, index=':')
 assert isinstance(t, list)
-assert abs(t[1].get_magnetic_moments() - 0.5).sum() < 1e-14
+M = t[1].get_magnetic_moments()
+assert abs(M - 0.2).max() < 0.1

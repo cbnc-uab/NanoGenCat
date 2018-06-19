@@ -644,7 +644,8 @@ class Phonons(Displacement):
 
         return omega_kl
 
-    def dos(self, kpts=(10, 10, 10), npts=1000, delta=1e-3, indices=None):
+    def dos(self, kpts=(10, 10, 10), npts=1000, delta=1e-3,
+            indices=None, verbose=True):
         """Calculate phonon dos as a function of energy.
 
         Parameters:
@@ -658,6 +659,8 @@ class Phonons(Displacement):
         indices: list
             If indices is not None, the atomic-partial dos for the specified
             atoms will be calculated.
+        verbose: bool
+            Print warnings when imaginary frequncies are detected.
 
         """
 
@@ -665,7 +668,7 @@ class Phonons(Displacement):
         kpts_kc = monkhorst_pack(kpts)
         N = np.prod(kpts)
         # Get frequencies
-        omega_kl = self.band_structure(kpts_kc)
+        omega_kl = self.band_structure(kpts_kc, verbose=verbose)
         # Energy axis and dos
         omega_e = np.linspace(0., np.amax(omega_kl) + 5e-3, num=npts)
         dos_e = np.zeros_like(omega_e)

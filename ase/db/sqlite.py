@@ -10,9 +10,11 @@ Versions:
 5) Add fmax, smax, mass, volume, charge
 6) Use REAL for magmom and drop possibility for non-collinear spin
 7) Volume can be None
+8) Added name='metadata' row to "information" table
 """
 
 from __future__ import absolute_import, print_function
+import json
 import os
 import sqlite3
 import sys
@@ -21,7 +23,7 @@ import numpy as np
 
 from ase.data import atomic_numbers
 from ase.db.row import AtomsRow
-from ase.db.core import Database, ops, now, lock, invop
+from ase.db.core import Database, ops, now, lock, invop, parse_selection
 from ase.io.jsonio import encode, decode
 from ase.parallel import parallel_function
 from ase.utils import basestring
@@ -29,7 +31,7 @@ from ase.utils import basestring
 if sys.version >= '3':
     buffer = memoryview
 
-VERSION = 7
+VERSION = 8
 
 init_statements = [
     """CREATE TABLE systems (
@@ -94,7 +96,7 @@ init_statements = [
     name TEXT,
     value TEXT)""",
 
-    "INSERT INTO information VALUES ('version', '{0}')".format(VERSION)]
+    "INSERT INTO information VALUES ('version', '{}')".format(VERSION)]
 
 index_statements = [
     'CREATE INDEX unique_id_index ON systems(unique_id)',
@@ -116,12 +118,14 @@ def float_if_not_none(x):
         return float(x)
 
 
-class SQLite3Database(Database):
+class SQLite3Database(Database, object):
     initialized = False
     _allow_reading_old_format = False
     default = 'NULL'  # used for autoincrement id
     connection = None
     version = None
+    columnnames = [line.split()[0].lstrip()
+                   for line in init_statements[0].splitlines()[1:]]
 
     def _connect(self):
         return sqlite3.connect(self.filename, timeout=600)
@@ -142,6 +146,8 @@ class SQLite3Database(Database):
     def _initialize(self, con):
         if self.initialized:
             return
+
+        self._metadata = {}
 
         cur = con.execute(
             'SELECT COUNT(*) FROM sqlite_master WHERE name="systems"')
@@ -169,9 +175,15 @@ class SQLite3Database(Database):
                 else:
                     self.version = int(cur.fetchone()[0])
 
+                cur = con.execute(
+                    'SELECT value FROM information WHERE name="metadata"')
+                results = cur.fetchall()
+                if results:
+                    self._metadata = json.loads(results[0][0])
+
         if self.version > VERSION:
             raise IOError('Can not read new ase.db format '
-                          '(version {0}).  Please update to latest ASE.'
+                          '(version {}).  Please update to latest ASE.'
                           .format(self.version))
         if self.version < 5 and not self._allow_reading_old_format:
             raise IOError('Please convert to new format. ' +
@@ -194,7 +206,6 @@ class SQLite3Database(Database):
             row.user = os.getenv('USER')
         else:
             row = atoms
-
             cur.execute('SELECT id FROM systems WHERE unique_id=?',
                         (row.unique_id,))
             results = cur.fetchall()
@@ -227,10 +238,7 @@ class SQLite3Database(Database):
                   constraints)
 
         if 'calculator' in row:
-            if not isinstance(row.calculator_parameters, basestring):
-                row.calculator_parameters = encode(row.calculator_parameters)
-            values += (row.calculator,
-                       row.calculator_parameters)
+            values += (row.calculator, encode(row.calculator_parameters))
         else:
             values += (None, None)
 
@@ -261,12 +269,11 @@ class SQLite3Database(Database):
 
         if id is None:
             q = self.default + ', ' + ', '.join('?' * len(values))
-            cur.execute('INSERT INTO systems VALUES ({0})'.format(q),
+            cur.execute('INSERT INTO systems VALUES ({})'.format(q),
                         values)
         else:
-            q = ', '.join(line.split()[0].lstrip() + '=?'
-                          for line in init_statements[0].splitlines()[2:])
-            cur.execute('UPDATE systems SET {0} WHERE id=?'.format(q),
+            q = ', '.join(name + '=?' for name in self.columnnames[1:])
+            cur.execute('UPDATE systems SET {} WHERE id=?'.format(q),
                         values + (id,))
 
         if id is None:
@@ -282,7 +289,7 @@ class SQLite3Database(Database):
         text_key_values = []
         number_key_values = []
         for key, value in key_value_pairs.items():
-            if isinstance(value, (float, int)):
+            if isinstance(value, (float, int, np.bool_)):
                 number_key_values.append([key, float(value), id])
             else:
                 assert isinstance(value, basestring)
@@ -346,7 +353,7 @@ class SQLite3Database(Database):
             dct['constraints'] = values[14]
         if values[15] is not None:
             dct['calculator'] = values[15]
-            dct['calculator_parameters'] = values[16]
+            dct['calculator_parameters'] = decode(values[16])
         if values[17] is not None:
             dct['energy'] = values[17]
         if values[18] is not None:
@@ -365,7 +372,7 @@ class SQLite3Database(Database):
             dct['charges'] = deblob(values[24])
         if values[25] != '{}':
             dct['key_value_pairs'] = decode(values[25])
-        if values[26] != 'null':
+        if len(values) >= 27 and values[26] != 'null':
             dct['data'] = values[26]
 
         return AtomsRow(dct)
@@ -429,7 +436,7 @@ class SQLite3Database(Database):
                 if bad[key]:
                     where.append(
                         'NOT EXISTS (SELECT id FROM species WHERE\n' +
-                        '  species.id=systems.id AND species.Z==? AND ' +
+                        '  species.id=systems.id AND species.Z=? AND ' +
                         'species.n{0}?)'.format(invop[op]))
                     args += [key, value]
                 else:
@@ -482,7 +489,7 @@ class SQLite3Database(Database):
         return sql, args
 
     def _select(self, keys, cmps, explain=False, verbosity=0,
-                limit=None, offset=0, sort=None):
+                limit=None, offset=0, sort=None, include_data=True):
         con = self._connect()
         self._initialize(con)
 
@@ -497,7 +504,8 @@ class SQLite3Database(Database):
                         'fmax', 'smax', 'volume', 'mass', 'charge', 'natoms']:
                 sort_table = 'systems'
             else:
-                for dct in self._select(keys + [sort], cmps, limit=1):
+                for dct in self._select(keys + [sort], cmps, limit=1,
+                                        include_data=False):
                     if isinstance(dct['key_value_pairs'][sort], basestring):
                         sort_table = 'text_key_values'
                     else:
@@ -509,8 +517,14 @@ class SQLite3Database(Database):
             order = None
             sort_table = None
 
+        if include_data:
+            what = 'systems.*'
+        else:
+            what = ', '.join('systems.' + name
+                             for name in self.columnnames[:26])
+
         sql, args = self.create_select_statement(keys, cmps,
-                                                 sort, order, sort_table)
+                                                 sort, order, sort_table, what)
 
         if explain:
             sql = 'EXPLAIN QUERY PLAN ' + sql
@@ -535,7 +549,7 @@ class SQLite3Database(Database):
 
     @parallel_function
     def count(self, selection=None, **kwargs):
-        keys, cmps = self.parse_selection(selection, **kwargs)
+        keys, cmps = parse_selection(selection, **kwargs)
         sql, args = self.create_select_statement(keys, cmps, what='COUNT(*)')
         con = self._connect()
         self._initialize(con)
@@ -599,12 +613,38 @@ class SQLite3Database(Database):
             cur.executemany('DELETE FROM {0} WHERE id=?'.format(table),
                             ((id,) for id in ids))
 
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self._initialize(self._connect())
+        return self._metadata.copy()
+
+    @metadata.setter
+    def metadata(self, dct):
+        self._metadata = dct
+        con = self._connect()
+        self._initialize(con)
+        md = json.dumps(dct)
+        cur = con.cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM information WHERE name='metadata'")
+
+        if cur.fetchone()[0]:
+            cur.execute(
+                "UPDATE information SET value=? WHERE name='metadata'", [md])
+        else:
+            cur.execute('INSERT INTO information VALUES (?, ?)',
+                        ('metadata', md))
+        con.commit()
+
 
 def blob(array):
     """Convert array to blob/buffer object."""
 
     if array is None:
         return None
+    if len(array) == 0:
+        array = np.zeros(0)
     if array.dtype == np.int64:
         array = array.astype(np.int32)
     if not np.little_endian:

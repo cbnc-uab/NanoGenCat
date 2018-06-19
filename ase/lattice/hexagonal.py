@@ -56,6 +56,8 @@ class HexagonalFactory(TriclinicFactory):
         """
         directions = list(directions)
         miller = list(miller)
+        if miller != [None, None, None]:
+            raise NotImplementedError("Specifying Miller indices of surfaces currently broken for hexagonal crystals.")
         for obj in (directions,miller):
             for i in range(3):
                 if obj[i] is not None:

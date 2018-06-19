@@ -16,6 +16,7 @@ def txt2pos(txt):
 
 class AddAtoms:
     def __init__(self, gui):
+        # XXXXXXXXXXX still array based, not Atoms-based.  Will crash
         win = ui.Window(_('Add atoms'))
         self.element = Element()
         win.add(self.element)
@@ -35,19 +36,26 @@ class AddAtoms:
 
     def add_relative(self):
         rpos = txt2pos(self.relative_position.value)
-        pos = self.gui.images.P[self.gui.frame]
+        pos = self.gui.atoms.positions
         if self.gui.images.selected.any():
-            pos = pos[self.gui.images.selected]
-        center = pos.mean(0)
-        self.add(center + rpos)
+            pos = pos[self.gui.images.selected[:len(pos)]]
+        if len(pos) == 0:
+            ui.error('No atoms present')
+        else:
+            center = pos.mean(0)
+            self.add(center + rpos)
 
     def add(self, pos):
         if pos is None or self.element.symbol is None:
             return
-        atoms = self.gui.images.get_atoms(self.gui.frame)
+        atoms = self.gui.atoms
         atoms.append(self.element.symbol)
         atoms.positions[-1] = pos
-        self.gui.new_atoms(atoms, init_magmom=True)
+        if len(atoms) > self.gui.images.maxnatoms:
+            self.gui.images.initialize(list(self.gui.images),
+                                       self.gui.images.filenames)
         self.gui.images.selected[:] = False
-        self.gui.images.selected[-1] = True
+        # 'selected' array may be longer than current atoms
+        self.gui.images.selected[len(atoms) - 1] = True
+        self.gui.set_frame()
         self.gui.draw()

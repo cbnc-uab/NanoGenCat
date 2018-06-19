@@ -1,4 +1,3 @@
-
 def read_aims(filename):
     """Import FHI-aims geometry type files.
 
@@ -93,7 +92,7 @@ def read_aims(filename):
     return atoms
 
 
-def write_aims(filename, atoms, ghosts=None):
+def write_aims(filename, atoms, scaled=False, ghosts=None):
     """Method to write FHI-aims geometry files.
 
     Writes the atoms positions and constraints (only FixAtoms is
@@ -135,14 +134,21 @@ def write_aims(filename, atoms, ghosts=None):
         ghosts = np.zeros(len(atoms))
     else:
         assert len(ghosts) == len(atoms)
+    scaled_positions = atoms.get_scaled_positions()        
     for i, atom in enumerate(atoms):
         if ghosts[i] == 1:
             atomstring = 'empty '
+        elif scaled:
+            atomstring = 'atom_frac '
         else:
             atomstring = 'atom '
         fd.write(atomstring)
-        for pos in atom.position:
-            fd.write('%16.16f ' % pos)
+        if scaled:
+            for pos in scaled_positions[i]:
+                fd.write('%16.16f ' % pos)
+        else:
+            for pos in atom.position:
+                fd.write('%16.16f ' % pos)
         fd.write(atom.symbol)
         fd.write('\n')
         # (1) all coords are constrained:

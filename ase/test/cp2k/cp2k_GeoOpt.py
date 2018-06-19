@@ -19,7 +19,7 @@ def main():
     if "ASE_CP2K_COMMAND" not in os.environ:
         raise NotAvailable('$ASE_CP2K_COMMAND not defined')
 
-    calc = CP2K(label='test_H2_GOPT')
+    calc = CP2K(label='test_H2_GOPT', print_level='LOW')
     atoms = molecule('H2', calculator=calc)
     atoms.center(vacuum=2.0)
 

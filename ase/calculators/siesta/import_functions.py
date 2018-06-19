@@ -296,7 +296,7 @@ def readWFSX(fname):
 
     WFSX_tuple = collections.namedtuple('WFSX',
                                         ['nkpoints', 'nspin', 'norbitals',
-                                         'gamma', 'orb2atm', 'orb2strspecie',
+                                         'gamma', 'orb2atm', 'orb2strspecies',
                                          'orb2ao', 'orb2n', 'orb2strsym',
                                          'kpoints', 'DFT_E', 'DFT_X',
                                          'mo_spin_kpoint_2_is_read'])
@@ -308,7 +308,7 @@ def readWFSX(fname):
     norbitals = fh.readInts('i')[0]
 
     orb2atm = np.zeros((norbitals), dtype=int)
-    orb2strspecie = []
+    orb2strspecies = []
     orb2ao = np.zeros((norbitals), dtype=int)
     orb2n = np.zeros((norbitals), dtype=int)
     orb2strsym = []
@@ -322,13 +322,13 @@ def readWFSX(fname):
     for iorb in range(norbitals):
         val_list = struct.unpack('i20sii20s', dat[ind_st:ind_fn])
         orb2atm[iorb] = val_list[0]
-        orb2strspecie.append(val_list[1])
+        orb2strspecies.append(val_list[1])
         orb2ao[iorb] = val_list[2]
         orb2n[iorb] = val_list[3]
         orb2strsym.append(val_list[4])
         ind_st = ind_st + dat_size
         ind_fn = ind_fn + dat_size
-    orb2strspecie = np.array(orb2strspecie)
+    orb2strspecies = np.array(orb2strspecies)
     orb2strsym = np.array(orb2strsym)
 
     kpoints = np.zeros((3, nkpoints), dtype=np.float64)
@@ -400,5 +400,5 @@ def readWFSX(fname):
  
     fh.close()
     return WFSX_tuple(nkpoints, nspin, norbitals, gamma, orb2atm,
-                      orb2strspecie, orb2ao, orb2n, orb2strsym,
+                      orb2strspecies, orb2ao, orb2n, orb2strsym,
                       kpoints, DFT_E, DFT_X, mo_spin_kpoint_2_is_read)

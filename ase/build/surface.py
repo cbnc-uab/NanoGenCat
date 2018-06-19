@@ -18,26 +18,35 @@ from ase.lattice.cubic import FaceCenteredCubic
 from ase.utils import basestring
 
 
-def fcc100(symbol, size, a=None, vacuum=None):
+def fcc100(symbol, size, a=None, vacuum=None, orthogonal=True):
     """FCC(100) surface.
 
     Supported special adsorption sites: 'ontop', 'bridge', 'hollow'."""
-    return _surface(symbol, 'fcc', '100', size, a, None, vacuum)
+    if not orthogonal:
+        raise NotImplementedError("Can't do non-orthogonal cell yet!")
+
+    return _surface(symbol, 'fcc', '100', size, a, None, vacuum, orthogonal)
 
 
-def fcc110(symbol, size, a=None, vacuum=None):
+def fcc110(symbol, size, a=None, vacuum=None, orthogonal=True):
     """FCC(110) surface.
 
     Supported special adsorption sites: 'ontop', 'longbridge',
     'shortbridge', 'hollow'."""
-    return _surface(symbol, 'fcc', '110', size, a, None, vacuum)
+    if not orthogonal:
+        raise NotImplementedError("Can't do non-orthogonal cell yet!")
+
+    return _surface(symbol, 'fcc', '110', size, a, None, vacuum, orthogonal)
 
 
-def bcc100(symbol, size, a=None, vacuum=None):
+def bcc100(symbol, size, a=None, vacuum=None, orthogonal=True):
     """BCC(100) surface.
 
     Supported special adsorption sites: 'ontop', 'bridge', 'hollow'."""
-    return _surface(symbol, 'bcc', '100', size, a, None, vacuum)
+    if not orthogonal:
+        raise NotImplementedError("Can't do non-orthogonal cell yet!")
+
+    return _surface(symbol, 'bcc', '100', size, a, None, vacuum, orthogonal)
 
 
 def bcc110(symbol, size, a=None, vacuum=None, orthogonal=False):
@@ -81,20 +90,27 @@ def hcp0001(symbol, size, a=None, c=None, vacuum=None, orthogonal=False):
     return _surface(symbol, 'hcp', '0001', size, a, c, vacuum, orthogonal)
 
 
-def hcp10m10(symbol, size, a=None, c=None, vacuum=None):
+def hcp10m10(symbol, size, a=None, c=None, vacuum=None, orthogonal=True):
     """HCP(10m10) surface.
 
     Supported special adsorption sites: 'ontop'.
 
     Works only for size=(i,j,k) with j even."""
-    return _surface(symbol, 'hcp', '10m10', size, a, c, vacuum)
+    if not orthogonal:
+        raise NotImplementedError("Can't do non-orthogonal cell yet!")
+
+    return _surface(symbol, 'hcp', '10m10', size, a, c, vacuum, orthogonal)
 
 
-def diamond100(symbol, size, a=None, vacuum=None):
+def diamond100(symbol, size, a=None, vacuum=None, orthogonal=True):
     """DIAMOND(100) surface.
 
     Supported special adsorption sites: 'ontop'."""
-    return _surface(symbol, 'diamond', '100', size, a, None, vacuum)
+    if not orthogonal:
+        raise NotImplementedError("Can't do non-orthogonal cell yet!")
+
+    return _surface(symbol, 'diamond', '100', size, a, None, vacuum,
+                    orthogonal)
 
 
 def diamond111(symbol, size, a=None, vacuum=None, orthogonal=False):
@@ -190,10 +206,13 @@ def add_adsorbate(slab, adsorbate, height, position=(0, 0), offset=None,
         ads = Atoms([Atom(adsorbate)])
 
     # Get the z-coordinate:
-    try:
+    if 'top layer atom index' in info:
         a = info['top layer atom index']
-    except KeyError:
+    else:
         a = slab.positions[:, 2].argmax()
+        if 'adsorbate_info' not in slab.info:
+            slab.info['adsorbate_info'] = {}
+        slab.info['adsorbate_info']['top layer atom index'] = a
     z = slab.positions[a, 2] + height
 
     # Move adsorbate into position
@@ -410,7 +429,7 @@ def fcc211(symbol, size, a=None, vacuum=None, orthogonal=True):
         atoms.cell[2][2] -= dz
 
     atoms.cell[2] = 0.0
-    atoms.pbc[1] = False
+    atoms.pbc[2] = False
     if vacuum:
         atoms.center(vacuum, axis=2)
 

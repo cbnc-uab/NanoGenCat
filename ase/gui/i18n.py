@@ -5,9 +5,9 @@ When this module is imported, ASE-GUI will use translations depending
 on system settings.  Usually language is taken from the LANG or LANGUAGE
 environment variables.  Examples of how to override the system locale:
 
-  LANG=da_DK.UTF-8 ase-gui (Danish)
-  LANGUAGE=da_DK.UTF-8 ase-gui (Danish; normally overrides LANG)
-  LANG=C ase-gui (bare-bones ASCII locale disabling translations)
+  LANG=da_DK.UTF-8 ase gui (Danish)
+  LANGUAGE=da_DK.UTF-8 ase gui (Danish; normally overrides LANG)
+  LANG=C ase gui (bare-bones ASCII locale disabling translations)
 
 Other languages: es_ES.UTF-8, en_UK.UTF-8, ...
 

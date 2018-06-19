@@ -1,14 +1,14 @@
 """
 This is the implementation of the exciting I/O functions
-The functions are called with read write using the format "exi"
+The functions are called with read write using the format "exciting"
 
-The module depends on lxml  http://lxml.de
 """
 
 import numpy as np
-
+import xml.etree.ElementTree as ET
 from ase.atoms import Atoms
 from ase.units import Bohr
+from xml.dom import  minidom
 
 
 def read_exciting(fileobj, index=-1):
@@ -25,8 +25,6 @@ def read_exciting(fileobj, index=-1):
         Not used in this implementation.
     """
     
-    from lxml import etree as ET
-
     # Parse file into element tree
     doc = ET.parse(fileobj)
     root = doc.getroot()
@@ -44,19 +42,19 @@ def read_exciting(fileobj, index=-1):
             positions.append([float(x), float(y), float(z)])
             symbols.append(symbol)
     # scale unit cell accorting to scaling attributes
-    if doc.xpath('//crystal/@scale'):
-        scale = float(str(doc.xpath('//crystal/@scale')[0]))
+    if 'scale' in doc.find('structure/crystal').attrib:
+        scale = float(str(doc.find('structure/crystal').attrib['scale']))
     else:
         scale = 1
         
-    if doc.xpath('//crystal/@stretch'):
-        a, b, c = doc.xpath('//crystal/@scale')[0].split()
+    if 'stretch' in doc.find('structure/crystal').attrib:
+        a, b, c = doc.find('structure/crystal').attrib['stretch'].text.split()
         stretch = np.array([float(a), float(b), float(c)])
     else:
         stretch = np.array([1.0, 1.0, 1.0])
-    basevectsn = doc.xpath('//basevect/text()')
+    basevectsn = root.findall('structure/crystal/basevect')
     for basevect in basevectsn:
-        x, y, z = basevect.split()
+        x, y, z = basevect.text.split()
         basevects.append(np.array([float(x) * Bohr * stretch[0],
                                    float(y) * Bohr * stretch[1],
                                    float(z) * Bohr * stretch[2]
@@ -86,12 +84,12 @@ def write_exciting(filename, images):
     Returns
     -------
     """
-    from lxml import etree as ET
     fileobj = open(filename, 'wb')
     root = atoms2etree(images)
-    fileobj.write(ET.tostring(root, method='xml',
-                              pretty_print=True,
-                              xml_declaration=True))
+    rough_string = ET.tostring(root, 'utf-8')
+    reparsed = minidom.parseString(rough_string)
+    pretty = reparsed.toprettyxml(indent="\t")
+    fileobj.write(pretty.encode('utf-8'))
 
 
 def atoms2etree(images):
@@ -111,7 +109,6 @@ def atoms2etree(images):
     if not isinstance(images, (list, tuple)):
         images = [images]
 
-    from lxml import etree as ET
     root = ET.Element('input')
     root.set(
         '{http://www.w3.org/2001/XMLSchema-instance}noNamespaceSchemaLocation',

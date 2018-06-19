@@ -214,17 +214,17 @@ class LAMMPS:
 
         # setup file names for LAMMPS calculation
         label = '{0}{1:>06}'.format(self.label, self.calls)
-        lammps_in = uns_mktemp(prefix='in_'+label, dir=self.tmp_dir)
-        lammps_log = uns_mktemp(prefix='log_'+label, dir=self.tmp_dir)
+        lammps_in = uns_mktemp(prefix='in_' + label, dir=self.tmp_dir)
+        lammps_log = uns_mktemp(prefix='log_' + label, dir=self.tmp_dir)
         lammps_trj_fd = NamedTemporaryFile(
-            prefix='trj_'+label, dir=self.tmp_dir,
+            prefix='trj_' + label, dir=self.tmp_dir,
             delete=(not self.keep_tmp_files))
         lammps_trj = lammps_trj_fd.name
         if self.no_data_file:
             lammps_data = None
         else:
             lammps_data_fd = NamedTemporaryFile(
-                prefix='data_'+label, dir=self.tmp_dir,
+                prefix='data_' + label, dir=self.tmp_dir,
                 delete=(not self.keep_tmp_files))
             self.write_lammps_data(lammps_data=lammps_data_fd)
             lammps_data = lammps_data_fd.name
@@ -234,7 +234,7 @@ class LAMMPS:
         if not self._lmp_alive():
             # Attempt to (re)start lammps
             self._lmp_handle = Popen(
-                lammps_cmd_line+lammps_options+['-log', '/dev/stdout'],
+                lammps_cmd_line + lammps_options + ['-log', '/dev/stdout'],
                 stdin=PIPE, stdout=PIPE)
         lmp_handle = self._lmp_handle
 
@@ -321,6 +321,11 @@ class LAMMPS:
                  ).format(lammps_trj, lammps_data).encode('utf-8'))
 
         parameters = self.parameters
+        if 'package' in parameters:
+            f.write(('\n'.join(['package {0}'.format(p)
+                                for p in parameters['package']]) +
+                     '\n').encode('utf-8'))
+
         pbc = self.atoms.get_pbc()
         f.write('units metal \n'.encode('utf-8'))
         if 'boundary' in parameters:
@@ -603,12 +608,9 @@ class LAMMPS:
             rotation_lammps2ase = np.linalg.inv(self.prism.R)
 
             type_atoms = self.atoms.get_atomic_numbers()
-            positions_atoms = np.array(
-                [np.dot(np.array(r), rotation_lammps2ase) for r in positions])
-            # velocities_atoms = np.array(
-            #     [np.dot(np.array(v), rotation_lammps2ase) for v in velocities])
-            forces_atoms = np.array(
-                [np.dot(np.array(f), rotation_lammps2ase) for f in forces])
+            positions_atoms = np.dot(positions, rotation_lammps2ase)
+            # velocities_atoms = np.dot(velocities, rotation_lammps2ase)
+            forces_atoms = np.dot(forces, rotation_lammps2ase)
 
         if set_atoms:
             # assume periodic boundary conditions here (as in write_lammps)
@@ -705,9 +707,9 @@ class Prism(object):
             n = (np.mod(x, p) - x) / p
             return [float(self.f2qdec(a)) for a in (vec + n * pvec)]
 
-        Apre[1,:] = fold(Apre[1,:], Apre[0,:], 0)
-        Apre[2,:] = fold(Apre[2,:], Apre[1,:], 1)
-        Apre[2,:] = fold(Apre[2,:], Apre[0,:], 0)
+        Apre[1, :] = fold(Apre[1, :], Apre[0, :], 0)
+        Apre[2, :] = fold(Apre[2, :], Apre[1, :], 1)
+        Apre[2, :] = fold(Apre[2, :], Apre[0, :], 0)
 
         self.A = Apre
         self.Ainv = np.linalg.inv(self.A)
@@ -757,12 +759,14 @@ class Prism(object):
         p = self.get_lammps_prism()
         return tuple([self.f2s(x) for x in p])
 
-    def pos_to_lammps_str(self, position):
+    def positions_to_lammps_strs(self, positions):
         """Rotate an ase-cell position to the lammps cell orientation
 
         Returns tuple of str.
         """
-        return tuple([self.f2s(x) for x in np.dot(position, self.R)])
+        rot_positions = np.dot(positions, self.R)
+        return [tuple([self.f2s(x) for x in position])
+                for position in rot_positions]
 
     def pos_to_lammps_fold_str(self, position):
         """Rotate and fold an ase-cell position into the lammps cell
@@ -827,8 +831,7 @@ def write_lammps_data(fileobj, atoms, specorder=None, force_skew=False,
     f.write('\n\n'.encode('utf-8'))
 
     f.write('Atoms \n\n'.encode('utf-8'))
-    for i, r in enumerate(map(p.pos_to_lammps_str,
-                              atoms.get_positions())):
+    for i, r in enumerate(p.positions_to_lammps_strs(atoms.get_positions())):
         s = species.index(symbols[i]) + 1
         f.write('{0:>6} {1:>3} {2} {3} {4}\n'.format(
                 *(i + 1, s) + tuple(r)).encode('utf-8'))

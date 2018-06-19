@@ -1,6 +1,6 @@
 from ase.test import NotAvailable
 from ase.build import bulk
-from ase.dft.bandgap import get_band_gap
+from ase.dft.bandgap import bandgap
 from ase.calculators.calculator import get_calculator
 
 kpts = (4, 4, 4)
@@ -25,7 +25,7 @@ def run(name):
     si = bulk('Si', crystalstructure='diamond', a=5.43)
     si.calc = calc
     si.get_potential_energy()
-    print(name, get_band_gap(si.calc))
+    print(name, bandgap(si.calc))
     del si.calc
     # test spin-polarization
     calc = Calculator(label=name + '_bandgap_spinpol', xc='PBE',
@@ -42,7 +42,8 @@ def run(name):
             calc.set(spinpol=True)
     si.set_calculator(calc)
     si.get_potential_energy()
-    print(name, get_band_gap(si.calc))
+    print(name, bandgap(si.calc))
+
 
 # gpaw does not conform to the new ase interface standard:
 # https://trac.fysik.dtu.dk/projects/gpaw/ticket/268

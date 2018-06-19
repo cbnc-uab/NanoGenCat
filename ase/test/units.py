@@ -1,5 +1,5 @@
 """This test cross-checks our implementation of CODATA against the
-implementation that SCIPY brings with it.
+implementation that SciPy brings with it.
 """
 
 
@@ -49,4 +49,19 @@ def test_units():
                 continue
 
 
+def test_create_units():
+    """Check that units are created and allow attribute access."""
+
+    import ase.units
+
+    print('Checking create_units and attribute access')
+    # just use current CODATA version
+    new_units = ase.units.create_units(ase.units.__codata_version__)
+    assert new_units.eV == new_units['eV'] == ase.units.eV
+    for unit_name in new_units.keys():
+        assert getattr(new_units, unit_name) == getattr(ase.units, unit_name)
+        assert new_units[unit_name] == getattr(ase.units, unit_name)
+
+
 test_units()
+test_create_units()

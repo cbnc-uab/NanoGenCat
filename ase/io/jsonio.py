@@ -14,6 +14,8 @@ class MyEncoder(json.JSONEncoder):
             return obj.tolist()
         if isinstance(obj, np.integer):
             return int(obj)
+        if isinstance(obj, np.bool_):
+            return bool(obj)
         if isinstance(obj, datetime.datetime):
             return {'__datetime__': obj.isoformat()}
         if hasattr(obj, 'todict'):

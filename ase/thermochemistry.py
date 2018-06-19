@@ -177,12 +177,12 @@ class HinderedThermo(ThermoChem):
     sitedensity : float
         density of surface sites in cm^-2
     rotationalminima : integer
-        the number of equivalent minima for an adsorabte's full rotation.
+        the number of equivalent minima for an adsorbate's full rotation.
+        For example, 6 for an adsorbate on an fcc(111) top site
     potentialenergy : float
         the potential energy in eV (e.g., from atoms.get_potential_energy)
         (if potentialenergy is unspecified, then the methods of this class
         can be interpreted as the energy corrections)
-        For example, 6 for an adsorbate on an fcc(111) top site
     mass : float
         the mass of the adsorbate in amu (if mass is unspecified, then it will
         be calculated from the atoms class)

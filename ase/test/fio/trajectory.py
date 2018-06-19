@@ -9,39 +9,51 @@ from ase.calculators.calculator import PropertyNotImplementedError
 co = Atoms([Atom('C', (0, 0, 0)),
             Atom('O', (0, 0, 1.2))])
 traj = Trajectory('1.traj', 'w', co)
+
+written = []
+
 for i in range(5):
     co.positions[:, 2] += 0.1
     traj.write()
+    written.append(co.copy())
 
 traj = Trajectory('1.traj', 'a')
 co = read('1.traj')
 print(co.positions)
 co.positions[:] += 1
 traj.write(co)
+written.append(co.copy())
 
 for a in Trajectory('1.traj'):
     print(1, a.positions[-1, 2])
 co.positions[:] += 1
 t = Trajectory('1.traj', 'a')
 t.write(co)
+written.append(co.copy())
 assert len(t) == 7
 
 co[0].number = 1
-with must_raise(ValueError):
-    t.write(co)
+t.write(co)
+written.append(co.copy())
 
 co[0].number = 6
 co.pbc = True
-with must_raise(ValueError):
-    t.write(co)
+t.write(co)
+written.append(co.copy())
 
 co.pbc = False
 o = co.pop(1)
-with must_raise(ValueError):
-    t.write(co)
+t.write(co)
+written.append(co.copy())
 
 co.append(o)
 t.write(co)
+written.append(co.copy())
+
+imgs = read('1.traj@:')
+assert len(imgs) == len(written)
+for img1, img2 in zip(imgs, written):
+    assert img1 == img2
 
 # append to a nonexisting file:
 fname = '2.traj'

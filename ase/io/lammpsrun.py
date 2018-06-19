@@ -3,6 +3,7 @@ from ase.quaternions import Quaternions
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.parallel import paropen
 from ase.utils import basestring
+from collections import deque
 
 
 def read_lammps_dump(fileobj, index=-1, order=True, atomsobj=Atoms):
@@ -17,13 +18,13 @@ def read_lammps_dump(fileobj, index=-1, order=True, atomsobj=Atoms):
         f = fileobj
 
     # load everything into memory
-    lines = f.readlines()
+    lines = deque(f.readlines())
 
     natoms = 0
     images = []
 
     while len(lines) > natoms:
-        line = lines.pop(0)
+        line = lines.popleft()
 
         if 'ITEM: TIMESTEP' in line:
             lo = []
@@ -38,7 +39,7 @@ def read_lammps_dump(fileobj, index=-1, order=True, atomsobj=Atoms):
             quaternions = []
 
         if 'ITEM: NUMBER OF ATOMS' in line:
-            line = lines.pop(0)
+            line = lines.popleft()
             natoms = int(line.split()[0])
             
         if 'ITEM: BOX BOUNDS' in line:
@@ -46,7 +47,7 @@ def read_lammps_dump(fileobj, index=-1, order=True, atomsobj=Atoms):
             # triclinic case (>=lammps-7Jul09)
             tilt_items = line.split()[3:]
             for i in range(3):
-                line = lines.pop(0)
+                line = lines.popleft()
                 fields = line.split()
                 lo.append(float(fields[0]))
                 hi.append(float(fields[1]))
@@ -101,7 +102,7 @@ def read_lammps_dump(fileobj, index=-1, order=True, atomsobj=Atoms):
             for (i, x) in enumerate(line.split()[2:]):
                 atom_attributes[x] = i
             for n in range(natoms):
-                line = lines.pop(0)
+                line = lines.popleft()
                 fields = line.split()
                 id.append(int(fields[atom_attributes['id']]))
                 types.append(int(fields[atom_attributes['type']]))

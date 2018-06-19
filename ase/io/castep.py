@@ -66,7 +66,7 @@ __all__ = [
     # routines for the generic io function
     'read_castep',
     'read_castep_castep',
-    'read_castep_new',
+    'read_castep_castep_old',
     'read_cell',
     'read_castep_cell',
     'read_geom',
@@ -484,8 +484,10 @@ def read_castep_cell(fd, index=None):
                     l_start = l
                     tokens, l = get_tokens(lines, l)
                     if len(tokens) == 1:
-                        print('read_cell: Warning - ignoring unit specifier in')
-                        print('%BLOCK POSITIONS_ABS(assuming Angstrom instead)')
+                        print(
+                            'read_cell: Warning - ignoring unit specifier in')
+                        print(
+                            '%BLOCK POSITIONS_ABS(assuming Angstrom instead)')
                     else:
                         l = l_start
                 # fix to be able to read initial spin assigned on the atoms
@@ -542,7 +544,7 @@ def read_castep_cell(fd, index=None):
                 # Parse the symmetry operations, create a spacegroup
                 rotations = []
                 translations = []
-                while tokens[0].upper() != '%ENDBLOCK':                    
+                while tokens[0].upper() != '%ENDBLOCK':
                     # Read in blocks of four
                     for i in range(4):
                         tokens, l = get_tokens(lines, l)
@@ -559,10 +561,10 @@ def read_castep_cell(fd, index=None):
 
                 rotations = np.sort(rotations, axis=0)
                 translations = np.sort(translations, axis=0)
-                if rotations.shape[1:] != (3,3) or \
+                if rotations.shape[1:] != (3, 3) or \
                    translations.shape[1:] != (3,):
-                    print ('Warning: could not parse SYMMETRY_OPS'
-                           ' block properly, skipping')
+                    print('Warning: could not parse SYMMETRY_OPS'
+                          ' block properly, skipping')
                     continue
 
                 # Now on to find the actual symmetry!
@@ -574,7 +576,7 @@ def read_castep_cell(fd, index=None):
                     # And test!
                     try:
                         found = np.allclose(test_symops[0], rotations) and \
-                                np.allclose(test_symops[1], translations)
+                            np.allclose(test_symops[1], translations)
                     except ValueError:
                         found = False
                     if found:
@@ -712,7 +714,57 @@ def read_castep(filename, index=None):
 
 
 def read_castep_castep(fd, index=None):
-    """Reads a .castep file and returns an atoms  object.
+    """
+    Reads a .castep file and returns an atoms  object.
+    The calculator information will be stored in the calc attribute.
+
+    There is no use of the "index" argument as of now, it is just inserted for
+    convenience to comply with the generic "read()" in ase.io
+
+    Please note that this routine will return an atom ordering as found
+    within the castep file. This means that the species will be ordered by
+    ascending atomic numbers. The atoms witin a species are ordered as given
+    in the original cell file.
+
+    Note: This routine returns a single atoms_object only, the last 
+    configuration in the file. Yet, if you want to parse an MD run, use the
+    novel function `read_md()`
+    """
+
+    from ase.calculators.castep import Castep
+
+    try:
+        calc = Castep()
+    except Exception as e:
+        # No CASTEP keywords found?
+        print('WARNING:\n{0}\nUsing fallback .castep reader...'.format(e))
+        # Fall back on the old method
+        return read_castep_castep_old(fd, index)
+
+    calc.read(castep_file=fd)
+
+    # now we trick the calculator instance such that we can savely extract
+    # energies and forces from this atom. Basically what we do is to trick the
+    # internal routine calculation_required() to always return False such that
+    # we do not need to re-run a CASTEP calculation.
+    #
+    # Probably we can solve this with a flag to the read() routine at some
+    # point, but for the moment I do not want to change too much in there.
+    calc._old_atoms = calc.atoms
+    calc._old_param = calc.param
+    calc._old_cell = calc.cell
+
+    return [calc.atoms]  # Returning in the form of a list for next()
+
+
+def read_castep_castep_old(fd, index=None):
+    """
+    DEPRECATED
+    Now replaced by ase.calculators.castep.Castep.read(). Left in for future
+    reference and backwards compatibility needs, as well as a fallback for 
+    when castep_keywords.py can't be created.
+
+    Reads a .castep file and returns an atoms  object.
     The calculator information will be stored in the calc attribute.
     If more than one SCF step is found, a list of all steps
     will be stored in the traj attribute.
@@ -1152,47 +1204,6 @@ def read_castep_md(fd, index=None, return_scalars=False,
         return data, traj
     else:
         return traj
-
-
-# not yet failsafe new read_castep routine
-
-def read_castep_new(filename, index=None):
-    """
-    This routine is supposed to replace the former read_castep() routine at
-    some point. Basically it does the same job, but it uses the read()
-    functionality from the Castep calculator class. This allows a much more
-    complete parsing and we do not have to take care of syncing the respective
-    routine with each other.
-
-    Note: This routine returns a single atoms_object only, whereas the former
-    routine, in principle, returned a list of atoms objects. Yet, if you want
-    to parse an MD run, use the novel function `read_md()`
-
-    There is no use of the "index" argument as of now, it is just inserted for
-    convenience to comply with the generic "read()" in ase.io
-
-    Please note that this routine will return an atom ordering as found
-    within the castep file. This means that the species will be ordered by
-    ascending atomic numbers. The atoms witin a species are ordered as given
-    in the original cell file.
-    """
-    from ase.calculators.castep import Castep
-
-    calc = Castep()
-    calc.read(castep_file=filename)
-
-    # now we trick the calculator instance such that we can savely extract
-    # energies and forces from this atom. Basically what we do is to trick the
-    # internal routine calculation_required() to always return False such that
-    # we do not need to re-run a CASTEP calculation.
-    #
-    # Probably we can solve this with a flag to the read() routine at some
-    # point, but for the moment I do not want to change too much in there.
-    calc._old_atoms = calc.atoms
-    calc._old_param = calc.param
-    calc._old_cell = calc.cell
-
-    return calc.atoms
 
 
 # Routines that only the calculator requires

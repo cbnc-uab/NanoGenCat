@@ -1,31 +1,60 @@
-from optparse import OptionParser
-from ase.io.formats import filetype
+import platform
+import sys
+
+from ase.utils import import_module, FileNotFoundError
+from ase.io.formats import filetype, all_formats
 from ase.io.ulm import print_ulm_info
-from ase.io.pickletrajectory import print_trajectory_info
 from ase.io.bundletrajectory import print_bundletrajectory_info
 
-description = 'Print summary of information from trajectory files.'
+
+class CLICommand:
+    short_description = 'Print information about files or system'
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument('filenames', nargs='*')
+        parser.add_argument('-v', '--verbose', action='store_true')
+
+    @staticmethod
+    def run(args):
+        if not args.filenames:
+            print_info()
+            return
+
+        n = max(len(filename) for filename in args.filenames) + 2
+        for filename in args.filenames:
+            try:
+                format = filetype(filename)
+            except FileNotFoundError:
+                format = '?'
+                description = 'No such file'
+            else:
+                if format and format in all_formats:
+                    description, code = all_formats[format]
+                else:
+                    format = '?'
+                    description = '?'
+
+            print('{:{}}{} ({})'.format(filename + ':', n,
+                                        description, format))
+            if args.verbose:
+                if format == 'traj':
+                    print_ulm_info(filename)
+                elif format == 'bundletrajectory':
+                    print_bundletrajectory_info(filename)
 
 
-def main():
-    p = OptionParser(usage='%prog file.traj [file2.traj ...]',
-                     description=description)
-
-    opts, args = p.parse_args()
-
-    if len(args) == 0:
-        p.error('Incorrect number of arguments')
-
-    for f in args:
-        ft = filetype(f)
-        print("File type of '{0}' appears to be of type '{1}'".format(f, ft))
-        if ft == 'traj':
-            print_ulm_info(f)
-        elif ft == 'trj':
-            print_trajectory_info(f)
-        elif ft == 'bundletrajectory':
-            print_bundletrajectory_info(f)
+def print_info():
+    versions = [('platform', platform.platform()),
+                ('python-' + sys.version.split()[0], sys.executable)]
+    for name in ['ase', 'numpy', 'scipy']:
+        try:
+            module = import_module(name)
+        except ImportError:
+            versions.append((name, 'no'))
         else:
-            p.error(
-                '%s is of type %s; cannot print info about this type of file' %
-                (f, ft))
+            versions.append((name + '-' + module.__version__,
+                            module.__file__.rsplit('/', 1)[0] + '/'))
+
+    for a, b in versions:
+        print('{:16}{}'.format(a, b))

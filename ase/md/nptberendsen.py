@@ -42,14 +42,14 @@ class NPTBerendsen(NVTBerendsen):
 
     """
 
-    def __init__(self, atoms, timestep, temperature, taut=0.5e3 * units.fs,
-                 pressure=1.01325, taup=1e3 * units.fs,
-                 compressibility=4.57e-5, fixcm=True,
-                 trajectory=None, logfile=None, loginterval=1):
+    def __init__(self, atoms, timestep, temperature, taut=0.5e3 *
+                 units.fs, pressure=1.01325, taup=1e3 * units.fs,
+                 compressibility=4.57e-5, fixcm=True, trajectory=None,
+                 logfile=None, loginterval=1):
 
-        NVTBerendsen.__init__(self, atoms, timestep, temperature, taut, fixcm,
-                              trajectory,
-                              logfile, loginterval)
+        NVTBerendsen.__init__(self, atoms, timestep, temperature,
+                              taut, fixcm, trajectory, logfile,
+                              loginterval)
         self.taup = taup
         self.pressure = pressure
         self.compressibility = compressibility
@@ -163,7 +163,23 @@ class Inhomogeneous_NPTBerendsen(NPTBerendsen):
     compressibility
         The compressibility of the material, water 4.57E-5 bar-1, in bar-1
 
+    mask
+        Specifies which axes participate in the barostat.  Default (1, 1, 1)
+        means that all axes participate, set any of them to zero to disable
+        the barostat in that direction.
     """
+    def __init__(self, atoms, timestep, temperature, 
+                 taut=0.5e3 * units.fs, pressure=1.01325, taup=1e3 * units.fs,
+                 compressibility=4.57e-5, mask=(1, 1, 1),
+                 fixcm=True, trajectory=None,
+                 logfile=None, loginterval=1):
+
+        NPTBerendsen.__init__(self, atoms, timestep, temperature,
+                              taut, pressure, taup, compressibility,
+                              fixcm, trajectory, logfile,
+                              loginterval)
+        self.mask = mask
+
     def scale_positions_and_cell(self):
         """ Do the Berendsen pressure coupling,
         scale the atom position and the simulation cell."""
@@ -178,10 +194,12 @@ class Inhomogeneous_NPTBerendsen(NPTBerendsen):
             raise ValueError('Cannot use a stress tensor of shape ' +
                              str(stress.shape))
         pbc = self.atoms.get_pbc()
-        scl_pressurex = 1.0 - taupscl * (self.pressure - stress[0]) * pbc[0]
-        scl_pressurey = 1.0 - taupscl * (self.pressure - stress[1]) * pbc[1]
-        scl_pressurez = 1.0 - taupscl * (self.pressure - stress[2]) * pbc[2]
-        
+        scl_pressurex = 1.0 - taupscl * (self.pressure - stress[0]) \
+                        * pbc[0] * self.mask[0]
+        scl_pressurey = 1.0 - taupscl * (self.pressure - stress[1]) \
+                        * pbc[1] * self.mask[1]
+        scl_pressurez = 1.0 - taupscl * (self.pressure - stress[2]) \
+                        * pbc[2] * self.mask[2]
         cell = self.atoms.get_cell()
         cell = np.array([scl_pressurex * cell[0],
                          scl_pressurey * cell[1],

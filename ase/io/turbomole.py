@@ -132,10 +132,8 @@ def read_turbomole_gradient(f='gradient', index=-1):
 
 
 def write_turbomole(filename, atoms):
-    """Method to write turbomole coord file
+    """ Method to write turbomole coord file
     """
-
-    import numpy as np
     from ase.constraints import FixAtoms
 
     f = filename
@@ -143,21 +141,15 @@ def write_turbomole(filename, atoms):
     coord = atoms.get_positions()
     symbols = atoms.get_chemical_symbols()
 
-    fix_index = {'indices': [], 'mask': np.zeros(len(symbols),dtype=bool)}
+    fix_indices = set()
     if atoms.constraints:
         for constr in atoms.constraints:
             if isinstance(constr, FixAtoms):
-                if 'indices' in constr.todict().keys():
-                    fix_index['indices'].extend(constr.todict()['indices'])
-                if 'mask' in constr.todict().keys():
-                    fix_index['mask'] += constr.todict()['mask']
-
-    fix_index['indices'] = np.unique(fix_index['indices'])
-    fix_index['mask'] = np.transpose(np.nonzero(fix_index['mask']))
+                fix_indices.update(constr.get_indices())
 
     fix_str = []
     for i in range(len(atoms)):
-        if i in fix_index['mask'] or i in fix_index['indices']:
+        if i in fix_indices:
             fix_str.append('f')
         else:
             fix_str.append('')

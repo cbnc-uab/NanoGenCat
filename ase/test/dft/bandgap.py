@@ -1,4 +1,4 @@
-from ase.dft.bandgap import get_band_gap
+from ase.dft.bandgap import bandgap
 
 
 class Test:
@@ -14,10 +14,12 @@ class Test:
     def get_fermi_level(self):
         return 0.5
 
+
 gaps = [2, 11, 1, 2, 11, 2]
 
 calc = Test()
 for direct in [0, 1]:
     for spin in [0, 1, None]:
-        gap, k1, k2 = get_band_gap(calc, direct, spin)
+        gap, k1, k2 = bandgap(calc, direct=direct, spin=spin)
+        print(gap, k1, k2)
         assert gap == gaps.pop(0)

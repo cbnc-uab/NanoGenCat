@@ -69,4 +69,5 @@ class LennardJones(Calculator):
                 raise PropertyNotImplementedError
 
         self.results['energy'] = energy
+        self.results['free_energy'] = energy
         self.results['forces'] = forces

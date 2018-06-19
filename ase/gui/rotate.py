@@ -24,7 +24,7 @@ class Rotate:
     def change(self):
         x, y, z = [float(a.value) for a in self.rotate]
         self.gui.axes = rotate('%fx,%fy,%fz' % (x, y, z))
-        self.gui.set_coordinates()
+        self.gui.set_frame()
 
     def update_angles(self):
         angles = irotate(self.gui.axes)

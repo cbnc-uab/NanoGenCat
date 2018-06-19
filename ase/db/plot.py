@@ -8,19 +8,19 @@ def atoms2png(atoms, filename):
         i = size.argmin()
         rotation = ['-90y', '90x', ''][i]
         size[i] = 0.0
-        scale = min(20, 20 / size.max() * 10.0)
+        scale = min(50, 200 / max(1, size.max()))
     else:
         scale = 20
         rotation = ''
     write_png(filename, atoms, show_unit_cell=1,
               rotation=rotation, scale=scale)
 
-    
+
 def dct2plot(dct, name, filename=None, show=True):
     """Create a plot from a dict.
-    
+
     Example::
-        
+
         d = {'a': [0, 1, 2],
              'b': [1.2, 1.1, 1.0],
              'abplot': {'title': 'Example',
@@ -30,7 +30,7 @@ def dct2plot(dct, name, filename=None, show=True):
                                   'style': 'o-g'}],
                         'xlabel': 'blah-blah [eV]'}}
         dct2plot(d, 'plot')
-        
+
     """
     import matplotlib.pyplot as plt
     fig = plt.figure()

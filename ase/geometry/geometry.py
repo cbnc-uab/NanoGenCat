@@ -19,7 +19,7 @@ def wrap_positions(positions, cell, pbc=True, center=(0.5, 0.5, 0.5),
 
     Returns positions changed by a multiple of the unit cell vectors to
     fit inside the space spanned by these vectors.  See also the
-    :meth:`ase.atoms.Atoms.wrap` method.
+    :meth:`ase.Atoms.wrap` method.
 
     Parameters:
 
