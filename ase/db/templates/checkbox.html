@@ -1,0 +1,34 @@
+
+<div class="form-group">
+
+    <label>
+    Filter:
+    {%if control[0] in meta %}
+      {{meta[control[0]][1]}}
+    {% else %}
+      {{control[0]}}
+    {% endif %}
+    </label>
+
+    <div class="row">
+
+        <div class="col-xs-11">
+
+            <div class="checkbox">
+                <label><input type="checkbox" id="{{control[0]}}-result" onclick="ControlFunction('CHECK', '{{control[0]}}', this.checked == true ? 1 : 0); $('#formula-result').focus();">
+                {%if control[0] in meta %}
+                  {{meta[control[0]][0]}}
+                {% else %}
+                  {{control[0]}}
+                {% endif %}
+                </label>
+            </div>
+
+        </div>
+
+        <div class="col-xs-1">
+        </div>
+
+    </div> <!--END OF ROW-->
+
+</div> <!--END OF FORM GROUP-->
