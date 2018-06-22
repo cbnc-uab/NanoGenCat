@@ -193,6 +193,13 @@ def wulff_construction(symbol, surfaces, energies, size, structure,
         """
         name = atoms_midpoint.get_chemical_formula()+"_NP0.xyz"
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+        """
+        testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
+        """
+        if check_min_coord(atoms)==True:
+            print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
+            return None
+            # raise SystemExit(0)
 
         if option == 0:
             if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
@@ -237,14 +244,21 @@ def coordination(atoms,debug,size,n_neighbour):
             if i > nearest_neighbour_av*1.5:
                 print("EXITING: there is something strange with the distances, check NP0 for size", int(size))
                 return None
+
     else:
         nearest_neighbour = [n_neighbour]*len(atoms.get_atomic_numbers())
-               
+
+
     final = False
     while final == False:
         final = True
         
         C = make_C(atoms,nearest_neighbour)
+	    # atomicNumbers=atoms.get_atomic_numbers()
+    	# atomsCoordination=zip(atomicNumbers,C)
+
+    	# # for i in atomsCoordination:
+    	# # 	if 
         
         coord=np.empty((0,5))
         for d in set(atoms.get_atomic_numbers()):
@@ -259,7 +273,7 @@ def coordination(atoms,debug,size,n_neighbour):
         if check_stoich(atoms,coord) is 'stop':
             print("Exiting because the structure is nonmetal defective")
             return None
-        
+
         E=[]
         for i in atoms.get_atomic_numbers():
             if int(i) in nonMetalsNumbers:
@@ -270,13 +284,15 @@ def coordination(atoms,debug,size,n_neighbour):
                         E.append((int(n[2]))/2)
 
         D = []
-        for i,j in enumerate(C):
-            if j < E[i]:
-                D.append(i)
-        for i,j in enumerate(D):
-            atoms.pop(j-i)
-            nearest_neighbour.pop(j-i)
-            C = np.delete(C,j-i)
+        print('atoms pre pop\n',atoms)
+        # for i,j in enumerate(C):
+        #     if j < E[i]:
+        #         D.append(i)
+        # for i,j in enumerate(D):
+        #     atoms.pop(j-i)
+        #     nearest_neighbour.pop(j-i)
+        #     C = np.delete(C,j-i)
+        print('atoms post pop\n',atoms)
         check_stoich(atoms)
         
         atoms_only_metal = copy.deepcopy(atoms)
@@ -536,3 +552,40 @@ def make_F(atoms,C,nearest_neighbour,debug):
         time_F1 = time.time()
         print("Total time to calculate combinations", round(time_F1-time_F0,5)," s")
     return K
+def check_min_coord(atoms):
+    """
+    function that identify if the nanoparticle contain lower coordinated metals
+    """
+    nearest_neighbour= []
+    indexes=[]
+
+    for i in range(len(atoms.get_atomic_numbers())):
+        nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
+
+    # print (nearest_neighbour)
+
+    C=make_C(atoms,nearest_neighbour)
+    atomIndex=[atom.index for atom in atoms]
+    for i in atomIndex:
+        indexes.append([i,C[i]])
+    """ 
+    # Get the metals and non metals
+    # """
+    # # nonMetalAtom=[atom.index for atom in atoms if atom.symbol in nonMetals]
+    metalAtom=[atom.index for atom in atoms if atom.symbol not in nonMetals]
+
+    # """
+    # Get the coordinations for metals and non metals
+    # """
+    # # nonMetalsCoordinations=[i[1] for i in coordinations if i[0] in nonMetalAtom]
+    metalsCoordinations=[i[1] for i in indexes if i[0] in metalAtom]
+
+    maxCoord=np.amax(metalsCoordinations)
+
+    for i in metalsCoordinations:
+        if i < maxCoord/2:
+            return True
+        else:
+            return False 
+
+
