@@ -11,13 +11,20 @@ from random import shuffle
 import copy
 import os, time
 from ase.neighborlist import NeighborList
-#from ase import Atom, Atoms
+from ase.atoms import symbols2numbers
 
 delta = 1e-10
 _debug = False
 
+nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
+                  'Si', 'P', 'S', 'Cl', 'Ar',
+                  'Ge', 'As', 'Se', 'Br', 'Kr',
+                  'Sb', 'Te', 'I', 'Xe',
+                  'Po', 'At', 'Rn']
+nonMetalsNumbers=symbols2numbers(nonMetals)
 
-def wulff_construction(symbol, surfaces, energies, size, structure,
+
+def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                        rounding='closest', latticeconstant=None, 
                        debug=False, maxiter=100,center=[0.,0.,0.],option=0):
     """Create a cluster using the Wulff construction.
@@ -235,8 +242,15 @@ def coordination(atoms,debug,size,n_neighbour):
     final = False
     while final == False:
         final = True
-        
+        """
+        C contains the coordination per atom ej. C=[2,1,3]
+        means that atom 0 have coordination 2,
+        the atom 1 have coordination 1 and
+        atom 2 have coordination 3
+        """
         C = make_C(atoms,nearest_neighbour)
+        print ('C')
+        print (C)
         
         coord=np.empty((0,5))
         for d in set(atoms.get_atomic_numbers()):
@@ -246,35 +260,52 @@ def coordination(atoms,debug,size,n_neighbour):
                         chemical_symbols[d]])
             coord = np.append(coord,[a],axis=0)
         coord = coord[coord[:,4].argsort()]
-        print("coord \n",coord)
+        # print("coord \n",coord)
         
         if check_stoich(atoms,coord) is 'stop':
-            print("Exiting because the structure is oxygen defective")
+            print("Exiting because the structure is non metal defective")
             return None
-        
+        """
+        E put 1 if the are not metal atom and the integer close
+        to the half of the coordination (WHY??)
+        """
         E=[]
         for i in atoms.get_atomic_numbers():
-            if int(i) == (8 or 16):
+            if int(i) in nonMetalsNumbers:
                 E.append(1)
+
             else:
                 for n in coord:
+                    # print (n,'awuuuuuuu')
                     if i == int(n[0]):
                         E.append((int(n[2]))/2)
+        # print('E')
+        # print(E)
+
 
         D = []
         for i,j in enumerate(C):
+            # print (j)
             if j < E[i]:
+                # print('j,E[i]\n',j,E[i])
                 D.append(i)
-        for i,j in enumerate(D):
-            atoms.pop(j-i)
-            nearest_neighbour.pop(j-i)
-            C = np.delete(C,j-i)
+        # print('D')
+        # print(D)
+        print('atoms prepop\n',atoms)
+
+        # for i,j in enumerate(D):
+        #     atoms.pop(j-i)
+        #     nearest_neighbour.pop(j-i)
+        #     C = np.delete(C,j-i)
+
+        print('atoms post pop\n',atoms)
         check_stoich(atoms)
         
         atoms_only_metal = copy.deepcopy(atoms)
         
-        del atoms_only_metal[[atom.index for atom in atoms if atom.symbol=='O']]
-        del atoms_only_metal[[atom.index for atom in atoms if atom.symbol=='S']]
+        del atoms_only_metal[[atom.index for atom in atoms if atom.symbol in nonMetals ]]
+        # del atoms_only_metal[[atom.index for atom in atoms if atom.symbol=='S']]
+        # del atoms_only_metal[[atom.index for atom in atoms if atom.symbol=='S']]
         center_of_metal = atoms_only_metal.get_center_of_mass()
         
         S = None
@@ -311,10 +342,10 @@ def coordination(atoms,debug,size,n_neighbour):
                             C1 = np.delete(C1,k-tot)
                             E1 = np.delete(E1,k-tot)
                             tot += 1
-                        atoms_only_oxygen = copy.deepcopy(atoms1)
-                        del atoms_only_oxygen[[atom.index for atom in atoms1 if atom.symbol!='O']]
-                        center_of_oxygen = atoms_only_oxygen.get_center_of_mass()
-                        dev = np.std(abs(center_of_metal-atoms_only_oxygen.get_center_of_mass()))
+                        atoms_non_metal = copy.deepcopy(atoms1)
+                        del atoms_non_metal[[atom.index for atom in atoms1 if atom.symbol not in nonMetals]]
+                        center_of_non_metal = atoms_non_metal.get_center_of_mass()
+                        dev = np.std(abs(center_of_metal-center_of_non_metal))
                         dev_p = float("{:.7f}".format(round(float(dev*100),7)))
                         """
                         THIS WRITE IS FOR TESTING PURPOSES
@@ -365,11 +396,11 @@ def coordination(atoms,debug,size,n_neighbour):
         if S == None:
             if debug == 1:
                 print("It did't go into the coordination loop, check why")
-            atoms_only_oxygen = copy.deepcopy(atoms)
-            del atoms_only_oxygen[[atom.index for atom in atoms if atom.symbol!='O']]
-            center_of_oxygen = atoms_only_oxygen.get_center_of_mass()
+            atoms_non_metal = copy.deepcopy(atoms)
+            del atoms_non_metal[[atom.index for atom in atoms if atom.symbol not in nonMetals]]
+            center_non_metal = atoms_non_metal.get_center_of_mass()
             
-            dev_s = np.std(abs(center_of_metal-center_of_oxygen))
+            dev_s = np.std(abs(center_of_metal-center_of_non_metal))
             dev_p = float("{:.7f}".format(round(float(dev_s*100),7)))
 
         else:
@@ -392,37 +423,80 @@ def coordination(atoms,debug,size,n_neighbour):
     
 
 def check_stoich(atoms,coord=None):
+    # print (atoms)
+    # print('check_stoich')
+    ##contar cuantos hay y dividirlo por formula unit
+    non_Metals=len([atom.index for atom in atoms if atom.symbol in nonMetals])
+    metals=len([atom.index for atom in atoms if atom.symbol not in nonMetals])
+    # print (metals,non_Metals,'metals,non_Metals')
+
     stoich_unit = np.array(findall('\d+',atoms.unit_cell_formula))
-    stoich_unit = stoich_unit.astype(np.int)
+    stoich_unit = np.sort(stoich_unit.astype(np.int))
+    
+    # print (stoich_unit,'stoich_unit')
     divisor_unit = GCD(stoich_unit[0],stoich_unit[1])
     unit_formula_unit = stoich_unit/divisor_unit
+
+    # print (divisor_unit,'divisor_unit')
     stoich_cl = np.array(findall('\d+',atoms.get_chemical_formula()))
     stoich_cl = stoich_cl.astype(np.int)
+    stoich_cl = np.sort(stoich_cl.astype(np.int))
+    # # print('stoich_unit',stoich_unit)
+    # # print('divisor_unit',divisor_unit)
+    # # print('unit_formula_unit',unit_formula_unit)
+    # # print('stoich_cl',stoich_cl)
+    # # stoich_cl = np.sort(stoich_cl.astype(np.int))
+    # # print('stoich_clsortteed',stoich_cl)
+
     a = 0
     b = 0
+    # print (coord)
     if coord is not None:
-        for i in range(len(stoich_cl)):
-            if coord[i][4] == 'S' or coord[i][4] == 'O':
-                a = stoich_cl[i]/unit_formula_unit[i]
-            else:
-                b = stoich_cl[i]/unit_formula_unit[i]
+    # for i in range(len(stoich_cl)):
+        b=non_Metals/unit_formula_unit[1]
+        a=metals/unit_formula_unit[0]
+        # print (a,b,'a,b:')
         if (b == 0) or (a == 0):
             return 'stop'
-        if b > a:
+        if b < a:
             return 'stop'
-    atoms.excess = None
     if stoich_cl.size != unit_formula_unit.size:
         atoms.stoichiometry = False
     else:
-        divisor_cl = GCD(stoich_cl[0],stoich_cl[1])
+        divisor_cl = GCD(non_Metals,metals)
+        # print(divisor_cl,'divisor_cl')
         unit_formula_cluster = stoich_cl/divisor_cl
         if sum(abs((unit_formula_cluster - unit_formula_unit))) == 0:
             atoms.stoichiometry = True
+            # print('hiirreeee')
         else:
             atoms.stoichiometry = False
             t= np.argmin((stoich_cl/np.amin(stoich_cl))/unit_formula_unit)
             ideal_cl = stoich_cl[t]//unit_formula_unit[t] * unit_formula_unit
             atoms.excess = stoich_cl - ideal_cl
+            # print('there')
+    ##-----------------------------------------------
+    #         if coord[i][4] in nonMetals:
+    #             a = stoich_cl[i]/unit_formula_unit[i]
+    #         else:
+    #             b = stoich_cl[i]/unit_formula_unit[i]
+    #     if (b == 0) or (a == 0):
+    #         return 'stop'
+    #     if b > a:
+    #         return 'stop'
+    # atoms.excess = None
+    # if stoich_cl.size != unit_formula_unit.size:
+    #     atoms.stoichiometry = False
+    # else:
+    #     divisor_cl = GCD(stoich_cl[0],stoich_cl[1])
+    #     unit_formula_cluster = stoich_cl/divisor_cl
+    #     if sum(abs((unit_formula_cluster - unit_formula_unit))) == 0:
+    #         atoms.stoichiometry = True
+    #     else:
+    #         atoms.stoichiometry = False
+    #         t= np.argmin((stoich_cl/np.amin(stoich_cl))/unit_formula_unit)
+    #         ideal_cl = stoich_cl[t]//unit_formula_unit[t] * unit_formula_unit
+    #         atoms.excess = stoich_cl - ideal_cl
   
 def make_C(atoms,nearest_neighbour):
     C=[]
