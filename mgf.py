@@ -16,10 +16,11 @@ write('crystalShape',mgf,format='xyz')
 
 surfaces = [(1,1,0),(1,0,0),(1,0,1),(0,0,1),(1,1,1)]
 esurf=[0.67,0.76,0.82,1.07,1.16]
-for size in np.arange(20,30,1):
-# size= 16.
+# for size in np.arange(20,30,1):
+size= 100.
 # atoms = bcn_wulff_construction(mgf,surfaces,esurf,float(size),'ext',rounding='above',debug=1)
-    atoms = wulff_construction(mgf,surfaces,esurf,float(size),'ext',rounding='above',debug=1)
+# atoms = wulff_construction(mgf,surfaces,esurf,float(size),'ext',rounding='above',debug=1)
+atoms = wulff_construction(mgf,surfaces,esurf,float(size),'ext',rounding='above')
 
 exit()
 # #

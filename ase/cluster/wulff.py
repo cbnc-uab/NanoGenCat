@@ -196,10 +196,10 @@ def wulff_construction(symbol, surfaces, energies, size, structure,
         """
         testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
         """
-        if check_min_coord(atoms)==True:
-            print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
-            return None
-            # raise SystemExit(0)
+        # if check_min_coord(atoms)==True:
+        #     print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
+        #     return None
+        #     # raise SystemExit(0)
 
         if option == 0:
             if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
@@ -284,15 +284,15 @@ def coordination(atoms,debug,size,n_neighbour):
                         E.append((int(n[2]))/2)
 
         D = []
-        print('atoms pre pop\n',atoms)
-        # for i,j in enumerate(C):
-        #     if j < E[i]:
-        #         D.append(i)
-        # for i,j in enumerate(D):
-        #     atoms.pop(j-i)
-        #     nearest_neighbour.pop(j-i)
-        #     C = np.delete(C,j-i)
-        print('atoms post pop\n',atoms)
+        # print('atoms pre pop\n',atoms)
+        for i,j in enumerate(C):
+            if j < E[i]:
+                D.append(i)
+        for i,j in enumerate(D):
+            atoms.pop(j-i)
+            nearest_neighbour.pop(j-i)
+            C = np.delete(C,j-i)
+        # print('atoms post pop\n',atoms)
         check_stoich(atoms)
         
         atoms_only_metal = copy.deepcopy(atoms)
