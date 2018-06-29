@@ -5,14 +5,20 @@ from ase.utils import basestring
 from re import findall
 from ase.cluster.factory import GCD
 #from ase.visualize import view
-from ase.io import write
+from ase.io import write,read
 from ase.data import chemical_symbols
 from random import shuffle
 import copy
 import os, time
 from ase.neighborlist import NeighborList
-#from ase import Atom, Atoms
+# from ase import Atom, Atoms
 from ase.atoms import symbols2numbers
+from scipy.sparse.linalg import eigsh
+import glob
+from itertools import combinations
+from os import remove
+
+from math import sqrt
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -254,11 +260,11 @@ def coordination(atoms,debug,size,n_neighbour):
         final = True
         
         C = make_C(atoms,nearest_neighbour)
-	    # atomicNumbers=atoms.get_atomic_numbers()
-    	# atomsCoordination=zip(atomicNumbers,C)
+        # atomicNumbers=atoms.get_atomic_numbers()
+        # atomsCoordination=zip(atomicNumbers,C)
 
-    	# # for i in atomsCoordination:
-    	# # 	if 
+        # # for i in atomsCoordination:
+        # #     if 
         
         coord=np.empty((0,5))
         for d in set(atoms.get_atomic_numbers()):
@@ -351,10 +357,11 @@ def coordination(atoms,debug,size,n_neighbour):
                             write(name,atoms1,format='xyz',columns=['symbols', 'positions'])
                         """
                         if debug == True:
-                            comment = ("DC = "+str(dev*100)+' Lattice="' +
-                                       ' '.join([str(x) for x in np.reshape(atoms.cell.T,
-                                                        9, order='F')]) +
-                                       '"')
+                            # comment = ("DC = "+str(dev*100)+' Lattice="' +
+                            #            ' '.join([str(x) for x in np.reshape(atoms.cell.T,
+                            #                             9, order='F')]) +
+                            #            '"')
+                            comment = ("DC = "+str(dev*100))
                             name = atoms1.get_chemical_formula()+'_'+str(dev_p)+".xyz"
                             write(name,atoms1,format='xyz',comment=comment,columns=['symbols', 'positions'])
                         if dev < dev_s:
@@ -403,16 +410,24 @@ def coordination(atoms,debug,size,n_neighbour):
             if debug == 1:
                 print(len(S)," different combinations were tried resulting in", 
                       len([name for name in os.listdir('.') if os.path.isfile(name)])-1,"final NPs")
+                """
+                Identify the equal models with sprint coordinates
+                """
+                # print (os.listdir('.'))
+                singulizator(glob.glob('*.xyz'))
+
+
         dev_p = float("{:.7f}".format(round(float(dev_s*100),7)))
         name = atoms.get_chemical_formula()+'_NPf_'+str(dev_p)+".xyz"
-        comment = ("DC = "+ str(dev_s*100) +
-               str(np.reshape(coord_final,(1,4))) +
-               ' Lattice="' +
-               'a= '+str(atoms.cell[0,0])+
-               ' b= '+str(atoms.cell[1,1])+
-               ' c= '+str(atoms.cell[2,2]) +
-               '"')
-        
+        # comment = ("DC = "+ str(dev_s*100) +
+        #        str(np.reshape(coord_final,(1,4))) +
+        #        ' Lattice="' +
+        #        'a= '+str(atoms.cell[0,0])+
+        #        ' b= '+str(atoms.cell[1,1])+
+        #        ' c= '+str(atoms.cell[2,2]) +
+        #        '"')
+        comment = ("DC = "+ str(dev_s*100)) 
+
         print("Final NP", atoms.get_chemical_formula(), "| DC =", dev_p, "| coord", coord_final[:,0], coord_final[:,1])
         write(name,atoms,format='xyz',comment=comment,columns=['symbols', 'positions'])
         return atoms
@@ -589,3 +604,131 @@ def check_min_coord(atoms):
             return False 
 
 
+def singulizator(nanoList):
+
+    print('Enter in the singulizator')
+    time_F0 = time.time()
+
+
+    sprintCoordinates=[]
+    results=[]
+    for i in nanoList:
+        # print (i)
+        sprintCoordinates.append(sprint(i))
+        # break
+    for c in combinations(range(len(sprintCoordinates)),2):
+    #     # print (c[0],c[1],'c')
+        if compare(sprintCoordinates[c[0]],sprintCoordinates[c[1]]) ==True:
+            results.append(c)
+
+    # print(results)
+    """
+    keeping in mind that a repeated structure can appear
+    on both columns, I just take the first
+    """
+    for i in results:
+        print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
+
+    
+    results1=[i[0] for i in results]
+    # print (results1)
+    toRemove=list(set(results1))
+
+    for i in toRemove:
+        print(i)
+        # print('NP '+nanoList[results[i][0]]+' and '+nanoList[results[i][1]]+ ' are equal')
+        # print('Removing '+nanoList[results[i][0]])
+        remove(nanoList[i])
+
+    time_F1 = time.time()
+    print("Total time singulizator", round(time_F1-time_F0,5)," s")
+    print('Removed NPs:',len(toRemove))
+    # print('reducing')
+    # np.savetxt('sprints',sprintCoordinates,fmt='%s')
+    # print (len(sprintCoordinates))
+
+def sprint(nano):
+    """
+    Calculate the sprint coordinates matrix for a nanoparticle.
+
+    First calculate the coordination, then build the adjacency
+    matrix. To calculate the coordination firstly generates a 
+    nearest_neighbour cutoffs for NeighborList.
+
+    The C list contains the atom and the binding atoms indices.
+    From C list we build the adjMatrix. The idea is traslate from
+    coordination list to adjacency matrix.
+
+    Then, calculate the sprint coordinates
+    """
+    atoms=read(nano,format='xyz')
+    atoms.center(vacuum=20)
+    adjacencyName=nano+'dat'
+
+    # print (nano)
+    nearest_neighbour=[]
+    C=[]
+
+    for i in range(len(atoms.get_atomic_numbers())):
+        nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
+
+    half_nn = [x /2.5 for x in nearest_neighbour]
+    nl = NeighborList(half_nn,self_interaction=False,bothways=True)
+    nl.update(atoms)
+
+    for i in range(len(atoms.get_atomic_numbers())):
+        indices, offsets = nl.get_neighbors(i)
+        C.append([i,indices])
+        # print(i,indices) 
+
+    m=len(C)
+    adjMatrix=np.zeros((m,m))
+    for i in C:
+        for j in i[1]:
+            adjMatrix[i[0],j]=1.0
+    # np.savetxt('adjMatrix',adjMatrix,newline='\n',fmt='%.1f')
+
+    """
+    Diagonal elements defined by 1+zi/10 if i is non metal
+    and 1+zi/100 if is metal
+    """
+    numbers=symbols2numbers(atoms.get_atomic_numbers())
+    # print(numbers)
+    for i in range(len(adjMatrix)):
+        if numbers[i] <=99 :
+            adjMatrix[i][i]=1+float(numbers[i])/10
+        else:
+            adjMatrix[i][i]=1+float(numbers[i])/100
+
+    # np.savetxt(adjacencyName,adjMatrix,newline='\n',fmt='%.3f')
+
+    val,vec=eigsh(adjMatrix,k=1,which='LA')
+    # print(val,'val')
+    # print(vec)
+    
+    """
+    Sorting and using positive eigenvector values (by definition)
+    """
+
+    # vec=sorted(vec)
+    vecAbs=[abs(i)for i in vec]
+    vecAbsSort=sorted(vecAbs)
+    s=[sqrt(len(adjMatrix))*val[0]*i[0] for i in vecAbsSort]
+    sFormated=['{:.3f}'.format(i) for i in s]
+    # print (s)
+    # print(sFormated)
+    # print (len(s))
+    return sFormated
+
+def compare(sprint0,sprint1):
+    """
+    compare the SPRINT coordinates between two nanoparticles.
+    If two NP has the same sprint coordinates, both are equally
+    connected.
+    """
+    # print(sprint0,'\n',sprint1) 
+    # diff=(list(set(sprint0) - set(sprint1)))
+    if len(sprint0)==len(sprint1):
+        diff=(list(set(sprint0) - set(sprint1)))
+        if len(diff)==0:
+            return True
