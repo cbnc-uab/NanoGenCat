@@ -4,10 +4,10 @@ from ase.utils import basestring
 #from itertools import product
 from re import findall
 from ase.cluster.factory import GCD
-#from ase.visualize import view
+from ase.visualize import view
 from ase.io import write,read
 from ase.data import chemical_symbols
-from random import shuffle
+from random import shuffle,choice
 import copy
 import os, time
 from ase.neighborlist import NeighborList
@@ -216,7 +216,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             os.chdir('../')
             return atoms_midpoint
         elif option == 1:
-            print("Good Luck Danilo!")
+            """
+            Danilo
+            """
+            check_stoich(atoms_midpoint)
+            reduceNano(atoms_midpoint)
+
+
+
     else:
         print("Please give the NP size as an int")
 
@@ -288,9 +295,9 @@ def coordination(atoms,debug,size,n_neighbour):
                 for n in coord:
                     if i == int(n[0]):
                         E.append((int(n[2]))/2)
-
+        print('E',E)
         D = []
-        # print('atoms pre pop\n',atoms)
+        print('atoms pre pop\n',atoms.get_chemical_formula())
         for i,j in enumerate(C):
             if j < E[i]:
                 D.append(i)
@@ -298,7 +305,7 @@ def coordination(atoms,debug,size,n_neighbour):
             atoms.pop(j-i)
             nearest_neighbour.pop(j-i)
             C = np.delete(C,j-i)
-        # print('atoms post pop\n',atoms)
+        print('atoms post pop\n',atoms.get_chemical_formula())
         check_stoich(atoms)
         
         atoms_only_metal = copy.deepcopy(atoms)
@@ -316,10 +323,34 @@ def coordination(atoms,debug,size,n_neighbour):
         if debug == 1:
             print("Atoms to be removed",atoms.excess)
         if atoms.excess is not None:
+            """
+            atoms.excess is an atribute vector that contains the atom excess to be 
+            stoichiometric. e.g. a (IrO2)33 initial nano contains 33 Ir and 80 O atoms
+            so to be stoichiometric we have to remove 18 O, this is representated
+            by the vector atom.excess [0 14].
+            From here until final the stuff is:
+            Calculate coordination aka C=make_C
+            Generate the an array of shufled list aka S=make_F
+            For every element of S recover j non metal atoms.
+            in this case 14 metal atoms, the first 14 in tmp_l.
+
+            Kepping in mind that eliminating atoms change the numeration order
+            is mandatory to include the changes, this is done by tot.
+            in the first elimination, tot =0, so eliminate the atom k
+            in the second cycle, tot=1, so eliminate the k-1 atom, that 
+            is equivalent to the k atom in the initial atoms object.
+
+            """
+            print('int(coord[i,0])',int(coord[0,0]))
+            # time.sleep(10)
             for i,j in enumerate(atoms.excess):
+                # print(i,j,'i,j')
                 if j > 0:
                     C = make_C(atoms,nearest_neighbour)
                     S = make_F(atoms,C,nearest_neighbour,debug)
+                    # print('s\n',S)
+                    # S =make_F_Test(atoms,coordination_testing)
+                    # break
                     for h in range(len(S)):
                         atoms1 = copy.deepcopy(atoms)
                         C1 = copy.deepcopy(C)
@@ -335,14 +366,17 @@ def coordination(atoms,debug,size,n_neighbour):
                                 if atoms1.get_atomic_numbers()[m] == int(coord[i,0]):
                                     tmp_l.append(m)
                                     ind = ind + 1
+                        # print('tmp_l',tmp_l)
                         tot = 0
                         for k in sorted(tmp_l):
+                            # print('tot',tot)
                             atoms1.pop(k-tot)
                             nearest_neighbour1.pop(k-tot)
                             
                             C1 = np.delete(C1,k-tot)
                             E1 = np.delete(E1,k-tot)
                             tot += 1
+                        # time.sleep(10)
                         atoms_only_oxygen = copy.deepcopy(atoms1)
                         del atoms_only_oxygen[[atom.index for atom in atoms1 if atom.symbol not in nonMetals]]
                         center_of_oxygen = atoms_only_oxygen.get_center_of_mass()
@@ -476,7 +510,7 @@ def make_C(atoms,nearest_neighbour):
     for i in range(len(atoms.get_atomic_numbers())):
         indices, offsets = nl.get_neighbors(i)
         C.append(len(indices))
-
+    # print('C\n',C)
     return C
     
 
@@ -488,28 +522,41 @@ def make_F(atoms,C,nearest_neighbour,debug):
     The other values are set =len(C) for the other oxygen atoms and
     =len(C)+1 for the other atom types
     """
+    # print('c',C)
+    # for i,j in enumerate(C):
+        # print('element,index, coordination ',atoms[i].symbol,i,j)
     if debug == 1:
         print("Start calculating combinations")
         time_F0 = time.time()
+    # F_test=make_F_Test(atoms)
+    # print('F_test\n',F_test)
+
     F=[]
     half_nn = [x /2.5 for x in nearest_neighbour]
     nl = NeighborList(half_nn,self_interaction=False,bothways=True)
     nl.update(atoms)
     for i in range(len(C)):
             if atoms.get_atomic_numbers()[i] in nonMetalsNumbers:
+                # print(atoms.get_atomic_numbers()[i],i,'holi')
             # if atoms.get_atomic_numbers()[i] == (8 or 16):
                 if C[i] == 1:
+                    print('i',i)
                     indices, offsets = nl.get_neighbors(i)
+                    # print(indices,i,'indices,i')
                     if len(indices) == 1:
                         F.append(indices[0])
+                        # print(i,indices[0],'join')
                     else:
-                        print("There is a problema....",indices)
-                        exit()
+                        print("There is a problema....",indices,C[i])
+                        # exit()
                 else:
+
                     F.append(len(C))
             else:
                 F.append(len(C)+1)
-
+    # print('aquiiii')
+    print('len(F)\n',len(F))
+    print('F\n',F)
     """
     A nex coordination list is created by adding the values 10 and 11
     for the higher coordination oxygen atoms and other atom types, respectively.
@@ -519,12 +566,17 @@ def make_F(atoms,C,nearest_neighbour,debug):
     c = list(C)
     c.append(11)
     c.append(12)
+    print('len(c)\n',len(c),'\n',c)
 
     K=[]
     n_tests = 1000
     for i in range(n_tests):
         K.append([])
+        # break
+    # print ('K\n',K)
     """
+    l=list of allowed coordinations
+
     NOT SURE THIS IS STILL VALID
     In the first part of the loop I generate the following lists:
     g: it is a list of indices grouping together the atoms
@@ -537,6 +589,7 @@ def make_F(atoms,C,nearest_neighbour,debug):
     they are 5 coordinated atoms and should go after.
     """
     l = [10,9,8,7,6,5,4,3,2,1,11,12]
+
     F_safe = copy.deepcopy(F)
     c_safe = copy.deepcopy(c)
     for y in range(n_tests):
@@ -544,12 +597,17 @@ def make_F(atoms,C,nearest_neighbour,debug):
         F = copy.deepcopy(F_safe)
         c = copy.deepcopy(c_safe)
         for j in l:
+            # print('j ',j)
             g = []
             r = list(range(len(F)))
+            # print(len(r),'lenr')
             shuffle(r)
+            # print(r)
             for i in r:
                 if F[i] != None:
                     if c[F[i]] == j:
+                        # print('c[F[i]]',c[F[i]],i)
+                        # time.sleep(3)
                         if j < 11:
                             if F[i] not in g:
                                 g.append(F[i])
@@ -561,6 +619,10 @@ def make_F(atoms,C,nearest_neighbour,debug):
                             g.append(F[i])
                             a.append(i)
                             F[i] = None
+                # print (i,j,c[F[i]])
+                time.sleep(5)
+        # print('a',a)
+        # print('g',g)
         K[y].extend(a)
 
     if debug == 1:
@@ -732,3 +794,111 @@ def compare(sprint0,sprint1):
         diff=(list(set(sprint0) - set(sprint1)))
         if len(diff)==0:
             return True
+def coordination_testing(atoms):
+    print('entre a coordination_testing\n')
+    atoms.center(vacuum=10)
+    nearest_neighbour=[]
+    for i in range(len(atoms)):
+        nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
+
+
+    C=[]
+    half_nn = [x /2.5 for x in nearest_neighbour]
+    nl = NeighborList(half_nn,self_interaction=False,bothways=True)
+    nl.update(atoms)
+    for i in range(len(atoms.get_atomic_numbers())):
+        indices, offsets = nl.get_neighbors(i)
+        C.append(len(indices))
+    return C
+def reduceNano(atoms):
+    time_F0 = time.time()
+    excess=42
+    print(excess)
+
+    nearest_neighbour=[]
+    for i in range(len(atoms)):
+        nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
+
+    C=[]
+    half_nn = [x /2.5 for x in nearest_neighbour]
+    nl = NeighborList(half_nn,self_interaction=False,bothways=True)
+    nl.update(atoms)
+    for i in range(len(atoms.get_atomic_numbers())):
+        indices, offsets = nl.get_neighbors(i)
+        C.append([i,indices])
+
+    """
+    three lists: singly, that contains the singly coordinated atoms
+    father, that contains the heavy metal atoms which singly 
+    coordinated atoms are bounded
+    coordFather that is the coordination of bounded 
+    """
+    singly=[i for i in range(len(atoms)) if len(C[i][1])==1]
+
+    father=list(set([C[i][1][0] for i in singly]))
+    father_bak=copy.deepcopy(father)
+
+    coordFather=[len(C[i][1]) for i in father]
+    coordFather_bak=copy.deepcopy(coordFather)
+
+    c_bak=copy.deepcopy(C)
+    """
+    allowedCoordination must to be generalized
+    the upper limit is half of maximum coordination -1
+    and the inferior limit is the maximum
+    coordination. i.e. for fluorite, the maximum coordination
+    is 8, so using list(range(8,3,-1)) we obtain the list
+    [8, 7, 6, 5, 4] that is fully functional.
+    """
+    maxCord=int(np.max(coordFather))
+    print (maxCord)
+    mid=int(0.5*maxCord-1)
+
+    allowedCoordination=list(range(maxCord,mid,-1))
+    # print(allowedCoordination)
+
+
+    replicas=1000
+    """
+    To have a large amounth of conformation we generate
+    1000 replicas for removing atoms. 
+    To make the selection random we use shuffle and 
+    choice. 
+    The loop basically select the metal
+    atom of higest coordination,aka father, identify the singly coordinated 
+    atoms bounded to it and chose one randomly.
+    Then append the selected and reduce the coordination of father.
+    the process is repeated until the len of remove are equal to 
+    excess.
+
+    """
+    S=[]
+
+    for r in range(replicas):
+        toRemove=[]
+        coordFather=copy.deepcopy(coordFather_bak)
+        for i in allowedCoordination:
+            shuffle(father)
+            for n,j in enumerate(father):
+                if coordFather[n]==i:
+                    singlyFather=[k for k in C[j][1] if k in singly]
+                    chosen=choice(singlyFather)
+                    if len(toRemove)==excess:
+                        break
+                    toRemove.append(chosen)
+                    coordFather[n]=coordFather[n]-1
+        S.append(sorted(toRemove))
+
+    """
+    at the end we get an array S with 1000 list of atoms
+    to be removed
+    """
+    for n,s in enumerate(S):
+        nanoparticle=copy.deepcopy(atoms)
+        name=str(n)+'.xyz'
+        s.sort(reverse=True)
+        del nanoparticle[[s]]
+        write(name,nanoparticle,format='xyz')
+
+    time_F1 = time.time()
+    print("Total time reduceNano", round(time_F1-time_F0,5)," s")

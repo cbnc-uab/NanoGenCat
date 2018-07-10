@@ -17,6 +17,6 @@ surfaces = [(1,1,0),(0,1,1),(1,0,0),(0,0,1)]
 esurf=[1.0574,1.2016,1.314,1.586]
 # for size in np.arange(20,30,1):
 size= 14.
-atoms = bcn_wulff_construction(rutile,surfaces,esurf,float(size),'ext',rounding='above',debug=1)
+atoms = bcn_wulff_construction(rutile,surfaces,esurf,float(size),'ext',rounding='above',debug=1,option=1)
 
 exit()
