@@ -218,12 +218,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif option == 1:
             """
             Danilo
-            """
-            check_stoich(atoms_midpoint)
-            reduceNano(atoms_midpoint)
-
-
-
+            """ 
+            reduceNano(atoms_midpoint,size)
+            os.chdir('../')
     else:
         print("Please give the NP size as an int")
 
@@ -620,7 +617,7 @@ def make_F(atoms,C,nearest_neighbour,debug):
                             a.append(i)
                             F[i] = None
                 # print (i,j,c[F[i]])
-                time.sleep(5)
+                # time.sleep(5)
         # print('a',a)
         # print('g',g)
         K[y].extend(a)
@@ -810,14 +807,52 @@ def coordination_testing(atoms):
         indices, offsets = nl.get_neighbors(i)
         C.append(len(indices))
     return C
-def reduceNano(atoms):
+def reduceNano(atoms,size):
+    """
+    function that make the nano stoichiometrically
+    """
     time_F0 = time.time()
-    excess=42
-    print(excess)
+    check_stoich(atoms)
+    
+    newpath = './{}'.format(str(int(size)))
+    if not os.path.exists(newpath):
+        os.makedirs(newpath)
+    os.chdir(newpath)
 
+    name=atoms.get_chemical_formula()+'_NP0.xyz'
+    write(name,atoms,format='xyz',columns=['symbols', 'positions'])
+
+    """
+    Check the nano 0 quality
+    """
     nearest_neighbour=[]
     for i in range(len(atoms)):
         nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
+
+    C = make_C(atoms,nearest_neighbour)
+    
+    coord=np.empty((0,5))
+    for d in set(atoms.get_atomic_numbers()):
+        a=np.array([d, np.mean([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
+                    np.max([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
+                    np.min([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
+                    chemical_symbols[d]])
+        coord = np.append(coord,[a],axis=0)
+    coord = coord[coord[:,4].argsort()]
+    # print("coord \n",coord)
+    
+    if check_stoich(atoms,coord) is 'stop':
+        print("Exiting because the structure is nonmetal defective")
+        return None
+
+    """
+    If the nano pass the test, the program can advance.
+    """
+
+    for i in atoms.excess:
+        if i !=0:
+            excess=i
+    print(excess)
 
     C=[]
     half_nn = [x /2.5 for x in nearest_neighbour]
@@ -828,12 +863,16 @@ def reduceNano(atoms):
         C.append([i,indices])
 
     """
-    three lists: singly, that contains the singly coordinated atoms
+    4 lists: singly, that contains the singly coordinated atoms
     father, that contains the heavy metal atoms which singly 
     coordinated atoms are bounded
-    coordFather that is the coordination of bounded 
+    coordFather that is the coordination of bounded
+    fatherFull that is the combination of father and their coordination.
+
     """
+
     singly=[i for i in range(len(atoms)) if len(C[i][1])==1]
+    singly_bak=copy.deepcopy(singly)
 
     father=list(set([C[i][1][0] for i in singly]))
     father_bak=copy.deepcopy(father)
@@ -841,7 +880,10 @@ def reduceNano(atoms):
     coordFather=[len(C[i][1]) for i in father]
     coordFather_bak=copy.deepcopy(coordFather)
 
-    c_bak=copy.deepcopy(C)
+    fatherFull=[[i,coordFather[n]] for n,i in enumerate(father)]
+
+    fatherFull_bak=copy.deepcopy(fatherFull)
+
     """
     allowedCoordination must to be generalized
     the upper limit is half of maximum coordination -1
@@ -852,7 +894,7 @@ def reduceNano(atoms):
     """
     maxCord=int(np.max(coordFather))
     print (maxCord)
-    mid=int(0.5*maxCord-1)
+    mid=int(0.5*maxCord-3)
 
     allowedCoordination=list(range(maxCord,mid,-1))
     # print(allowedCoordination)
@@ -876,29 +918,49 @@ def reduceNano(atoms):
 
     for r in range(replicas):
         toRemove=[]
-        coordFather=copy.deepcopy(coordFather_bak)
+        fatherFull=copy.deepcopy(fatherFull_bak)
+        singly=copy.deepcopy(singly_bak)
         for i in allowedCoordination:
-            shuffle(father)
-            for n,j in enumerate(father):
-                if coordFather[n]==i:
-                    singlyFather=[k for k in C[j][1] if k in singly]
-                    chosen=choice(singlyFather)
-                    if len(toRemove)==excess:
-                        break
-                    toRemove.append(chosen)
-                    coordFather[n]=coordFather[n]-1
+            shuffle(fatherFull)
+            # print('fatherFull, evaluated coordination',fatherFull,i)
+            for n,j in enumerate(fatherFull):
+                if fatherFull[n][1]==i:
+                    # print('fatherFull[n][1]',fatherFull[n])
+                    singlyFather=[k for k in C[j[0]][1] if k in singly]
+                    if len(singlyFather)>0:
+                        # print('singlyFather',singlyFather)
+                        chosen=choice(singlyFather)
+                        # print('chosen',chosen)
+                        if chosen not in toRemove:
+                            if len(toRemove)==excess:
+                                break
+                            toRemove.append(chosen)
+                            # print('singly',singly)
+                            singly.remove(chosen)
+                            fatherFull[n][1]=fatherFull[n][1]-1
+            # print('len(toRemove)',len(toRemove))
+        # print(len(toRemove))
         S.append(sorted(toRemove))
 
     """
     at the end we get an array S with 1000 list of atoms
-    to be removed
+    to be removed. 
     """
     for n,s in enumerate(S):
-        nanoparticle=copy.deepcopy(atoms)
-        name=str(n)+'.xyz'
+        print(n,s,'\n')
+    nanoList=[]
+
+    for n,s in enumerate(S):
+        NP=copy.deepcopy(atoms)
         s.sort(reverse=True)
-        del nanoparticle[[s]]
-        write(name,nanoparticle,format='xyz')
+        del NP[[s]]
+        name=str(NP.get_chemical_formula(mode='hill'))+'_'+str(n)+'.xyz'
+        nanoList.append(name)
+        write(name,NP,format='xyz')
 
     time_F1 = time.time()
     print("Total time reduceNano", round(time_F1-time_F0,5)," s")
+
+    singulizator(nanoList)
+
+
