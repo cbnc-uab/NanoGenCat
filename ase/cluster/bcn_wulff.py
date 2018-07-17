@@ -292,7 +292,7 @@ def coordination(atoms,debug,size,n_neighbour):
                 for n in coord:
                     if i == int(n[0]):
                         E.append((int(n[2]))/2)
-        print('E',E)
+        # print('E',E)
         D = []
         print('atoms pre pop\n',atoms.get_chemical_formula())
         for i,j in enumerate(C):
@@ -537,7 +537,7 @@ def make_F(atoms,C,nearest_neighbour,debug):
                 # print(atoms.get_atomic_numbers()[i],i,'holi')
             # if atoms.get_atomic_numbers()[i] == (8 or 16):
                 if C[i] == 1:
-                    print('i',i)
+                    # print('i',i)
                     indices, offsets = nl.get_neighbors(i)
                     # print(indices,i,'indices,i')
                     if len(indices) == 1:
@@ -552,8 +552,8 @@ def make_F(atoms,C,nearest_neighbour,debug):
             else:
                 F.append(len(C)+1)
     # print('aquiiii')
-    print('len(F)\n',len(F))
-    print('F\n',F)
+    # print('len(F)\n',len(F))
+    # print('F\n',F)
     """
     A nex coordination list is created by adding the values 10 and 11
     for the higher coordination oxygen atoms and other atom types, respectively.
@@ -563,7 +563,7 @@ def make_F(atoms,C,nearest_neighbour,debug):
     c = list(C)
     c.append(11)
     c.append(12)
-    print('len(c)\n',len(c),'\n',c)
+    # print('len(c)\n',len(c),'\n',c)
 
     K=[]
     n_tests = 1000
@@ -668,7 +668,6 @@ def singulizator(nanoList):
     print('Enter in the singulizator')
     time_F0 = time.time()
 
-
     sprintCoordinates=[]
     results=[]
     for i in nanoList:
@@ -685,8 +684,8 @@ def singulizator(nanoList):
     keeping in mind that a repeated structure can appear
     on both columns, I just take the first
     """
-    for i in results:
-        print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
+    # for i in results:
+    #     print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
 
     
     results1=[i[0] for i in results]
@@ -694,7 +693,7 @@ def singulizator(nanoList):
     toRemove=list(set(results1))
 
     for i in toRemove:
-        print(i)
+        # print(i)
         # print('NP '+nanoList[results[i][0]]+' and '+nanoList[results[i][1]]+ ' are equal')
         # print('Removing '+nanoList[results[i][0]])
         remove(nanoList[i])
@@ -702,6 +701,10 @@ def singulizator(nanoList):
     time_F1 = time.time()
     print("Total time singulizator", round(time_F1-time_F0,5)," s")
     print('Removed NPs:',len(toRemove))
+
+    """
+    rename and calculate the DC
+    """
     # print('reducing')
     # np.savetxt('sprints',sprintCoordinates,fmt='%s')
     # print (len(sprintCoordinates))
@@ -811,6 +814,7 @@ def reduceNano(atoms,size):
     """
     function that make the nano stoichiometrically
     """
+    print('Enter to reduceNano')
     time_F0 = time.time()
     check_stoich(atoms)
     
@@ -852,7 +856,7 @@ def reduceNano(atoms,size):
     for i in atoms.excess:
         if i !=0:
             excess=i
-    print(excess)
+    # print(excess)
 
     C=[]
     half_nn = [x /2.5 for x in nearest_neighbour]
@@ -893,7 +897,7 @@ def reduceNano(atoms,size):
     [8, 7, 6, 5, 4] that is fully functional.
     """
     maxCord=int(np.max(coordFather))
-    print (maxCord)
+    # print (maxCord)
     mid=int(0.5*maxCord-3)
 
     allowedCoordination=list(range(maxCord,mid,-1))
@@ -944,12 +948,38 @@ def reduceNano(atoms,size):
 
     """
     at the end we get an array S with 1000 list of atoms
-    to be removed. 
+    to be removed. Previous to the removal and to make the things faster
+    we remove duplicates (I guess that is not duplicates in the list)
     """
-    for n,s in enumerate(S):
-        print(n,s,'\n')
     nanoList=[]
 
+    '''
+    Generate the list of pairs and select the repeated pairs
+    the aceptance criteria is if the intersection between
+    two s are iqual to the len of the first s. 
+    The repeated list is set and reversed before remove 
+    s elements 
+    '''
+    pairs=[c for c in combinations(range(1000),2)]
+
+    repeatedS=[]
+    for c in pairs:
+    	# print (c[0],S[c[0]])
+
+    	if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
+    		# print(c,' are duplicates')
+    		repeatedS.append(c[0])
+    		# del S[c[0]]
+    # print (n)
+
+    uniqueRepeated=list(set(repeatedS))
+    uniqueRepeated.sort(reverse=True)
+
+    for i in uniqueRepeated:
+    	del S[i]
+    """
+	Build the nanoparticles removing the s atom list
+    """
     for n,s in enumerate(S):
         NP=copy.deepcopy(atoms)
         s.sort(reverse=True)
@@ -962,5 +992,4 @@ def reduceNano(atoms,size):
     print("Total time reduceNano", round(time_F1-time_F0,5)," s")
 
     singulizator(nanoList)
-
 
