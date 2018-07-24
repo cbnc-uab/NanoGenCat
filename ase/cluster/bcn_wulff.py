@@ -93,8 +93,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif structure == 'sc':
             from ase.cluster.cubic import SimpleCubic as structure
         elif structure == 'hcp':
-            from ase.cluster.hexagonal import \
-                HexagonalClosedPacked as structure
+            from ase.cluster.hexagonal import HexagonalClosedPacked as structure
         elif structure == 'graphite':
             from ase.cluster.hexagonal import Graphite as structure
         elif structure == 'ext':
@@ -197,39 +196,39 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         """
         For now I will keep it here too
         """
-        name = atoms_midpoint.get_chemical_formula()+"_NP0.xyz"
+        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
         """
         testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
         """
         # if check_min_coord(atoms)==True:
         #     print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
-        #     return None
-        #     # raise SystemExit(0)
+        #     return none
+        #     # raise systemexit(0)
 
         if option == 0:
             if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
                 n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
             else:
-                n_neighbour = None
+                n_neighbour = none
             coordination(atoms_midpoint,debug,size,n_neighbour)
             os.chdir('../')
             return atoms_midpoint
         elif option == 1:
             """
-            Danilo
+            danilo
             """ 
             reduceNano(atoms_midpoint,size)
-            os.chdir('../')
+            # os.chdir('../')
     else:
-        print("Please give the NP size as an int")
+        print("please give the np size as an int")
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
-    #print("1distances",distances)
+    print("here")
     layers = np.round(layers).astype(int)
     #print("1layers",layers)
     atoms = structure(symbol, surfaces, layers, distances, center= center,                   
-                      latticeconstant=latticeconstant)
+                      latticeconstant=latticeconstant,debug=1)
 
     return (atoms)
 
@@ -818,10 +817,10 @@ def reduceNano(atoms,size):
     time_F0 = time.time()
     check_stoich(atoms)
     
-    newpath = './{}'.format(str(int(size)))
-    if not os.path.exists(newpath):
-        os.makedirs(newpath)
-    os.chdir(newpath)
+    # newpath = './{}'.format(str(int(size)))
+    # if not os.path.exists(newpath):
+    #     os.makedirs(newpath)
+    # os.chdir(newpath)
 
     name=atoms.get_chemical_formula()+'_NP0.xyz'
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
@@ -852,7 +851,11 @@ def reduceNano(atoms,size):
     """
     If the nano pass the test, the program can advance.
     """
-
+    # print(atoms.excess)
+    # if atoms.excess.any==None:
+    #     print('is stoichiometric')
+    #     return None
+    # else:
     for i in atoms.excess:
         if i !=0:
             excess=i
@@ -992,4 +995,60 @@ def reduceNano(atoms,size):
     print("Total time reduceNano", round(time_F1-time_F0,5)," s")
 
     singulizator(nanoList)
+
+def evaluateNp0(NP0_list):
+    """
+    For the exhaustive center evaluation is mandatory
+    to select the most stable ones. As a criteria
+    I want to use the sum of connectivity matrix
+    also I can try the sum of SPRINT coordinates.
+    just to reduce the sum cost(JOKE)
+    """
+
+    """
+    1- compute the adjacency matrix and then sum the matrix
+    and keep the attribute to the n NP0 in nanoAndSum array
+    """
+    nanoAndSum=[]
+    for k in NP0_list:
+        atoms=read(k,format='xyz')
+        atoms.center(vacuum=20) 
+
+        nearest_neighbour=[]
+        C=[]
+
+        for i in range(len(atoms.get_atomic_numbers())):
+            nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
+
+        half_nn = [x /2.5 for x in nearest_neighbour]
+        nl = NeighborList(half_nn,self_interaction=False,bothways=True)
+        nl.update(atoms)
+
+        for i in range(len(atoms.get_atomic_numbers())):
+            indices, offsets = nl.get_neighbors(i)
+            C.append([i,indices])
+            # print(i,indices) 
+
+        m=len(C)
+        adjMatrix=np.zeros((m,m))
+        for i in C:
+            for j in i[1]:
+                adjMatrix[i[0],j]=1.0
+
+        nanoAndSum.append([k,np.sum(adjMatrix)])
+
+    """
+    2-sort decreasingly the nanoAndSum list 
+    """
+    sorted_nanoSum=sorted(nanoAndSum,key=lambda x:x[1],reverse=True)
+    np.savetxt('sorted_reverse',sorted_nanoSum,fmt='%s')
+
+    # print (sorted_nanoSum)
+
+        
+
+
+
+
+
 

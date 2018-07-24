@@ -23,8 +23,7 @@ class ClusterFactory(ClusterFactory):
     
     def __call__(self, symbols, surfaces, layers, distances, center=[0.0,0.0,0.0],
                  latticeconstant=None, vacuum=0.0, debug=0):
-        self.debug = debug
-        
+        self.debug = 1
         if self.cl_cut == True:
             atoms = symbols
             # Interpret symbol
@@ -111,7 +110,7 @@ class ClusterFactory(ClusterFactory):
             if (offset > 1.0).any() or (offset < 0.0).any():
                 raise ValueError("Center offset must lie within the lattice unit \
                                   cell.")
-
+        # print('holiiiii')
         max = np.ones(3)
         min = -np.ones(3)
         v = np.linalg.inv(self.lattice_basis.T)
@@ -125,6 +124,7 @@ class ClusterFactory(ClusterFactory):
                     k[i] = np.floor(k[i])
 
             if self.debug > 1:
+
                 print("Spaning %i layers in %s in lattice basis ~ %s" % (l, s, k))
             max[k > max] = k[k > max]
             min[k < min] = k[k < min]
