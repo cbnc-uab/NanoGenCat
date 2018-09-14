@@ -4,11 +4,18 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 
 ### Installation requirements
 
-pip install ase
+* Python
+* Ase
+
+### Installation
+
+
 
 ### General usage notes
 
-### Contact information
+### Example
+
+### Contact
 
 bcnm@qf.uab.cat
   
