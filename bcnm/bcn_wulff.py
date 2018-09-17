@@ -98,7 +98,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif structure == 'graphite':
             from ase.cluster.hexagonal import Graphite as structure
         elif structure == 'ext':
-	    from bcn_cut_cluster import CutCluster as structure
+            from bcn_cut_cluster import CutCluster as structure
         else:
             error = 'Crystal structure %s is not supported.' % structure
             raise NotImplementedError(error)
