@@ -1,5 +1,3 @@
-from ase.cluster import base
-
 class ClusterBase:
     def get_layer_distance(self, miller, layers=1, tol=1e-9, new=True):
         """Returns the distance between planes defined by the given miller
