@@ -124,7 +124,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     
     for i, s in enumerate(surfaces):
         ##FROM BASE
-        d = atoms.get_layer_distance(s,12)/12
+        d = atoms.bcn_get_layer_distance(s,12)/12
         ##ENERGY IS NORMALISES WRT THE INTERLAYER DISTANCE SO THE
         ##PROPORTIONALITY IS E-LAYERS (UNITS OF E/N_layers)
         ##print("s",s,"get_layer_distance",d)

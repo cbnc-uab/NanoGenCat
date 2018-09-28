@@ -3,11 +3,11 @@ import numpy as np
 
 from ase.data import atomic_numbers as ref_atomic_numbers
 from ase.spacegroup import Spacegroup
-from ase.cluster.cluster import Cluster
 from ase.cluster.factory import ClusterFactory, reduce_miller
 from ase.utils import basestring
 from re import findall
 from ase.io import write
+from cluster import Cluster
 
 class ClusterFactory(ClusterFactory):
     directions = [[1, 0, 0],
@@ -78,7 +78,7 @@ class ClusterFactory(ClusterFactory):
                 rmax = self.distances[index]
                 #print("RMAX",s,rmax)
             else:
-                rmax = self.get_layer_distance(s, l + 0.2)
+                rmax = self.bcn_get_layer_distance(s, l + 0.2)
             r = np.dot(positions - self.center, n)
             mask = np.less(r, rmax)
             if self.debug > 1:
@@ -115,7 +115,7 @@ class ClusterFactory(ClusterFactory):
         min = -np.ones(3)
         v = np.linalg.inv(self.lattice_basis.T)
         for s, l in zip(self.surfaces, self.layers):
-            n = self.miller_to_direction(s) * self.get_layer_distance(s, l*4)
+            n = self.miller_to_direction(s) * self.bcn_get_layer_distance(s, l*4)
             k = np.round(np.dot(v, n), 2)
             for i in range(3):
                 if k[i] > 0.0:
