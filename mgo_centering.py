@@ -19,14 +19,14 @@ surfaces = [(1, 0, 0), (1, 1, 0), (1, 1, 1)]
 esurf=[1.0, 1.14, 0.89]
 # center = [0.25, 0.25,0.25]
 # n=0
-os.mkdir('centering')
-os.chdir('centering')
+os.mkdir('centering1')
+os.chdir('centering1')
 for p in product(centerValues,repeat=3):
 	center=list(p)
 	filename=str(center[0])+'_'+str(center[1])+'_'+str(center[2])
 	os.mkdir(filename)
 	os.chdir(filename)
-	atoms = bcn_wulff_construction(MgO,surfaces,esurf,float(size),'ext',center=center)
+	atoms = bcn_wulff_construction(MgO,surfaces,esurf,float(size),'ext',center=center,option=1)
 	os.chdir('../')
 
 

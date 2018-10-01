@@ -218,7 +218,12 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             """
             danilo
             """ 
-            reduceNano(atoms_midpoint,size)
+            # reduceNano(atoms_midpoint,size)
+
+            """
+            to evaluate the nano density
+            """
+            print('heyyy i hoo')
             # os.chdir('../')
     else:
         print("please give the np size as an int")
@@ -870,11 +875,12 @@ def reduceNano(atoms,size):
         C.append([i,indices])
 
     """
-    4 lists: singly, that contains the singly coordinated atoms
-    father, that contains the heavy metal atoms which singly 
+    4 lists: 
+    singly: contains the singly coordinated atoms
+    father: contains the heavy metal atoms which singly 
     coordinated atoms are bounded
-    coordFather that is the coordination of bounded
-    fatherFull that is the combination of father and their coordination.
+    coordFather:contains the coordination of bounded
+    fatherFull: contains the combination of father and their coordination.
 
     """
 

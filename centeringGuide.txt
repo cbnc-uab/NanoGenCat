@@ -1,0 +1,9 @@
+Type of Centering
+	Changing the coordinates origin can generate new NPs
+
+	Bound: Includes 4 centerings options. One at the coordinates of atom 1, other
+	at the coordinates of atom 2, other at the half point between the two atoms,
+	and finally, one at the center of mass 
+
+	NShifts: Generates n-shifts per axis 
+
