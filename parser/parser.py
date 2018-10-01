@@ -11,6 +11,11 @@ def millerIndex(s):
 	return a,b,c
 
 
+print '''
+BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
+This program comes with ABSOLUTELY NO WARRANTY; for details type 'python parser.py --help'. 
+This is free software, and you are welcome to redistribute it under certain conditions; type ' ' for details.
+'''
 
 parser = ArgumentParser( add_help=True, description = 'Bulk nanoparticles cutter (BNC) developed by B. Camino')
 parser.add_argument('-b','--basis',nargs='+',type=basis,required=True,help='Positions of atoms in the unit cell(0.0,0.0,0.0)')
