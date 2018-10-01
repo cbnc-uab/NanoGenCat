@@ -17,7 +17,6 @@ from scipy.sparse.linalg import eigsh
 import glob
 from itertools import combinations
 from os import remove
-import sys
 
 from math import sqrt
 
@@ -870,15 +869,17 @@ def reduceNano(atoms,size):
         indices, offsets = nl.get_neighbors(i)
         C.append([i,indices])
 
-    """
-    4 lists: singly, that contains the singly coordinated atoms
-    father, that contains the heavy metal atoms which singly 
+    '''
+    4 lists:
+    singly: contains the singly coordinated atoms
+    father: contains the heavy metal atoms which singly
     coordinated atoms are bounded
     coordFather that is the coordination of bounded
     fatherFull that is the combination of father and their coordination.
-
-    """
-
+    coordFather:contains the coordination of bounded
+    fatherFull: contains the combination of father and their coordination.
+    '''
+    
     singly=[i for i in range(len(atoms)) if len(C[i][1])==1]
     singly_bak=copy.deepcopy(singly)
 
