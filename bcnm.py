@@ -21,12 +21,11 @@ from bcn_wulff import bcn_wulff_construction
 print('''
 BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
 This program comes with ABSOLUTELY NO WARRANTY; for details type 'python bcnm.py --help'. 
-This is free software, and you are welcome to redistribute it under certain conditions; type ' ' for details.
+This is free software, and you are welcome to redistribute it under certain conditions; type 'cat LICENSE' for details.
 ''')
 
 parser = ArgumentParser(description='Bulk nanoparticles cutter')
 parser.add_argument('input', help='Bcnm input file in yaml')
-#parser.add_argument('-i','--input',required=True, help='Bcnm input file in yaml')
 args = parser.parse_args()
 
 with open(args.input,'r') as file:
@@ -35,11 +34,10 @@ with open(args.input,'r') as file:
 file.close()
 
 os.chdir('tmp')
-crystalObject = crystal(data['chemicalSpice'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
+crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
 write('crystalShape.out',crystalObject,format='xyz')
 
 # lista de tuplas
-surfaces = [(1,1,0),(0,1,1),(1,0,0),(0,0,1)]
 atoms = bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(data['nanoparticleSize']),'ext',rounding='above',debug=1)
 
 exit()
