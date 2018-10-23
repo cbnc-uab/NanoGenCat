@@ -4,14 +4,37 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 
 ### Installation requirements
 
-* Python
+* Python 3
 * Ase
 
 ### Installation
 
+1 - Install `Miniconda Python 3.7 Distribution <http://conda.pydata.org/miniconda.html>`_ for your platform and install it with:
+
+  bash Miniconda3*.sh
+
+2 - Create a new environment called ``bcnm``:
+
+  conda create -n bcnm
+
+3 - Activate the new environment as proposed:
+
+  source activate bcnm
+
+4 - Install dependences:
+
+  pip3 install ase pyyaml
+  
+5 - Clone Bcnm code from git:
+  
+  git clone git@github.com:dagonzalezfo/NanoGenCat.git
 
 
 ### General usage notes
+
+6 - cd NanoGencat
+
+7 - python3 iridium.py
 
 ### Example
 
