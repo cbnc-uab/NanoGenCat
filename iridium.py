@@ -12,13 +12,14 @@ from ase.io import  write, read
 
 import numpy as np
 
-basis=[(0.0,0.0,0.0),(0.306, 0.306, 0.0)]
-a= 4.5424  
-c= 3.1862   
-iridium = crystal('IrO', basis, spacegroup=136, cellpar=[a,a,c,90,90,90],primitive_cell=False)
-print(iridium)
-write('crystalShape',iridium,format='xyz')
+# basis=[(0.0,0.0,0.0),(0.306, 0.306, 0.0)]
+# a= 4.5424  
+# c= 3.1862   
+# iridium = crystal('IrO', basis, spacegroup=136, cellpar=[a,a,c,90,90,90],primitive_cell=False)
+# print(iridium)
+# write('crystalShape',iridium,format='xyz')
 # view(iridium)
+iridium=read('crystalShape')
 
 surfaces = [(1,1,0),(0,1,1),(1,0,0),(0,0,1)]
 esurf=[0.94,1.06,1.23,1.55]
