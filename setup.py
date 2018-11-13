@@ -21,5 +21,5 @@ setup(
   'Operating System :: OS Independent',
   'Topic :: Scientific/Engineering :: Chemistry',
  ],
- install_requires=['ase'],
+ install_requires=['ase', 'pyyaml'],
 ) 
