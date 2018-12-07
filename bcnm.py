@@ -54,24 +54,32 @@ elif data ['centering'] == 'bound':
     shifts.append(shift)
     shifts.append(bulk.get_center_of_mass(scaled=True))
 
-elif data ['centering'] == 'manualShift':
+elif data ['centering'] == 'manualShift': 
     numberOfShifts = data['numberOfShifts']
     shift = []
     shifts = []
     for i in range (data['numberOfShifts']):
-        shift.append(float(data['shiftA{}'.format(i)])))
-        shift.append(float(data['shiftB{}'.format(i)])))
-        shift.append(float(data['shiftC{}'.format(i)])))
+        shift.append(float(data['shiftA{}'.format(i)]))
+        shift.append(float(data['shiftB{}'.format(i)]))
+        shift.append(float(data['shiftC{}'.format(i)]))
         shifts.append(shift)
         shift = []
 
 elif data ['centering'] == 'nShift':
+    if 'nShift' not in data:
+        print('Error: nShift parameter is not set. Example: nShift: [1, 1, 1]')
+        exit(1)
+
+    if len(data['nShift']) != 3:
+        print('Error: Invalid amount of shifts. Example: [1, 1, 1]')
+        exit(1)
+
+    nShift = data['nShift']
     shifts = []
     for i in range(nShift[0]):
         for j in range(nShift[1]):
             for k in range(nShift[2]):
-                shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)])
-    
+                shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)]) 
 
 else:
     print('Error: Invalid centering value. Valid options are: none, onlyCenter, centerOfMass, manualShift, nShift')
