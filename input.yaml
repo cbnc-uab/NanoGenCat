@@ -14,3 +14,9 @@ surfaces:
   - [0, 1, 1]
 
 nanoparticleSize: 16
+sizeRange: 4
+step: 1
+# none, onlyCenter, centerOfMass, manualShift, nShift
+centering: onlyCenter
+#numberOfShifts: 1
+#nShift: [1, 1, 1]
