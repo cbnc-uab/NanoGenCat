@@ -13,7 +13,6 @@ from ase.spacegroup import crystal
 from ase.visualize import view
 from ase.build import cut, bulk
 from ase.io import  write, read
-from ase import Atoms
 
 ####
 sys.path.append(os.path.abspath("bcnm/"))
@@ -35,7 +34,7 @@ with open(args.input,'r') as file:
 
 file.close()
 
-# 
+#
 os.chdir('tmp')
 crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
 write('crystalShape.out',crystalObject,format='xyz')
@@ -97,8 +96,6 @@ if min_size < 8:
 max_size = int(data['nanoparticleSize'] + data['sizeRange']/2)
 if max_size < 8:
     max_size = 8
-
-print('shifts:', shifts)
 
 for size in range(min_size, max_size, data['step']):
     for shift in shifts:
