@@ -11,8 +11,9 @@ import numpy as np
 from argparse import ArgumentParser
 from ase.spacegroup import crystal
 from ase.visualize import view
-from ase.build import cut
+from ase.build import cut, bulk
 from ase.io import  write, read
+from ase import Atoms
 
 ####
 sys.path.append(os.path.abspath("bcnm/"))
@@ -34,44 +35,48 @@ with open(args.input,'r') as file:
 
 file.close()
 
+# 
+os.chdir('tmp')
+crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
+write('crystalShape.out',crystalObject,format='xyz')
+
 # Centering
 if data['centering'] == 'none':
     shifts = [[0.0, 0.0, 0.0]]
 
-elif data ['centering'] == 'onlyCenter':
+elif data['centering'] == 'onlyCenter':
     shifts = [[0.5, 0.5, 0.5]]
 
-elif data ['centering'] == 'centerOfMass':
-    print('TODO')
+elif data['centering'] == 'centerOfMass':
+    # Check if works correctly
+    shifts = [crystalObject.get_center_of_mass(scaled= True)]
 
-elif data ['centering'] == 'bound':
+elif data['centering'] == 'bound':
     shift = []
     shifts = []
-    for coordinate in coordinates:
+    for coordinate in data['basis']:
         shifts.append(coordinate)
+    
     for element in range(3):
-        shift.append((coordinates[0][element]+coordinates[1][element])/2)
+        shift.append((data['basis'][0][element]+data['basis'][1][element])/2)
+    
     shifts.append(shift)
-    shifts.append(bulk.get_center_of_mass(scaled=True))
+    shifts.append(crystalObject.get_center_of_mass(scaled=True))
 
-elif data ['centering'] == 'manualShift': 
-    numberOfShifts = data['numberOfShifts']
-    shift = []
-    shifts = []
-    for i in range (data['numberOfShifts']):
-        shift.append(float(data['shiftA{}'.format(i)]))
-        shift.append(float(data['shiftB{}'.format(i)]))
-        shift.append(float(data['shiftC{}'.format(i)]))
-        shifts.append(shift)
-        shift = []
+elif data['centering'] == 'manualShift': 
+    if data['numberOfShifts'] != len(data['shifts']):
+        print('Error: numberOfShifts and number shift elements do not match. Example:\nnumberOfShifts: 2\nshifts:\n    - [1, 1, 1]\n    - [1, 1, 1]')
+        exit(1)
+    else:
+        shifts = data['shifts']
 
 elif data ['centering'] == 'nShift':
     if 'nShift' not in data:
-        print('Error: nShift parameter is not set. Example: nShift: [1, 1, 1]')
+        print('Error: nShift parameter is not set. Example:\nnShift: [1, 1, 1]')
         exit(1)
 
     if len(data['nShift']) != 3:
-        print('Error: Invalid amount of shifts. Example: [1, 1, 1]')
+        print('Error: Invalid amount of shifts. Example:\ncentering:nShift\nshifts: [1, 1, 1]')
         exit(1)
 
     nShift = data['nShift']
@@ -82,12 +87,8 @@ elif data ['centering'] == 'nShift':
                 shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)]) 
 
 else:
-    print('Error: Invalid centering value. Valid options are: none, onlyCenter, centerOfMass, manualShift, nShift')
+    print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
     exit(1)
-
-os.chdir('tmp')
-crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
-write('crystalShape.out',crystalObject,format='xyz')
 
 min_size = int(data['nanoparticleSize'] - data['sizeRange']/2)
 if min_size < 8:
@@ -97,6 +98,8 @@ max_size = int(data['nanoparticleSize'] + data['sizeRange']/2)
 if max_size < 8:
     max_size = 8
 
+print('shifts:', shifts)
+
 for size in range(min_size, max_size, data['step']):
     for shift in shifts:
         newPath = str(shift[0])+'_'+str(shift[1])+'_'+str(shift[2])
@@ -105,4 +108,4 @@ for size in range(min_size, max_size, data['step']):
         os.chdir(newPath)
         atoms = bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(data['nanoparticleSize']),'ext',center = shift, rounding='above',debug=1)
 
-exit()
+exit(0)
