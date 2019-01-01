@@ -164,10 +164,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                                 structure, center, latticeconstant)
                     large = scale_f
                     midpoint = large
-        else:            
+        else:
+            print(max(energies))
             small = np.array(energies)/((max(energies)*2.))
+            # print(small)
             large = np.array(energies)/((min(energies)*2.))
+            # print(large)
             midpoint = (large+small)/2.
+            # print(midpoint)
             distances = midpoint*size
             layers= distances/d
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
@@ -206,20 +210,20 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         #     return none
         #     # raise systemexit(0)
 
-        if option == 0:
-            if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
-                n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
-            else:
-                n_neighbour = none
-            coordination(atoms_midpoint,debug,size,n_neighbour)
-            os.chdir('../')
-            return atoms_midpoint
-        elif option == 1:
-            """
-            danilo
-            """ 
-            reduceNano(atoms_midpoint,size)
-            # os.chdir('../')
+        # if option == 0:
+        #     if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
+        #         n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
+        #     else:
+        #         n_neighbour = none
+        #     coordination(atoms_midpoint,debug,size,n_neighbour)
+        #     os.chdir('../')
+        #     return atoms_midpoint
+        # elif option == 1:
+        #     """
+        #     danilo
+        #     """ 
+        #     reduceNano(atoms_midpoint,size)
+        #     # os.chdir('../')
     else:
         print("please give the np size as an int")
 
@@ -1047,7 +1051,26 @@ def evaluateNp0(NP0_list):
 
     # print (sorted_nanoSum)
 
-        
+def interplanarDistance(atoms,millerIndexes): 
+	"""Function that calculates the interplanar distances
+	using 1/d_hkl^2 = hkl .dot. Gstar .dot. hkl equation.
+	Args:
+		atoms(atoms): Atom type of crystal structure
+		millerIndexes(list): miller indexes of relevant surfaces
+	Returns:
+		distances(list): interplanar distance
+	"""
+	G=atoms.get_reciprocal_cell()
+	Gstar = np.dot(G, G.T)
+	print(Gstar)
+	d=[]
+	for indexes in millerIndexes:
+		id2 = np.dot(indexes, np.dot(Gstar, indexes))
+		d.append(np.sqrt(1/id2))
+	for n,i in enumerate(d):
+		print(millerIndexes[n],d[n])
+
+
 
 
 
