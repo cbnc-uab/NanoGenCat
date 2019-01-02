@@ -33,7 +33,7 @@ _debug = False
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                        rounding='closest', latticeconstant=None, 
-                       debug=False, maxiter=100,center=[0.,0.,0.],option=0):
+                       debug=False, maxiter=100,center=[0.,0.,0.],option=1):
     """Create a cluster using the Wulff construction.
 
     A cluster is created with approximately the number of atoms
@@ -117,20 +117,34 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     # to "renormalize" the surface energies such that they can be used
     # to convert to number of layers instead of to distances.
     ##THIS IS A 5X5X5 CLUSTER ONLY TO GET THE INTERLAYER DISTANCE
-    distances = None
-    atoms = structure(symbol, surfaces, 5 * np.ones(len(surfaces), int), distances,
-                      latticeconstant=latticeconstant)
-    
-    for i, s in enumerate(surfaces):
-        ##FROM BASE
-        d = atoms.bcn_get_layer_distance(s,12)/12
-        ##ENERGY IS NORMALISES WRT THE INTERLAYER DISTANCE SO THE
-        ##PROPORTIONALITY IS E-LAYERS (UNITS OF E/N_layers)
-        ##print("s",s,"get_layer_distance",d)
-        #energies[i] /= d
-    
+    # distances = None
+    # atoms = structure(symbol, surfaces, 5 * np.ones(len(surfaces), int), distances,
+    #                   latticeconstant=latticeconstant)
+    # print('holaaaa')
+    recCell=symbol.get_reciprocal_cell()
+    # print('recCell\n',type(recCell))
+    dArray=interplanarDistance(recCell,surfaces)
+    # print('dArray\n',dArray)
+
+
+
+
+    # for i, s in enumerate(surfaces):
+    #     ##FROM BASE
+    #     d = atoms.bcn_get_layer_distance(s,12)/12
+    #     ##ENERGY IS NORMALISES WRT THE INTERLAYER DISTANCE SO THE
+    #     ##PROPORTIONALITY IS E-LAYERS (UNITS OF E/N_layers)
+    #     ##print("s",s,"get_layer_distance",d)
+    #     #energies[i] /= d
+    #     # print('d\n')
+    #     # print(d)
+    # #     print('surface\n',s)
+    # # print('d\n')
+    # # print(d)
+    # # print('surfaces\n',surfaces)
     if type(size) == float:
-        
+        # print(size)
+    
         """This is the loop to get the NP closest to the desired size"""
         if len(energies) == 1:
             scale_f = np.array([0.5])
@@ -165,7 +179,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                     large = scale_f
                     midpoint = large
         else:
-            print(max(energies))
+            # print('dArray\n',dArray)
+
             small = np.array(energies)/((max(energies)*2.))
             # print(small)
             large = np.array(energies)/((min(energies)*2.))
@@ -173,64 +188,68 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             midpoint = (large+small)/2.
             # print(midpoint)
             distances = midpoint*size
-            layers= distances/d
+            # print(distances)
+            layers= distances/dArray
+            # print('layers\n',layers)
+            # print('size\n',size)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                         structure, center, latticeconstant)
-        iteration = 0
-        maxiteration = 20
-        while abs(np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) - size) > 0.15*size:
-            midpoint = (small+large)/2.
-            distances = midpoint*size
-            layers= distances/d
-            atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                             structure, center, latticeconstant)
-            print("ATOMS_MIDPOINT",atoms_midpoint)
-            if np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) > size:
-                large = midpoint
-            elif np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) < size:
-                small = midpoint
-            iteration += 1
-            if iteration == maxiteration:
-                print("Max iteration reached, CHECK the NP0")
-                print("ATOMS_MIDPOINT",atoms_midpoint)
-                break
+            # view(atoms_midpoint)
+            # iteration = 0
+            # maxiteration = 20
+            # while abs(np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) - size) > 0.15*size:
+            #     midpoint = (small+large)/2.
+            #     distances = midpoint*size
+            #     layers= distances/d
+            #     atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+            #                                      structure, center, latticeconstant)
+            #     print("ATOMS_MIDPOINT",atoms_midpoint)
+            #     if np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) > size:
+            #         large = midpoint
+            #     elif np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) < size:
+            #         small = midpoint
+            #     iteration += 1
+            #     if iteration == maxiteration:
+            #         print("Max iteration reached, CHECK the NP0")
+            #         print("ATOMS_MIDPOINT",atoms_midpoint)
+            #         break
+            
+            print("Initial NP",atoms_midpoint.get_chemical_formula())
         
-        print("Initial NP",atoms_midpoint.get_chemical_formula())
-    
-        """
-        For now I will keep it here too
-        """
-        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-        """
-        testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
-        """
-        # if check_min_coord(atoms)==True:
-        #     print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
-        #     return none
-        #     # raise systemexit(0)
+            """
+            For now I will keep it here too
+            """
+            name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+            write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+            """
+            testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
+            """
+            if check_min_coord(atoms_midpoint)==True:
+                print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
+                return none
+                # raise systemexit(0)
 
-        # if option == 0:
-        #     if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
-        #         n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
-        #     else:
-        #         n_neighbour = none
-        #     coordination(atoms_midpoint,debug,size,n_neighbour)
-        #     os.chdir('../')
-        #     return atoms_midpoint
-        # elif option == 1:
-        #     """
-        #     danilo
-        #     """ 
-        #     reduceNano(atoms_midpoint,size)
-        #     # os.chdir('../')
-    else:
-        print("please give the np size as an int")
+            if option == 0:
+                if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
+                    n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
+                else:
+                    n_neighbour = none
+                coordination(atoms_midpoint,debug,size,n_neighbour)
+                os.chdir('../')
+                return atoms_midpoint
+            elif option == 1:
+                """
+                danilo
+                """ 
+                reduceNano(atoms_midpoint,size)
+                os.chdir('../')
+        # else:
+        #     print("please give the np size as an int")
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
-    print("here")
+    # print("here")
     layers = np.round(layers).astype(int)
-    #print("1layers",layers)
+    # print("1layers",layers)
     atoms = structure(symbol, surfaces, layers, distances, center= center,                   
                       latticeconstant=latticeconstant,debug=1)
 
@@ -973,21 +992,21 @@ def reduceNano(atoms,size):
 
     repeatedS=[]
     for c in pairs:
-    	# print (c[0],S[c[0]])
+        # print (c[0],S[c[0]])
 
-    	if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
-    		# print(c,' are duplicates')
-    		repeatedS.append(c[0])
-    		# del S[c[0]]
+        if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
+            # print(c,' are duplicates')
+            repeatedS.append(c[0])
+            # del S[c[0]]
     # print (n)
 
     uniqueRepeated=list(set(repeatedS))
     uniqueRepeated.sort(reverse=True)
 
     for i in uniqueRepeated:
-    	del S[i]
+        del S[i]
     """
-	Build the nanoparticles removing the s atom list
+    Build the nanoparticles removing the s atom list
     """
     for n,s in enumerate(S):
         NP=copy.deepcopy(atoms)
@@ -1051,24 +1070,30 @@ def evaluateNp0(NP0_list):
 
     # print (sorted_nanoSum)
 
-def interplanarDistance(atoms,millerIndexes): 
-	"""Function that calculates the interplanar distances
-	using 1/d_hkl^2 = hkl .dot. Gstar .dot. hkl equation.
-	Args:
-		atoms(atoms): Atom type of crystal structure
-		millerIndexes(list): miller indexes of relevant surfaces
-	Returns:
-		distances(list): interplanar distance
-	"""
-	G=atoms.get_reciprocal_cell()
-	Gstar = np.dot(G, G.T)
-	print(Gstar)
-	d=[]
-	for indexes in millerIndexes:
-		id2 = np.dot(indexes, np.dot(Gstar, indexes))
-		d.append(np.sqrt(1/id2))
-	for n,i in enumerate(d):
-		print(millerIndexes[n],d[n])
+def interplanarDistance(recCell,millerIndexes): 
+    """Function that calculates the interplanar distances
+    using 1/d_hkl^2 = hkl .dot. Gstar .dot. hkl equation.
+    A Journey into Reciprocal Space: A Crystallographer's Perspective
+    2-7
+    Args:
+        recCell(list): reciprocal cell of crystal structure
+        millerIndexes(list): miller indexes of relevant surfaces
+    Returns:
+        distances(list): interplanar distance
+    """
+    # print(type(recCell))
+    G=recCell
+    # print(G)
+    Gstar = np.dot(G, G.T)
+    # print(Gstar)
+    d=[]
+    for indexes in millerIndexes:
+        id2 = np.dot(indexes, np.dot(Gstar, indexes))
+        d.append(np.sqrt(1/id2))
+    # for n,i in enumerate(d):
+    #     print(millerIndexes[n],d[n])
+
+    return(d)
 
 
 

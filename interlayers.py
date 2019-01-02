@@ -37,7 +37,7 @@ file.close()
 os.chdir('tmp')
 crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
 # write('crystalShape.out',crystalObject,format='xyz')
-interplanarDistance(crystalObject,data['surfaces'])
+# InterplanarDistances=interplanarDistance(crystalObject,data['surfaces'])
 
 # # lista de tuplas
 atoms = bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(data['nanoparticleSize']),'ext',rounding='above',debug=1)
