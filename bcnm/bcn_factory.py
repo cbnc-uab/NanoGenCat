@@ -55,7 +55,7 @@ class ClusterFactory(ClusterFactory):
 
     def make_cluster(self, vacuum):
         size = np.array(self.size)
-        print('size\n',size)
+        # print('size\n',size)
         translations = np.zeros((size.prod(), 3))
         for h in range(size[0]):
             for k in range(size[1]):
@@ -115,7 +115,6 @@ class ClusterFactory(ClusterFactory):
         max = np.ones(3)
         min = -np.ones(3)
         v = np.linalg.inv(self.lattice_basis.T)
-        print('v\n',v)
         for s, l in zip(self.surfaces, self.layers):
             # print(s)
             # n = self.miller_to_direction(s) * self.bcn_get_layer_distance(s, l*4)
@@ -127,9 +126,9 @@ class ClusterFactory(ClusterFactory):
                 elif k[i] < 0.0:
                     k[i] = np.floor(k[i])
 
-            if self.debug > 1:
+            if self.debug > 0:
 
-                print("Spaning %i layers in %s in lattice basis ~ %s" % (l, s, k))
+                print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
             max[k > max] = k[k > max]
             min[k < min] = k[k < min]
             if l % 2 != 0:

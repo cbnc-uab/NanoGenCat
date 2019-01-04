@@ -215,34 +215,35 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             #         break
             
             print("Initial NP",atoms_midpoint.get_chemical_formula())
+            view(atoms_midpoint)
         
-            """
-            For now I will keep it here too
-            """
-            name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-            write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-            """
-            testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
-            """
-            if check_min_coord(atoms_midpoint)==True:
-                print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
-                return none
-                # raise systemexit(0)
+            # """
+            # For now I will keep it here too
+            # """
+            # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+            # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+            # """
+            # testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
+            # """
+            # if check_min_coord(atoms_midpoint)==True:
+            #     print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
+            #     return none
+            #     # raise systemexit(0)
 
-            if option == 0:
-                if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
-                    n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
-                else:
-                    n_neighbour = none
-                coordination(atoms_midpoint,debug,size,n_neighbour)
-                os.chdir('../')
-                return atoms_midpoint
-            elif option == 1:
-                """
-                danilo
-                """ 
-                reduceNano(atoms_midpoint,size)
-                os.chdir('../')
+            # if option == 0:
+            #     if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
+            #         n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
+            #     else:
+            #         n_neighbour = none
+            #     coordination(atoms_midpoint,debug,size,n_neighbour)
+            #     os.chdir('../')
+            #     return atoms_midpoint
+            # elif option == 1:
+            #     """
+            #     danilo
+            #     """ 
+            #     # reduceNano(atoms_midpoint,size)
+            #     os.chdir('../')
         # else:
         #     print("please give the np size as an int")
 
