@@ -1,24 +1,26 @@
 from __future__ import print_function
+import os, time
+import copy
 import numpy as np
-from ase.utils import basestring
-#from itertools import product
+import pandas as pd
+import glob
+
+from os import remove
 from re import findall
+from random import shuffle,choice
+from scipy.sparse.linalg import eigsh
+from itertools import combinations
+from math import sqrt
+from scipy.spatial import ConvexHull
+
+from ase.atoms import symbols2numbers
+from ase.neighborlist import NeighborList
+from ase.utils import basestring
 from ase.cluster.factory import GCD
 from ase.visualize import view
 from ase.io import write,read
 from ase.data import chemical_symbols
-from random import shuffle,choice
-import copy
-import os, time
-from ase.neighborlist import NeighborList
-# from ase import Atom, Atoms
-from ase.atoms import symbols2numbers
-from scipy.sparse.linalg import eigsh
-import glob
-from itertools import combinations
-from os import remove
-
-from math import sqrt
+from ase.spacegroup import Spacegroup
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -43,7 +45,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     Parameters:
     -----------
 
-    symbol: The chemical symbol (or atomic number) of the desired element.
+    symbol: atom object.
 
     surfaces: A list of surfaces. Each surface is an (h, k, l) tuple or
     list of integers.
@@ -108,43 +110,16 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         raise ValueError('The energies array should contain %d values.'
                          % (nsurf,))
 
-    # We should check that for each direction, the surface energy plus
-    # the energy in the opposite direction is positive.  But this is
-    # very difficult in the general case!
-
-    # Before starting, make a fake cluster just to extract the
-    # interlayer distances in the relevant directions, and use these
-    # to "renormalize" the surface energies such that they can be used
-    # to convert to number of layers instead of to distances.
-    ##THIS IS A 5X5X5 CLUSTER ONLY TO GET THE INTERLAYER DISTANCE
-    # distances = None
-    # atoms = structure(symbol, surfaces, 5 * np.ones(len(surfaces), int), distances,
-    #                   latticeconstant=latticeconstant)
-    # print('holaaaa')
+    #Calculate the interplanar distance
     recCell=symbol.get_reciprocal_cell()
-    # print('recCell\n',type(recCell))
     dArray=interplanarDistance(recCell,surfaces)
-    # print('dArray\n',dArray)
 
+    # Get the equivalent surfaces
+    eq=equivalentSurfaces(symbol,surfaces)
+    #Calculate the normal normalized vectors for each surface
+    norms=planesNorms(eq,recCell)
 
-
-
-    # for i, s in enumerate(surfaces):
-    #     ##FROM BASE
-    #     d = atoms.bcn_get_layer_distance(s,12)/12
-    #     ##ENERGY IS NORMALISES WRT THE INTERLAYER DISTANCE SO THE
-    #     ##PROPORTIONALITY IS E-LAYERS (UNITS OF E/N_layers)
-    #     ##print("s",s,"get_layer_distance",d)
-    #     #energies[i] /= d
-    #     # print('d\n')
-    #     # print(d)
-    # #     print('surface\n',s)
-    # # print('d\n')
-    # # print(d)
-    # # print('surfaces\n',surfaces)
     if type(size) == float:
-        # print(size)
-    
         """This is the loop to get the NP closest to the desired size"""
         if len(energies) == 1:
             scale_f = np.array([0.5])
@@ -182,39 +157,20 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # print('dArray\n',dArray)
 
             small = np.array(energies)/((max(energies)*2.))
-            # print(small)
             large = np.array(energies)/((min(energies)*2.))
-            # print(large)
             midpoint = (large+small)/2.
-            # print(midpoint)
             distances = midpoint*size
-            # print(distances)
             layers= distances/dArray
             # print('layers\n',layers)
             # print('size\n',size)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                         structure, center, latticeconstant)
-            # view(atoms_midpoint)
-            # iteration = 0
-            # maxiteration = 20
-            # while abs(np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) - size) > 0.15*size:
-            #     midpoint = (small+large)/2.
-            #     distances = midpoint*size
-            #     layers= distances/d
-            #     atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-            #                                      structure, center, latticeconstant)
-            #     print("ATOMS_MIDPOINT",atoms_midpoint)
-            #     if np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) > size:
-            #         large = midpoint
-            #     elif np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) < size:
-            #         small = midpoint
-            #     iteration += 1
-            #     if iteration == maxiteration:
-            #         print("Max iteration reached, CHECK the NP0")
-            #         print("ATOMS_MIDPOINT",atoms_midpoint)
-            #         break
             
             print("Initial NP",atoms_midpoint.get_chemical_formula())
+
+            #Calculate the Area
+            areaCalculation(atoms_midpoint,norms)
+
             view(atoms_midpoint)
         
             # """
@@ -1095,12 +1051,98 @@ def interplanarDistance(recCell,millerIndexes):
     #     print(millerIndexes[n],d[n])
 
     return(d)
+def equivalentSurfaces(atoms,millerIndexes):
+    """Function that get the equivalent surfaces for a set of  millerIndexes
+    Args:
+        millerIndexes(list([])): list of miller Indexes
+    Return:
+        equivalentSurfaces(list([])): list of all equivalent miller indexes
+    """
+    surfaces = np.array(millerIndexes)
+    sg=Spacegroup((int(str(atoms.info['spacegroup'])[0:3])))
+    equivalent_surfaces=[]
+    for s in millerIndexes:
+        equivalent_surfaces.extend(sg.equivalent_reflections(s))
 
+    return equivalent_surfaces
 
+def planesNorms(millerIndexes,recCell):
+    """Function that calculates the normalized
+    normal vector of the miller indexes  
+    Args:miller indexes(list)
+    Return:norm(list)
+    """
+    norms=[]
+    for millerIndex in millerIndexes:
+        normal=np.dot(millerIndex,recCell)
+        normal /=np.linalg.norm(normal)
+        norms.append([millerIndex,normal])
+        # norms[millerIndex]=normal
+    # print(norms)
+    return norms
 
+def areaCalculation(atoms,norms):
+    """Function that calculates the real areas of the faces
+    of Np0 and their percentages.
+    Args:
+        atoms(Atoms): atoms object of NP0
+    Return:
+        percentage(list): surfaces and their percentage
+    """
+    # Steps:
 
+    #     Use the convexHull to get the simplex
 
+    #     evaluate if vectors that form the simplex are
+    #     ortogonal to normal vectors of the miller index
+    #     related plane.
 
+    #     get the area of the simplexes and sum by plane
 
+    #Reading the atoms object
 
+    #Only get the metal positions, just to make it easy
+    positions=np.array([atom.position[:] for atom in atoms if atom.symbol=='Ir'])
 
+    #Create the ConvexHull  object
+    hull=ConvexHull(positions)
+    print(hull.area)
+
+    #Identify the miller index of the simplices and calculate the area per miller index
+    simplices=[]
+    counter=0
+    for simplex in hull.simplices:
+        u=positions[simplex[0]]-positions[simplex[1]]
+        v=positions[simplex[1]]-positions[simplex[2]]
+        area=np.abs(np.linalg.norm(np.cross(u, v)) / 2)
+        # print(area)
+        for i in norms:
+            test0=np.dot(i[1],u)
+            test1=np.dot(i[1],v)
+            if abs(test0) <1e-2 and abs(test1)<1e-2:
+                simplices.append([str(i[0]),area])
+                # print (i[0],area)
+                counter=counter+1
+                break
+
+    # get the area for each miller index
+    testArray=np.asarray(simplices)
+    # print(testArray[:,:1])
+    df=pd.DataFrame(np.array(testArray[:,:1]).reshape(len(testArray)),columns=["miller"])
+    sinDuplicados=df.drop_duplicates(keep='first')
+    uniqueMiller=sinDuplicados.values.tolist()
+    areasIndex=[]
+    totalArea=0
+    for i in uniqueMiller:
+        totalAreaPerMiller=0
+        for j in testArray:
+            if i[0]==j[0]:
+                totalAreaPerMiller+=float(j[1])
+                totalArea+=float(j[1])
+                # print(type(j[1]))
+                # print(j[0])
+        percentage=totalAreaPerMiller/hull.area
+        areasIndex.append([i[0],percentage])
+        print(i[0],percentage)
+    return areasIndex
+ 
