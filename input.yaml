@@ -13,4 +13,4 @@ surfaces:
   - [1, 0, 0]
   - [0, 0, 1]
 
-nanoparticleSize: 16
+nanoparticleSize: 25

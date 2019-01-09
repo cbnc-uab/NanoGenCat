@@ -168,6 +168,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             
             print("Initial NP",atoms_midpoint.get_chemical_formula())
 
+            if check_min_coord(atoms_midpoint)==True:
+                print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
+                return none
+                # raise systemexit(0)
             #Calculate the Area
             areaCalculation(atoms_midpoint,norms)
 
