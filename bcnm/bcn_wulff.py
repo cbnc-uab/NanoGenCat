@@ -22,6 +22,8 @@ from ase.io import write,read
 from ase.data import chemical_symbols
 from ase.spacegroup import Spacegroup
 
+from pymatgen.analysis.wulff import WulffShape
+
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
                   'Ge', 'As', 'Se', 'Br', 'Kr',
@@ -35,7 +37,7 @@ _debug = False
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                        rounding='closest', latticeconstant=None, 
-                       debug=False, maxiter=100,center=[0.,0.,0.],option=1):
+                       debug=False, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
     """Create a cluster using the Wulff construction.
 
     A cluster is created with approximately the number of atoms
@@ -52,14 +54,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
     energies: A list of surface energies for the surfaces.
 
-    size: The desired number of atoms.
+    size: The desired aproximate size.
 
     structure: The desired crystal structure.  Either one of the strings
     "fcc", "bcc", "sc", "hcp", "graphite"; or one of the cluster factory
     objects from the ase.cluster.XXX modules.
 
     rounding (optional): Specifies what should be done if no Wulff
-    construction corresponds to exactly the requested number of atoms.
+    construction corresponds to exactly the requested size.
     Should be a string, either "above", "below" or "closest" (the
     default), meaning that the nearest cluster above or below - or the
     closest one - is created instead.
@@ -69,8 +71,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
     debug (optional): If non-zero, information about the iteration towards
     the right cluster size is printed.
-    """
 
+    center: The origin of coordinates
+
+    stoichiometryMethod: Method to transform Np0 in Np stoichometric0 Bruno, 1 Danilo
+
+    np0: Only gets the Np0, by means, the one that is build by plane replication
+    """
+    # print('holiii')
     global _debug
     _debug = debug
 
@@ -118,6 +126,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     eq=equivalentSurfaces(symbol,surfaces)
     #Calculate the normal normalized vectors for each surface
     norms=planesNorms(eq,recCell)
+    # Get the ideal wulffPercentages
+    ideal_wulff_fractions=idealWulffFractions(symbol,surfaces,energies)
+
 
     if type(size) == float:
         """This is the loop to get the NP closest to the desired size"""
@@ -168,14 +179,21 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             
             print("Initial NP",atoms_midpoint.get_chemical_formula())
 
-            if check_min_coord(atoms_midpoint)==True:
-                print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
-                return none
-                # raise systemexit(0)
-            #Calculate the Area
-            areaCalculation(atoms_midpoint,norms)
+            #Evaluating the np0
+            np0Properties=[]
 
-            view(atoms_midpoint)
+            # np0Properties.append(check_min_coord(atoms_midpoint))
+            minCoord=check_min_coord(atoms_midpoint)
+            areasIndex=areaCalculation(atoms_midpoint,norms)
+            plane_area=planeArea(symbol,areasIndex,surfaces)
+            # print(plane_area)
+            # print(len(plane_area))
+
+            # Calculate the Wulff-like index
+            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+            # print(wulff_like)
+
+            # view(atoms_midpoint)
         
             # """
             # For now I will keep it here too
@@ -198,12 +216,13 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             #     coordination(atoms_midpoint,debug,size,n_neighbour)
             #     os.chdir('../')
             #     return atoms_midpoint
-            # elif option == 1:
-            #     """
-            #     danilo
-            #     """ 
-            #     # reduceNano(atoms_midpoint,size)
-            #     os.chdir('../')
+            if np0==False:
+                # print('here')
+                view(atoms_midpoint) 
+                # reduceNano(atoms_midpoint,size)
+                # os.chdir('../')
+            else:
+                return atoms_midpoint.get_chemical_formula(),minCoord,plane_area[0],wulff_like[0],wulff_like[1]
         # else:
         #     print("please give the np size as an int")
 
@@ -610,8 +629,10 @@ def make_F(atoms,C,nearest_neighbour,debug):
         print("Total time to calculate combinations", round(time_F1-time_F0,5)," s")
     return K
 def check_min_coord(atoms):
-    """
-    function that identify if the nanoparticle contain lower coordinated metals
+    """function that identify if the nanoparticle not contain lower coordinated metals
+    args: atoms
+    return: if have it, false, else, true
+
     """
     nearest_neighbour= []
     indexes=[]
@@ -641,9 +662,9 @@ def check_min_coord(atoms):
 
     for i in metalsCoordinations:
         if i < maxCoord/2:
-            return True
+            return 'False'
         else:
-            return False 
+            return 'True'
 
 
 def singulizator(nanoList):
@@ -1092,6 +1113,11 @@ def areaCalculation(atoms,norms):
         atoms(Atoms): atoms object of NP0
     Return:
         percentage(list): surfaces and their percentage
+    Keep in mind that using the criteria of
+    vector·normal=0  to asign the plane, you know
+    that you can have two normal planes that are orthogonal
+    to each vector, formaly axb, bxa.
+
     """
     # Steps:
 
@@ -1106,11 +1132,11 @@ def areaCalculation(atoms,norms):
     #Reading the atoms object
 
     #Only get the metal positions, just to make it easy
-    positions=np.array([atom.position[:] for atom in atoms if atom.symbol=='Ir'])
+    positions=np.array([atom.position[:] for atom in atoms if atom.symbol not in nonMetals])
 
     #Create the ConvexHull  object
     hull=ConvexHull(positions)
-    print(hull.area)
+    # print(hull.area)
 
     #Identify the miller index of the simplices and calculate the area per miller index
     simplices=[]
@@ -1125,13 +1151,12 @@ def areaCalculation(atoms,norms):
             test1=np.dot(i[1],v)
             if abs(test0) <1e-2 and abs(test1)<1e-2:
                 simplices.append([str(i[0]),area])
-                # print (i[0],area)
                 counter=counter+1
                 break
 
     # get the area for each miller index
     testArray=np.asarray(simplices)
-    # print(testArray[:,:1])
+    # print(testArray)
     df=pd.DataFrame(np.array(testArray[:,:1]).reshape(len(testArray)),columns=["miller"])
     sinDuplicados=df.drop_duplicates(keep='first')
     uniqueMiller=sinDuplicados.values.tolist()
@@ -1140,6 +1165,7 @@ def areaCalculation(atoms,norms):
     for i in uniqueMiller:
         totalAreaPerMiller=0
         for j in testArray:
+            # print (j)
             if i[0]==j[0]:
                 totalAreaPerMiller+=float(j[1])
                 totalArea+=float(j[1])
@@ -1147,6 +1173,157 @@ def areaCalculation(atoms,norms):
                 # print(j[0])
         percentage=totalAreaPerMiller/hull.area
         areasIndex.append([i[0],percentage])
-        print(i[0],percentage)
+        # print(i[0],percentage)
     return areasIndex
- 
+
+def planeArea(atoms,areasIndex,millerIndexes):
+    """Function that get the areas per miller index.
+    Args:
+        atoms(Atoms): atoms object
+        areasIndex([index,area]): list of indexes and areas per each index
+        millerIndexes([millerIndex]): list of initial miller indexes
+    Return:
+        areasPerInitialIndex([index,area]): list of initial indexes and areas per each index
+
+    """
+    #get the spacegroup object
+    surfaces = np.array(millerIndexes)
+    sg=Spacegroup((int(str(atoms.info['spacegroup'])[0:3])))
+    
+    #For each miller index get the equivalent reflexions and append
+    # as strings in equivalent_strings
+    areasPerInitialIndex=[]
+    symmetric=[]
+    for s in surfaces:
+        areaPerSurface=[]
+        equivalentSurfaces=[]
+        equivalentStrings=[]
+        equivalentSurfaces.append(sg.equivalent_reflections(s))
+        for indexes in equivalentSurfaces:
+            for index in indexes:
+                equivalentStrings.append(str(index))
+        #Make a comparison between the index of area Index and the equivalent_strings lists
+        #and accumulate the areas
+        for area in areasIndex:
+            if area[0] in equivalentStrings:
+                areaPerSurface.append(area[1])
+            else:
+                areaPerSurface.append(0.0)
+        # To evaluate if the nano faces are symmetrical
+        # we compare the areas per normal. If the areas are not
+        # equal we discard the model
+        if np.sum(areaPerSurface)==0.0:
+            areasPerInitialIndex.append([s,np.sum(areaPerSurface)])
+        if np.sum(areaPerSurface)>0.0:
+            areasPerInitialIndex.append([s,np.sum(areaPerSurface)])
+            tempArea=[i for i in areaPerSurface if i!=0.0]
+            temp=np.asarray(tempArea)
+            unique=np.unique(temp)
+            if len(unique)>1:
+                # print('not symmetric')
+                symmetric.append(0)
+            else:
+                # print('symmetric')
+                symmetric.append(1)
+    if 0 in symmetric:
+        # print('Non symmetric grow')
+        # print(areasPerInitialIndex)
+        return 'False',areasPerInitialIndex
+    else:
+        # print('Symmetric grow')
+        # print(areasPerInitialIndex)
+        return 'True',areasPerInitialIndex
+
+def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
+    """Function that calculates the wulff-like index,
+    defined as the absolute value of the diference of 
+    areas normalized by equivalent planes.
+    Args:
+        idealWulffAreasFraction([index,areas]):list of areas fraction present and areas per each index
+        areasPerInitialIndex:([index,area]): list of present and areas per each index
+    return: 
+        order(bool): true if the planes have the same area contribution in ideal and real np, false if not 
+        wli(float) wulff-like index. Close to 0 means that NP are close to wulffShape
+    """
+
+    sg=Spacegroup((int(str(atoms.info['spacegroup'])[0:3])))
+
+    wli=[]
+    idealAreasPerEquivalent=[]
+    realAreasPerEquivalent=[]
+    ##Calculate the area per equivalent faces and sort
+    for n,i in enumerate(idealWulffAreasFraction):
+
+        # number of equivalent faces
+        numberOfEquivalentFaces=len(sg.equivalent_reflections(i[0]))
+        # print('equivalentFaces',numberOfEquivalentFaces)
+
+        #Ideal
+        indexStringIdeal=''.join(map(str,i[0])) 
+        idealAreaPerEquivalent=i[1]/numberOfEquivalentFaces
+        idealAreasPerEquivalent.append([indexStringIdeal,idealAreaPerEquivalent])
+
+        #Real
+        indexStringReal=''.join(map(str,tuple(areasPerInitialIndex[n][0].tolist())))
+        realAreaPerEquivalent=areasPerInitialIndex[n][1]/numberOfEquivalentFaces
+        realAreasPerEquivalent.append([indexStringReal,realAreaPerEquivalent])
+
+    #Sorting
+    idealAreasPerEquivalentSort=sorted(idealAreasPerEquivalent,key=lambda x:x[1],reverse=True)
+    realAreasPerEquivalentSort=sorted(realAreasPerEquivalent,key=lambda x:x[1],reverse=True)
+
+    # print('idealAreasPerEquivalentSort',idealAreasPerEquivalentSort)
+    # print('realAreasPerEquivalentSort',realAreasPerEquivalentSort)
+
+    for n,indexArea in enumerate(idealAreasPerEquivalent):
+        if indexArea[0]==realAreasPerEquivalentSort[n][0]:
+            sameOrder='True'
+        else:
+            # print('notEqual')
+            sameOrder='False'
+        break
+
+    #Calculate the index
+    wlindex=0
+    for n,indexArea in enumerate(idealAreasPerEquivalent):
+        wlindex+=abs((indexArea[1]-realAreasPerEquivalentSort[n][1])/numberOfEquivalentFaces)
+
+    return sameOrder,wlindex
+
+
+
+
+
+
+def idealWulffFractions(atoms,surfaces,energies):
+    """Function that calculate the ideal wulff Areas Fraction
+    using the pymatgen WulffShape.
+    Args:
+        atoms(atoms):atoms object
+        surfaces([(index)]): list of index tuples
+        energy([energy]): list of energy floats
+    return:
+        idealWulffAreasFraction([index,areas]):list of areas fraction present and areas per each index
+    """
+    lattice=atoms.get_cell()
+
+    tupleMillerIndexes=[]
+    for index in surfaces:
+        tupleMillerIndexes.append(tuple(index))
+
+    idealWulffShape = WulffShape(lattice,tupleMillerIndexes, energies)
+    areas=idealWulffShape.area_fraction_dict
+
+    idealWulffAreasFraction=[]
+    for millerIndex,areaFraction in areas.items():
+        idealWulffAreasFraction.append([millerIndex,areaFraction])
+    # print(idealWulffAreasFraction)
+    return idealWulffAreasFraction 
+
+
+
+
+
+
+
+

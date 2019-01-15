@@ -126,7 +126,7 @@ class ClusterFactory(ClusterFactory):
                 elif k[i] < 0.0:
                     k[i] = np.floor(k[i])
 
-            if self.debug > 0:
+            if self.debug > 1:
 
                 print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
             max[k > max] = k[k > max]
