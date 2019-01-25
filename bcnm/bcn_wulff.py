@@ -183,14 +183,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             np0Properties=[]
 
             # np0Properties.append(check_min_coord(atoms_midpoint))
-            minCoord=check_min_coord(atoms_midpoint)
-            areasIndex=areaCalculation(atoms_midpoint,norms)
-            plane_area=planeArea(symbol,areasIndex,surfaces)
+            # minCoord=check_min_coord(atoms_midpoint)
+            # areasIndex=areaCalculation(atoms_midpoint,norms)
+            # # plane_area=planeArea(symbol,areasIndex,surfaces)
             # print(plane_area)
             # print(len(plane_area))
 
             # Calculate the Wulff-like index
-            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+            # wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
             # print(wulff_like)
 
             # view(atoms_midpoint)
@@ -223,6 +223,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 # os.chdir('../')
             else:
                 return atoms_midpoint.get_chemical_formula(),minCoord,plane_area[0],wulff_like[0],wulff_like[1]
+                # return('hola')
         # else:
         #     print("please give the np size as an int")
 
@@ -1111,12 +1112,24 @@ def areaCalculation(atoms,norms):
     of Np0 and their percentages.
     Args:
         atoms(Atoms): atoms object of NP0
+        norms(List): list of norms of miller planes from
+        the crystal
     Return:
         percentage(list): surfaces and their percentage
-    Keep in mind that using the criteria of
+    
+    Warning:
+        Keep in mind that using the criteria of
     vector·normal=0  to asign the plane, you know
     that you can have two normal planes that are orthogonal
     to each vector, formaly axb, bxa.
+
+    Solution:
+        To ovecome the two normals problem,we have
+        to evaluate if the normals are pointing
+        inwards of outwards of the surface, 
+        if the center of the simplex and the normal
+        have the same direction, both are pointing
+        outwards, else, inwards
 
     """
     # Steps:
@@ -1133,6 +1146,9 @@ def areaCalculation(atoms,norms):
 
     #Only get the metal positions, just to make it easy
     positions=np.array([atom.position[:] for atom in atoms if atom.symbol not in nonMetals])
+    #Calculate the centroid
+    centroid=positions.mean(axis=0)
+
 
     #Create the ConvexHull  object
     hull=ConvexHull(positions)
@@ -1140,38 +1156,61 @@ def areaCalculation(atoms,norms):
 
     #Identify the miller index of the simplices and calculate the area per miller index
     simplices=[]
-    counter=0
-    for simplex in hull.simplices:
+    for n,simplex in enumerate(hull.simplices):
         u=positions[simplex[0]]-positions[simplex[1]]
         v=positions[simplex[1]]-positions[simplex[2]]
         area=np.abs(np.linalg.norm(np.cross(u, v)) / 2)
         # print(area)
+        #Calculate the centroid of the simplex
+        tempPos=np.asarray([positions[i] for i in simplex])
+        simplexCentroid=tempPos.mean(axis=0)
+        # print(tempPos)
+        # print(simplexCentroid)
+        #Calculate the normalized normal
+        normalVector=np.cross(u, v)
+        # print(normalVector)
+        norm2=normalVector/np.linalg.norm(normalVector)
+        # print(n2)
+        #identify if is pointing inwards of outwards
+        #1 change the origin of pmid to the centroid
+        simplexCentroid2=simplexCentroid-centroid
+        #2 Calculate the dot product between normalized normal and
+        #simplexCentroid2 vector, if the dot product is positive, the normal
+        #and the simplexCentroid2 have the same direction. By definition
+        #the simplexCentroid2 is pointing outwards of centroid always.
+        if np.dot(simplexCentroid2,normalVector)<0:
+            norm2*=-1
+        #3 compare the norms of each simplex with the crystal norms
+        #The threshold of 1e-2 just has been tested for IrO2 and works well.
+        #If the diference of between elements of the norm are less than threshold
+        #evaluator is True, so that means that the simplex and the 
+        #plane has the same normal so they are parallel.
         for i in norms:
-            test0=np.dot(i[1],u)
-            test1=np.dot(i[1],v)
-            if abs(test0) <1e-2 and abs(test1)<1e-2:
-                simplices.append([str(i[0]),area])
-                counter=counter+1
-                break
+            test=i[1]-norm2
+            evaluator=all(np.abs(j)< 1e-2 for j in test)
+            # print(evaluator)
+            if evaluator==True:
 
-    # get the area for each miller index
-    testArray=np.asarray(simplices)
-    # print(testArray)
-    df=pd.DataFrame(np.array(testArray[:,:1]).reshape(len(testArray)),columns=["miller"])
-    sinDuplicados=df.drop_duplicates(keep='first')
-    uniqueMiller=sinDuplicados.values.tolist()
+                # print('normal of simplex',norm2)
+                # print('normal of crystal',i[1])
+                # print(np.sum(i[1]-norm2))
+                # print (n,i[0])
+                # print('--')
+
+                simplices.append([str(i[0]),area])
+
+    areasPerMiller=[]
     areasIndex=[]
-    totalArea=0
-    for i in uniqueMiller:
-        totalAreaPerMiller=0
-        for j in testArray:
-            # print (j)
-            if i[0]==j[0]:
-                totalAreaPerMiller+=float(j[1])
-                totalArea+=float(j[1])
-                # print(type(j[1]))
-                # print(j[0])
-        percentage=totalAreaPerMiller/hull.area
+    for i in norms:
+        millerArea=0
+        for j in simplices:
+            if str(i[0])==str(j[0]):
+                # print(j[0],i[0])
+                # print('---')
+                millerArea+=j[1]
+
+        areasPerMiller.append(millerArea)
+        percentage=millerArea/hull.area
         areasIndex.append([i[0],percentage])
         # print(i[0],percentage)
     return areasIndex

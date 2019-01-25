@@ -105,13 +105,6 @@ else:
     print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
     exit(1)
 
-# for shift in shifts:
-#     print(shift)
-#     newPath = str(shift[0])+'_'+str(shift[1])+'_'+str(shift[2])
-#     if not os.path.exists(newPath):
-#         os.makedirs(newPath)
-#     os.chdir(newPath)
-#     atoms = bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(data['nanoparticleSize']),'ext',center = shift, rounding='above',debug=1)
 
 print(data['nanoparticleSize'],data['sizeRange'])
 
@@ -120,32 +113,32 @@ max_size = int(data['nanoparticleSize'] + data['sizeRange'])
 print(min_size,max_size)
 
 ## Initial screening of shifts
-evaluation=[]
+# evaluation=[]
 for size in range(min_size, max_size, data['step']):
     for shift in shifts:
         temp=[size,shift]
         temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
-        # print(temp2)
-        temp.extend(temp2)
-        evaluation.append(temp)
-        # break
-    # break
-print('evaluation')
-# print(evaluation)
-#Discard the models that have false inside        
-for n,i in enumerate(evaluation):
-    # print(i)
-    if not 'False' in i:
-        print('las buenas')
-        print(i)
-        size=i[0]
-        # print(size)
-        shift=i[1]
-        # print('hereeee')
-        bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0)
-# for np0 in evaluation:
+#         # print(temp2)
+#         temp.extend(temp2)
+#         evaluation.append(temp)
+#         # break
+#     # break
+# print('evaluation')
+# # print(evaluation)
+# #Discard the models that have false inside        
+# for n,i in enumerate(evaluation):
+#     # print(i)
+#     if not 'False' in i:
+#         print('las buenas')
+#         print(i)
+#         size=i[0]
+#         # print(size)
+#         shift=i[1]
+#         # print('hereeee')
+#         bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0)
+# # for np0 in evaluation:
 
 
 
-# exit(0)
+# # exit(0)
 
