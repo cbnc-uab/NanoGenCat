@@ -13,8 +13,8 @@ surfaces:
   - [1, 0, 0]
   - [0, 0, 1]
 
-nanoparticleSize: 14
-sizeRange: 2
+nanoparticleSize: 22
+sizeRange: 10
 step: 1
 
 centering: automatic

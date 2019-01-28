@@ -113,29 +113,71 @@ max_size = int(data['nanoparticleSize'] + data['sizeRange'])
 print(min_size,max_size)
 
 ## Initial screening of shifts
-# evaluation=[]
+evaluation=[]
 for size in range(min_size, max_size, data['step']):
     for shift in shifts:
         temp=[size,shift]
         temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
-#         # print(temp2)
-#         temp.extend(temp2)
-#         evaluation.append(temp)
-#         # break
-#     # break
-# print('evaluation')
-# # print(evaluation)
-# #Discard the models that have false inside        
+        # print(temp2)
+        temp.extend(temp2)
+        evaluation.append(temp)
+        print(temp)
+        # break
+    # break
+#Discard the models that have false inside
+# print(evaluation)
+print('evaluated Np0s: ',len(evaluation))
+aprovedNp0Models=[i for i in evaluation if not False in i]
+print('Final models:', len(aprovedNp0Models))
+print(aprovedNp0Models)
+#For each number of metal atoms keep the one with the highest total coordination
+metalSize=list(set([i[3] for i in aprovedNp0Models]))
+
+finalModels=[]
+for i in metalSize:
+    np0PerMetal=[]
+    for j in aprovedNp0Models:
+        if i==j[3]:
+            np0PerMetal.append(j)
+    tempNp0PerMetal=sorted(np0PerMetal,key=lambda x:x[6])
+    finalModels.append(tempNp0PerMetal[0])
+
+
+print(finalModels)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # for n,i in enumerate(evaluation):
-#     # print(i)
-#     if not 'False' in i:
-#         print('las buenas')
-#         print(i)
-#         size=i[0]
-#         # print(size)
-#         shift=i[1]
-#         # print('hereeee')
-#         bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0)
+    # # print(i)
+    # if not False in i:
+    #     print('las buenas')
+    #     print(i)
+    #     size=i[0]
+    #     # print(size)
+    #     shift=i[1]
+        # print('hereeee')
+        # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0)
 # # for np0 in evaluation:
 
 

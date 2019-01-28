@@ -182,15 +182,17 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             #Evaluating the np0
             np0Properties=[]
 
-            # np0Properties.append(check_min_coord(atoms_midpoint))
-            # minCoord=check_min_coord(atoms_midpoint)
-            # areasIndex=areaCalculation(atoms_midpoint,norms)
-            # # plane_area=planeArea(symbol,areasIndex,surfaces)
-            # print(plane_area)
+            
+            minCoord=check_min_coord(atoms_midpoint)
+            areasIndex=areaCalculation(atoms_midpoint,norms)
+            # print('areasIndex',areasIndex)
+            plane_area=planeArea(symbol,areasIndex,surfaces)
+            # print('plane_area',plane_area)
+            # print('--------------')
             # print(len(plane_area))
 
             # Calculate the Wulff-like index
-            # wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
             # print(wulff_like)
 
             # view(atoms_midpoint)
@@ -216,17 +218,16 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             #     coordination(atoms_midpoint,debug,size,n_neighbour)
             #     os.chdir('../')
             #     return atoms_midpoint
-            if np0==False:
-                # print('here')
-                view(atoms_midpoint) 
-                # reduceNano(atoms_midpoint,size)
-                # os.chdir('../')
+            if np0==True:
+                np0Properties=[atoms_midpoint.get_chemical_formula()]
+                np0Properties.extend(minCoord)
+                np0Properties.append(plane_area[0])
+                np0Properties.extend(wulff_like)
+                return np0Properties
             else:
-                return atoms_midpoint.get_chemical_formula(),minCoord,plane_area[0],wulff_like[0],wulff_like[1]
-                # return('hola')
-        # else:
-        #     print("please give the np size as an int")
-
+                view(atoms_midpoint) 
+                reduceNano(atoms_midpoint,size)
+                os.chdir('../')
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
     layers = np.round(layers).astype(int)
@@ -632,11 +633,13 @@ def make_F(atoms,C,nearest_neighbour,debug):
 def check_min_coord(atoms):
     """function that identify if the nanoparticle not contain lower coordinated metals
     args: atoms
-    return: if have it, false, else, true
+    return: characterization([metals,nonmetals,undercoordinated,globalCoord,])
+            list of information of np0.
 
     """
     nearest_neighbour= []
     indexes=[]
+    characterization=[]
 
     for i in range(len(atoms.get_atomic_numbers())):
         nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
@@ -647,25 +650,37 @@ def check_min_coord(atoms):
     atomIndex=[atom.index for atom in atoms]
     for i in atomIndex:
         indexes.append([i,C[i]])
-    """ 
-    # Get the metals and non metals
-    # """
-    # # nonMetalAtom=[atom.index for atom in atoms if atom.symbol in nonMetals]
-    metalAtom=[atom.index for atom in atoms if atom.symbol not in nonMetals]
 
-    # """
-    # Get the coordinations for metals and non metals
-    # """
-    # # nonMetalsCoordinations=[i[1] for i in coordinations if i[0] in nonMetalAtom]
+    ##Sum the coordination of all elements
+    globalCoord=np.sum(indexes,axis=0)[1]
+
+    # Get the metals
+    metalAtom=[atom.index for atom in atoms if atom.symbol not in nonMetals]
+    #Calculate the nonMetals as the diference between metals and total atoms
+    nonMetalsNumber=len(atoms)-len(metalAtom)
+
+    #Get the metals coordinations
     metalsCoordinations=[i[1] for i in indexes if i[0] in metalAtom]
 
     maxCoord=np.amax(metalsCoordinations)
 
-    for i in metalsCoordinations:
-        if i < maxCoord/2:
-            return 'False'
-        else:
-            return 'True'
+    ##Filling characterization list
+
+    characterization.append(len(metalAtom))
+    characterization.append(nonMetalsNumber)
+    #Evaluate if metals have coordination larger than
+    #the half of maximium coordination
+
+    coordTest=all(i > maxCoord/2 for i in metalsCoordinations)
+    # if coordTest==False:
+        # print(metalsCoordinations) 
+    characterization.append(coordTest)
+
+    characterization.append(globalCoord)
+
+    return characterization
+
+
 
 
 def singulizator(nanoList):
@@ -1211,8 +1226,9 @@ def areaCalculation(atoms,norms):
 
         areasPerMiller.append(millerArea)
         percentage=millerArea/hull.area
-        areasIndex.append([i[0],percentage])
+        areasIndex.append([str(i[0]),percentage])
         # print(i[0],percentage)
+    # print(areasIndex)
     return areasIndex
 
 def planeArea(atoms,areasIndex,millerIndexes):
@@ -1246,18 +1262,22 @@ def planeArea(atoms,areasIndex,millerIndexes):
         for area in areasIndex:
             if area[0] in equivalentStrings:
                 areaPerSurface.append(area[1])
-            else:
-                areaPerSurface.append(0.0)
         # To evaluate if the nano faces are symmetrical
         # we compare the areas per normal. If the areas are not
         # equal we discard the model
         if np.sum(areaPerSurface)==0.0:
+            # print(s,np.sum(areaPerSurface),'\n----')
             areasPerInitialIndex.append([s,np.sum(areaPerSurface)])
-        if np.sum(areaPerSurface)>0.0:
+        else:
             areasPerInitialIndex.append([s,np.sum(areaPerSurface)])
-            tempArea=[i for i in areaPerSurface if i!=0.0]
-            temp=np.asarray(tempArea)
-            unique=np.unique(temp)
+            # print(s,np.sum(areaPerSurface),'\n----')
+            # print(areaPerSurface)
+            # print('-------------')
+            tempArea=["%.4f"%i for i in areaPerSurface if i!=0.0]
+            # print(tempArea)
+            # print('-------------')
+            # temp=np.asarray(tempArea)
+            unique=list(set((tempArea)))
             if len(unique)>1:
                 # print('not symmetric')
                 symmetric.append(0)
@@ -1267,11 +1287,11 @@ def planeArea(atoms,areasIndex,millerIndexes):
     if 0 in symmetric:
         # print('Non symmetric grow')
         # print(areasPerInitialIndex)
-        return 'False',areasPerInitialIndex
+        return False,areasPerInitialIndex
     else:
         # print('Symmetric grow')
         # print(areasPerInitialIndex)
-        return 'True',areasPerInitialIndex
+        return True,areasPerInitialIndex
 
 def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     """Function that calculates the wulff-like index,
@@ -1316,10 +1336,10 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
 
     for n,indexArea in enumerate(idealAreasPerEquivalent):
         if indexArea[0]==realAreasPerEquivalentSort[n][0]:
-            sameOrder='True'
+            sameOrder=True
         else:
             # print('notEqual')
-            sameOrder='False'
+            sameOrder=False
         break
 
     #Calculate the index
@@ -1327,12 +1347,7 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     for n,indexArea in enumerate(idealAreasPerEquivalent):
         wlindex+=abs((indexArea[1]-realAreasPerEquivalentSort[n][1])/numberOfEquivalentFaces)
 
-    return sameOrder,wlindex
-
-
-
-
-
+    return sameOrder,"%.4f"%wlindex
 
 def idealWulffFractions(atoms,surfaces,energies):
     """Function that calculate the ideal wulff Areas Fraction
