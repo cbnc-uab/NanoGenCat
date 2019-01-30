@@ -74,7 +74,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
     center: The origin of coordinates
 
-    stoichiometryMethod: Method to transform Np0 in Np stoichometric0 Bruno, 1 Danilo
+    stoichiometryMethod: Method to transform Np0 in Np stoichometric 0 Bruno, 1 Danilo
 
     np0: Only gets the Np0, by means, the one that is build by plane replication
     """
@@ -225,7 +225,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 np0Properties.extend(wulff_like)
                 return np0Properties
             else:
-                view(atoms_midpoint) 
+                # view(atoms_midpoint) 
                 reduceNano(atoms_midpoint,size)
                 os.chdir('../')
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
@@ -680,9 +680,6 @@ def check_min_coord(atoms):
 
     return characterization
 
-
-
-
 def singulizator(nanoList):
 
     print('Enter in the singulizator')
@@ -1004,13 +1001,26 @@ def reduceNano(atoms,size):
     for i in uniqueRepeated:
         del S[i]
     """
-    Build the nanoparticles removing the s atom list
+    Build the nanoparticles removing the s atom list. Then, calculate the DC
     """
+    atomsOnlyMetal=copy.deepcopy(atoms)
+    del atomsOnlyMetal[[atom.index for atom in atomsOnlyMetal if atom.symbol in nonMetals]]
+    centerOfMetal = atomsOnlyMetal.get_center_of_mass()
+    # print('centerOfMetal',centerOfMetal)
+    print('stoichiometric NPs:',len(S))
     for n,s in enumerate(S):
         NP=copy.deepcopy(atoms)
         s.sort(reverse=True)
         del NP[[s]]
-        name=str(NP.get_chemical_formula(mode='hill'))+'_'+str(n)+'.xyz'
+        atomsOnlyNotMetal = copy.deepcopy(NP)
+        del atomsOnlyNotMetal[[atom.index for atom in atomsOnlyNotMetal if atom.symbol not in nonMetals]]
+        centerOfNonMetal = atomsOnlyNotMetal.get_center_of_mass()
+        # print('centerOfNotMetal',centerOfNonMetal)
+        dev = np.std(abs(centerOfMetal-centerOfNonMetal))
+        dev_p = float("{:.7f}".format(round(float(dev*100),7)))
+        # print('dev_p',dev_p)
+        name=str(NP.get_chemical_formula(mode='hill'))+'_'+str(dev_p)+'_'+str(n)+'.xyz'
+        # print('name',name)
         nanoList.append(name)
         write(name,NP,format='xyz')
 

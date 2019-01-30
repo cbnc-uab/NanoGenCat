@@ -106,33 +106,37 @@ else:
     exit(1)
 
 
-print(data['nanoparticleSize'],data['sizeRange'])
+# print(data['nanoparticleSize'],data['sizeRange'])
 
 min_size = int(data['nanoparticleSize'] - data['sizeRange'])
 max_size = int(data['nanoparticleSize'] + data['sizeRange'])
-print(min_size,max_size)
+# print(min_size,max_size)
 
 ## Initial screening of shifts
+print('Evaluation of running parameters on NP0')
 evaluation=[]
 for size in range(min_size, max_size, data['step']):
     for shift in shifts:
+        print('Size:',size,'Shift:',shift)
         temp=[size,shift]
         temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
         # print(temp2)
         temp.extend(temp2)
         evaluation.append(temp)
-        print(temp)
+        # print(temp)
         # break
+        print('Done')
     # break
 #Discard the models that have false inside
 # print(evaluation)
-print('evaluated Np0s: ',len(evaluation))
+print('Number of evaluated NP0s: ',len(evaluation))
 aprovedNp0Models=[i for i in evaluation if not False in i]
-print('Final models:', len(aprovedNp0Models))
+print('Aproved NP0s:', len(aprovedNp0Models))
 print(aprovedNp0Models)
 #For each number of metal atoms keep the one with the highest total coordination
 metalSize=list(set([i[3] for i in aprovedNp0Models]))
 
+#Iterate to get only the one that have the maximum total coordination
 finalModels=[]
 for i in metalSize:
     np0PerMetal=[]
@@ -143,8 +147,12 @@ for i in metalSize:
     finalModels.append(tempNp0PerMetal[0])
 
 
+print('Final NP0s models:',len(finalModels))
 print(finalModels)
 
+###Calculation of stoichiometric nanoparticles
+for i in finalModels:
+    bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=0)
 
 
 
