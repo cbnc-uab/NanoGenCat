@@ -177,7 +177,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                         structure, center, latticeconstant)
             
-            print("Initial NP",atoms_midpoint.get_chemical_formula())
+            # print("Initial NP",atoms_midpoint.get_chemical_formula())
+            # view(atoms_midpoint)
+            name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+            write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
             #Evaluating the np0
             np0Properties=[]
@@ -223,11 +226,13 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 np0Properties.extend(minCoord)
                 np0Properties.append(plane_area[0])
                 np0Properties.extend(wulff_like)
+                # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+                # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
                 return np0Properties
             else:
                 # view(atoms_midpoint) 
                 reduceNano(atoms_midpoint,size)
-                os.chdir('../')
+                # os.chdir('../')
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
     layers = np.round(layers).astype(int)
@@ -661,8 +666,10 @@ def check_min_coord(atoms):
 
     #Get the metals coordinations
     metalsCoordinations=[i[1] for i in indexes if i[0] in metalAtom]
+    # print(metalsCoordinations)/
 
     maxCoord=np.amax(metalsCoordinations)
+    # print('maxCoord:',maxCoord)
 
     ##Filling characterization list
 
@@ -670,8 +677,14 @@ def check_min_coord(atoms):
     characterization.append(nonMetalsNumber)
     #Evaluate if metals have coordination larger than
     #the half of maximium coordination
+    minCoord=np.min(metalsCoordinations)
+    # print('minCoord',minCoord)
+    if minCoord>=maxCoord/2:
+        coordTest=True
+    else:
+        coordTest=False
 
-    coordTest=all(i > maxCoord/2 for i in metalsCoordinations)
+    # coordTest=all(i >= maxCoord/2 for i in metalsCoordinations)
     # if coordTest==False:
         # print(metalsCoordinations) 
     characterization.append(coordTest)
@@ -681,6 +694,10 @@ def check_min_coord(atoms):
     return characterization
 
 def singulizator(nanoList):
+    """
+    Function that eliminates the nanoparticles
+    that are equivalent by SPRINT coordinates
+    """
 
     print('Enter in the singulizator')
     time_F0 = time.time()
@@ -735,7 +752,7 @@ def sprint(nano):
     nearest_neighbour cutoffs for NeighborList.
 
     The C list contains the atom and the binding atoms indices.
-    From C list we build the adjMatrix. The idea is traslate from
+    From C list we build the adjMatrix. The idea is translate from
     coordination list to adjacency matrix.
 
     Then, calculate the sprint coordinates
@@ -781,15 +798,16 @@ def sprint(nano):
 
     # np.savetxt(adjacencyName,adjMatrix,newline='\n',fmt='%.3f')
 
+    # Calculating the largest algebraic eigenvalues and their 
+    # correspondent eigenvector
     val,vec=eigsh(adjMatrix,k=1,which='LA')
+
     # print(val,'val')
     # print(vec)
     
-    """
-    Sorting and using positive eigenvector values (by definition)
-    """
+    # Sorting and using positive eigenvector values (by definition)
+    # to calculate the sprint coordinates
 
-    # vec=sorted(vec)
     vecAbs=[abs(i)for i in vec]
     vecAbsSort=sorted(vecAbs)
     s=[sqrt(len(adjMatrix))*val[0]*i[0] for i in vecAbsSort]
@@ -921,10 +939,11 @@ def reduceNano(atoms,size):
     """
     maxCord=int(np.max(coordFather))
     # print (maxCord)
-    mid=int(0.5*maxCord-3)
+    mid=int(0.5*maxCord-1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
-    # print(allowedCoordination)
+    print('allowedCoordinations')
+    print(allowedCoordination)
 
 
     replicas=1000
@@ -1027,6 +1046,7 @@ def reduceNano(atoms,size):
     time_F1 = time.time()
     print("Total time reduceNano", round(time_F1-time_F0,5)," s")
 
+    #Calling the singulizator function 
     singulizator(nanoList)
 
 def evaluateNp0(NP0_list):

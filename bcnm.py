@@ -6,9 +6,15 @@
 '''
 import os
 import sys
+import uuid
+import time
+
 from yaml import load
+
 import numpy as np
+
 from argparse import ArgumentParser
+
 from ase.spacegroup import crystal
 from ase.visualize import view
 from ase.build import cut, bulk
@@ -34,10 +40,17 @@ with open(args.input,'r') as file:
 
 file.close()
 
-#
-os.chdir('tmp')
+####Creating a execution directory
+execDir='tmp/'+str(uuid.uuid4().hex)
+os.mkdir(execDir)
+os.chdir(execDir)
+print('Running directory: ',execDir)
+
+####Start execution
+print('\nStart execution')
+
 crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
-write('crystalShape.out',crystalObject,format='xyz')
+write('crystalShape.xyz',crystalObject,format='xyz')
 
 # Centering
 if data['centering'] == 'none':
@@ -108,17 +121,20 @@ else:
 
 # print(data['nanoparticleSize'],data['sizeRange'])
 
-min_size = int(data['nanoparticleSize'] - data['sizeRange'])
-max_size = int(data['nanoparticleSize'] + data['sizeRange'])
+min_size = data['nanoparticleSize'] - data['sizeRange']
+max_size = data['nanoparticleSize'] + data['sizeRange']
 # print(min_size,max_size)
 
 ## Initial screening of shifts
-print('Evaluation of running parameters on NP0')
+print('\nEvaluation of running parameters on NP0')
+startingScreeningTime = time.time()
+
 evaluation=[]
-for size in range(min_size, max_size, data['step']):
+for size in np.arange(min_size, max_size, data['step']):
     for shift in shifts:
         print('Size:',size,'Shift:',shift)
         temp=[size,shift]
+        # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
         temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
         # print(temp2)
         temp.extend(temp2)
@@ -130,10 +146,16 @@ for size in range(min_size, max_size, data['step']):
 #Discard the models that have false inside
 # print(evaluation)
 print('Number of evaluated NP0s: ',len(evaluation))
+print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas, Wulff-like index')
+print('Results:\n')
+print(*evaluation, sep='\n')
+
 aprovedNp0Models=[i for i in evaluation if not False in i]
 print('Aproved NP0s:', len(aprovedNp0Models))
-print(aprovedNp0Models)
+print(*aprovedNp0Models, sep='\n')
+
 #For each number of metal atoms keep the one with the highest total coordination
+#list of unique metal sizes
 metalSize=list(set([i[3] for i in aprovedNp0Models]))
 
 #Iterate to get only the one that have the maximum total coordination
@@ -143,15 +165,20 @@ for i in metalSize:
     for j in aprovedNp0Models:
         if i==j[3]:
             np0PerMetal.append(j)
-    tempNp0PerMetal=sorted(np0PerMetal,key=lambda x:x[6])
+    tempNp0PerMetal=sorted(np0PerMetal,key=lambda x:x[6],reverse=True)
+    # print(tempNp0PerMetal)
     finalModels.append(tempNp0PerMetal[0])
 
-
 print('Final NP0s models:',len(finalModels))
-print(finalModels)
+print(*finalModels, sep='\n')
+finalScreeningTime = time.time()
 
-###Calculation of stoichiometric nanoparticles
+print("Total time evaluation", round(finalScreeningTime-startingScreeningTime)," s")
+
+
+##Calculation of stoichiometric nanoparticles
 for i in finalModels:
+    print('Generating stoichiometric nanopartilcles of ',i)
     bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=0)
 
 exit(0)
