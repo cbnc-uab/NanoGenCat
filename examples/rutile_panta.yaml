@@ -1,0 +1,25 @@
+# Bcnm input example in yaml 
+# Titania
+chemicalSpecie: TiO
+spaceGroupNumber: 136
+basis:
+ - [0.0, 0.0, 0.0]
+ - [0.306, 0.306,0.0]
+cellDimension: [4.603,4.603,2.977, 90, 90, 90]
+
+surfaceEnergy: [0.042,0.074,0.060,0.085]
+surfaces: 
+  - [1, 1, 0]
+  - [0, 1, 1]
+  - [1, 0, 0]
+  - [0, 0, 1]
+
+nanoparticleSize: 14
+sizeRange: 1
+step: 1
+
+centering: none
+# centering: manualShift
+# numberOfShifts: 1
+# shifts:
+#   - [0.153, 0.153, 0.0]
