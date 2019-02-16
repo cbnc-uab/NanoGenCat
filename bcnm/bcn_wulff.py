@@ -190,8 +190,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             areasIndex=areaCalculation(atoms_midpoint,norms)
             # print('areasIndex',areasIndex)
             plane_area=planeArea(symbol,areasIndex,surfaces)
-            # print('plane_area',plane_area)
-            # print('--------------')
+            print('plane_area',plane_area)
+            print('--------------')
             # print(len(plane_area))
 
             # Calculate the Wulff-like index
@@ -1304,8 +1304,8 @@ def planeArea(atoms,areasIndex,millerIndexes):
             # print(areaPerSurface)
             # print('-------------')
             tempArea=["%.4f"%i for i in areaPerSurface if i!=0.0]
-            # print(tempArea)
-            # print('-------------')
+            print(s,tempArea)
+            print('-------------')
             # temp=np.asarray(tempArea)
             unique=list(set((tempArea)))
             if len(unique)>1:

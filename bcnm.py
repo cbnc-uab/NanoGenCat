@@ -129,19 +129,23 @@ max_size = data['nanoparticleSize'] + data['sizeRange']
 print('\nEvaluation of running parameters on NP0')
 startingScreeningTime = time.time()
 
+
 evaluation=[]
 for size in np.arange(min_size, max_size, data['step']):
-    for shift in shifts:
-        print('Size:',size,'Shift:',shift)
-        temp=[size,shift]
-        # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
-        # print(temp2)
-        temp.extend(temp2)
-        evaluation.append(temp)
-        # print(temp)
-        # break
-        print('Done')
+    if size >8:
+        for shift in shifts:
+            print('Size:',size,'Shift:',shift)
+            temp=[size,shift]
+            # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
+            temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
+            # print(temp2)
+            temp.extend(temp2)
+            evaluation.append(temp)
+            # print(temp)
+            # break
+            print('Done')
+    else:
+        print('Size',size,'are too small')
     # break
 #Discard the models that have false inside
 # print(evaluation)

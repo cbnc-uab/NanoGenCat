@@ -1,0 +1,171 @@
+
+BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
+This program comes with ABSOLUTELY NO WARRANTY; for details type 'python bcnm.py --help'. 
+This is free software, and you are welcome to redistribute it under certain conditions; type 'cat LICENSE' for details.
+
+22 10
+12 32
+Initial NP Ir21O47
+[12, [0.153, 0.153, 0.0], 'Ir21O47', 21, 47, False, 192, False, True, '0.0230']
+Initial NP Ir33O50
+[12, [0.0, 0.0, 0.0], 'Ir33O50', 33, 50, False, 256, True, True, '0.0542']
+Initial NP Ir28O61
+[12, [0.306, 0.306, 0.0], 'Ir28O61', 28, 61, False, 266, False, True, '0.0142']
+Initial NP Ir21O47
+[12, [0.153, 0.153, 0.0], 'Ir21O47', 21, 47, False, 192, False, True, '0.0230']
+Initial NP Ir40O68
+[13, [0.153, 0.153, 0.0], 'Ir40O68', 40, 68, False, 350, False, True, '0.0386']
+Initial NP Ir33O56
+[13, [0.0, 0.0, 0.0], 'Ir33O56', 33, 56, False, 276, True, True, '0.0542']
+Initial NP Ir28O69
+[13, [0.306, 0.306, 0.0], 'Ir28O69', 28, 69, False, 282, False, True, '0.0142']
+Initial NP Ir40O68
+[13, [0.153, 0.153, 0.0], 'Ir40O68', 40, 68, False, 350, False, True, '0.0386']
+Initial NP Ir40O68
+[14, [0.153, 0.153, 0.0], 'Ir40O68', 40, 68, False, 350, False, True, '0.0386']
+Initial NP Ir33O80
+[14, [0.0, 0.0, 0.0], 'Ir33O80', 33, 80, True, 348, True, True, '0.0542']
+Initial NP Ir40O85
+[14, [0.306, 0.306, 0.0], 'Ir40O85', 40, 85, False, 382, False, True, '0.0386']
+Initial NP Ir40O68
+[14, [0.153, 0.153, 0.0], 'Ir40O68', 40, 68, False, 350, False, True, '0.0386']
+Initial NP Ir54O120
+[15, [0.153, 0.153, 0.0], 'Ir54O120', 54, 120, False, 542, False, True, '0.0093']
+Initial NP Ir61O104
+[15, [0.0, 0.0, 0.0], 'Ir61O104', 61, 104, False, 552, True, False, '0.0184']
+Initial NP Ir52O123
+[15, [0.306, 0.306, 0.0], 'Ir52O123', 52, 123, False, 540, False, False, '0.0228']
+Initial NP Ir54O120
+[15, [0.153, 0.153, 0.0], 'Ir54O120', 54, 120, False, 542, False, True, '0.0093']
+Initial NP Ir56O128
+[16, [0.153, 0.153, 0.0], 'Ir56O128', 56, 128, False, 578, False, True, '0.0152']
+Initial NP Ir61O152
+[16, [0.0, 0.0, 0.0], 'Ir61O152', 61, 152, True, 648, True, False, '0.0184']
+Initial NP Ir76O123
+[16, [0.306, 0.306, 0.0], 'Ir76O123', 76, 123, False, 672, False, True, '0.0275']
+Initial NP Ir56O128
+[16, [0.153, 0.153, 0.0], 'Ir56O128', 56, 128, False, 578, False, True, '0.0152']
+Initial NP Ir76O146
+[17, [0.153, 0.153, 0.0], 'Ir76O146', 76, 146, False, 722, False, True, '0.0275']
+Initial NP Ir61O152
+[17, [0.0, 0.0, 0.0], 'Ir61O152', 61, 152, True, 648, True, False, '0.0184']
+Initial NP Ir76O129
+[17, [0.306, 0.306, 0.0], 'Ir76O129', 76, 129, False, 684, False, True, '0.0275']
+Initial NP Ir76O146
+[17, [0.153, 0.153, 0.0], 'Ir76O146', 76, 146, False, 722, False, True, '0.0275']
+Initial NP Ir83O173
+[18, [0.153, 0.153, 0.0], 'Ir83O173', 83, 173, False, 830, False, True, '0.0056']
+Initial NP Ir115O172
+[18, [0.0, 0.0, 0.0], 'Ir115O172', 115, 172, False, 992, True, True, '0.0315']
+Initial NP Ir86O199
+[18, [0.306, 0.306, 0.0], 'Ir86O199', 86, 199, True, 928, False, True, '0.0055']
+Initial NP Ir83O173
+[18, [0.153, 0.153, 0.0], 'Ir83O173', 83, 173, False, 830, False, True, '0.0056']
+Initial NP Ir115O199
+[19, [0.153, 0.153, 0.0], 'Ir115O199', 115, 199, False, 1078, True, True, '0.0315']
+Initial NP Ir115O216
+[19, [0.0, 0.0, 0.0], 'Ir115O216', 115, 216, False, 1168, True, True, '0.0315']
+Initial NP Ir110O199
+[19, [0.306, 0.306, 0.0], 'Ir110O199', 110, 199, False, 1068, False, True, '0.0295']
+Initial NP Ir115O199
+[19, [0.153, 0.153, 0.0], 'Ir115O199', 115, 199, False, 1078, True, True, '0.0315']
+Initial NP Ir115O237
+[20, [0.153, 0.153, 0.0], 'Ir115O237', 115, 237, False, 1198, True, True, '0.0315']
+Initial NP Ir115O248
+[20, [0.0, 0.0, 0.0], 'Ir115O248', 115, 248, False, 1232, True, True, '0.0315']
+Initial NP Ir129O249
+[20, [0.306, 0.306, 0.0], 'Ir129O249', 129, 249, False, 1262, False, True, '0.0201']
+Initial NP Ir115O237
+[20, [0.153, 0.153, 0.0], 'Ir115O237', 115, 237, False, 1198, True, True, '0.0315']
+Initial NP Ir129O285
+[21, [0.153, 0.153, 0.0], 'Ir129O285', 129, 285, False, 1390, False, True, '0.0201']
+Initial NP Ir115O248
+[21, [0.0, 0.0, 0.0], 'Ir115O248', 115, 248, False, 1232, True, True, '0.0315']
+Initial NP Ir129O290
+[21, [0.306, 0.306, 0.0], 'Ir129O290', 129, 290, False, 1398, False, True, '0.0201']
+Initial NP Ir129O285
+[21, [0.153, 0.153, 0.0], 'Ir129O285', 129, 285, False, 1390, False, True, '0.0201']
+Initial NP Ir129O300
+[22, [0.153, 0.153, 0.0], 'Ir129O300', 129, 300, False, 1428, False, True, '0.0201']
+Initial NP Ir115O318
+[22, [0.0, 0.0, 0.0], 'Ir115O318', 115, 318, True, 1380, True, True, '0.0315']
+Initial NP Ir159O298
+[22, [0.306, 0.306, 0.0], 'Ir159O298', 159, 298, False, 1594, False, True, '0.0352']
+Initial NP Ir129O300
+[22, [0.153, 0.153, 0.0], 'Ir129O300', 129, 300, False, 1428, False, True, '0.0201']
+Initial NP Ir195O387
+[23, [0.153, 0.153, 0.0], 'Ir195O387', 195, 387, False, 1988, False, True, '0.0018']
+Initial NP Ir261O394
+[23, [0.0, 0.0, 0.0], 'Ir261O394', 261, 394, False, 2340, True, True, '0.0075']
+Initial NP Ir197O426
+[23, [0.306, 0.306, 0.0], 'Ir197O426', 197, 426, False, 2138, False, True, '0.0062']
+Initial NP Ir195O387
+[23, [0.153, 0.153, 0.0], 'Ir195O387', 195, 387, False, 1988, False, True, '0.0018']
+Initial NP Ir237O427
+[24, [0.153, 0.153, 0.0], 'Ir237O427', 237, 427, False, 2360, False, True, '0.0159']
+Initial NP Ir261O402
+[24, [0.0, 0.0, 0.0], 'Ir261O402', 261, 402, False, 2356, True, True, '0.0075']
+Initial NP Ir201O437
+[24, [0.306, 0.306, 0.0], 'Ir201O437', 201, 437, False, 2184, False, True, '0.0163']
+Initial NP Ir237O427
+[24, [0.153, 0.153, 0.0], 'Ir237O427', 237, 427, False, 2360, False, True, '0.0159']
+Initial NP Ir267O459
+[25, [0.153, 0.153, 0.0], 'Ir267O459', 267, 459, False, 2600, False, True, '0.0077']
+Initial NP Ir261O486
+[25, [0.0, 0.0, 0.0], 'Ir261O486', 261, 486, False, 2676, True, True, '0.0075']
+Initial NP Ir243O437
+[25, [0.306, 0.306, 0.0], 'Ir243O437', 243, 437, False, 2416, False, True, '0.0289']
+Initial NP Ir267O459
+[25, [0.153, 0.153, 0.0], 'Ir267O459', 267, 459, False, 2600, False, True, '0.0077']
+Initial NP Ir267O579
+[26, [0.153, 0.153, 0.0], 'Ir267O579', 267, 579, True, 2960, False, True, '0.0077']
+Initial NP Ir273O524
+[26, [0.0, 0.0, 0.0], 'Ir273O524', 273, 524, False, 2900, True, True, '0.0198']
+Initial NP Ir262O541
+[26, [0.306, 0.306, 0.0], 'Ir262O541', 262, 541, False, 2794, False, True, '0.0113']
+Initial NP Ir267O579
+[26, [0.153, 0.153, 0.0], 'Ir267O579', 267, 579, True, 2960, False, True, '0.0077']
+Initial NP Ir273O613
+[27, [0.153, 0.153, 0.0], 'Ir273O613', 273, 613, False, 3064, True, True, '0.0198']
+Initial NP Ir273O676
+[27, [0.0, 0.0, 0.0], 'Ir273O676', 273, 676, False, 3204, True, True, '0.0198']
+Initial NP Ir338O641
+[27, [0.306, 0.306, 0.0], 'Ir338O641', 338, 641, False, 3498, False, True, '0.0072']
+Initial NP Ir273O613
+[27, [0.153, 0.153, 0.0], 'Ir273O613', 273, 613, False, 3064, True, True, '0.0198']
+Initial NP Ir344O708
+[28, [0.153, 0.153, 0.0], 'Ir344O708', 344, 708, False, 3690, False, True, '0.0100']
+Initial NP Ir273O684
+[28, [0.0, 0.0, 0.0], 'Ir273O684', 273, 684, False, 3228, True, True, '0.0198']
+Initial NP Ir346O641
+[28, [0.306, 0.306, 0.0], 'Ir346O641', 346, 641, False, 3538, False, True, '0.0141']
+Initial NP Ir344O708
+[28, [0.153, 0.153, 0.0], 'Ir344O708', 344, 708, False, 3690, False, True, '0.0100']
+Initial NP Ir352O708
+[29, [0.153, 0.153, 0.0], 'Ir352O708', 352, 708, False, 3730, False, True, '0.0239']
+Initial NP Ir371O690
+[29, [0.0, 0.0, 0.0], 'Ir371O690', 371, 690, False, 3792, True, True, '0.0407']
+Initial NP Ir352O763
+[29, [0.306, 0.306, 0.0], 'Ir352O763', 352, 763, False, 3942, False, True, '0.0239']
+Initial NP Ir352O708
+[29, [0.153, 0.153, 0.0], 'Ir352O708', 352, 708, False, 3730, False, True, '0.0239']
+Initial NP Ir474O848
+[30, [0.153, 0.153, 0.0], 'Ir474O848', 474, 848, False, 4822, False, True, '0.0030']
+Initial NP Ir519O812
+[30, [0.0, 0.0, 0.0], 'Ir519O812', 519, 812, False, 4872, True, True, '0.0041']
+Initial NP Ir406O873
+[30, [0.306, 0.306, 0.0], 'Ir406O873', 406, 873, False, 4532, False, True, '0.0084']
+Initial NP Ir474O848
+[30, [0.153, 0.153, 0.0], 'Ir474O848', 474, 848, False, 4822, False, True, '0.0030']
+Initial NP Ir474O870
+[31, [0.153, 0.153, 0.0], 'Ir474O870', 474, 870, False, 4910, False, True, '0.0030']
+Initial NP Ir519O948
+[31, [0.0, 0.0, 0.0], 'Ir519O948', 519, 948, False, 5416, True, True, '0.0041']
+Initial NP Ir474O947
+[31, [0.306, 0.306, 0.0], 'Ir474O947', 474, 947, False, 5064, False, True, '0.0030']
+Initial NP Ir474O870
+[31, [0.153, 0.153, 0.0], 'Ir474O870', 474, 870, False, 4910, False, True, '0.0030']
+evaluated Np0s:  80
+Final models: 2
+[[14, [0.0, 0.0, 0.0], 'Ir33O80', 33, 80, True, 348, True, True, '0.0542'], [22, [0.0, 0.0, 0.0], 'Ir115O318', 115, 318, True, 1380, True, True, '0.0315']]
+[[14, [0.0, 0.0, 0.0], 'Ir33O80', 33, 80, True, 348, True, True, '0.0542'], [22, [0.0, 0.0, 0.0], 'Ir115O318', 115, 318, True, 1380, True, True, '0.0315']]
