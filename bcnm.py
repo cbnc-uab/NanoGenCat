@@ -24,6 +24,8 @@ from ase.io import  write, read
 sys.path.append(os.path.abspath("bcnm/"))
 from bcn_wulff import bcn_wulff_construction
 
+startTime = time.time()
+
 print('''
 BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
 This program comes with ABSOLUTELY NO WARRANTY; for details type 'python bcnm.py --help'. 
@@ -46,13 +48,24 @@ os.mkdir(execDir)
 os.chdir(execDir)
 print('Running directory: ',execDir)
 
-####Start execution
-print('\nStart execution')
+####Printing running parameters
+print('Running parameters')
+for key,values in data.items():
+    print(key,':',values)
 
-crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
+###Start execution
+print('\nStart execution')
+## Making the crystalObject
+crystalObject = crystal(data['chemicalSpecies'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
 write('crystalShape.xyz',crystalObject,format='xyz')
 
-# Centering
+##feeding the initial charges 
+for atom in crystalObject:
+    for n,element in enumerate(data['chemicalSpecies']):
+        if atom.symbol==element:
+            atom.charge=data['charges'][n]
+
+#####Centering
 if data['centering'] == 'none':
     shifts = [[0.0, 0.0, 0.0]]
 
@@ -143,19 +156,19 @@ for size in np.arange(min_size, max_size, data['step']):
             evaluation.append(temp)
             # print(temp)
             # break
-            print('Done')
+            # print('Done')
     else:
         print('Size',size,'are too small')
     # break
 #Discard the models that have false inside
 # print(evaluation)
-print('Number of evaluated NP0s: ',len(evaluation))
+print('\nNumber of evaluated NP0s: ',len(evaluation))
 print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas, Wulff-like index')
-print('Results:\n')
+print('Results:')
 print(*evaluation, sep='\n')
 
 aprovedNp0Models=[i for i in evaluation if not False in i]
-print('Aproved NP0s:', len(aprovedNp0Models))
+print('\nAproved NP0s:', len(aprovedNp0Models))
 print(*aprovedNp0Models, sep='\n')
 
 #For each number of metal atoms keep the one with the highest total coordination
@@ -173,7 +186,7 @@ for i in metalSize:
     # print(tempNp0PerMetal)
     finalModels.append(tempNp0PerMetal[0])
 
-print('Final NP0s models:',len(finalModels))
+print('\nFinal NP0s models:',len(finalModels))
 print(*finalModels, sep='\n')
 finalScreeningTime = time.time()
 
@@ -182,7 +195,8 @@ print("Total time evaluation", round(finalScreeningTime-startingScreeningTime),"
 
 ##Calculation of stoichiometric nanoparticles
 for i in finalModels:
-    print('Generating stoichiometric nanopartilcles of ',i)
+    print('\nGenerating stoichiometric nanoparticles for ',i,"\n")
     bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=0)
-
+finalTime=time.time()
+print("Total execution time:",round(finalTime-startTime),"s")
 exit(0)

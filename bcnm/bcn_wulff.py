@@ -1,5 +1,6 @@
 from __future__ import print_function
 import os, time
+import subprocess
 import copy
 import numpy as np
 import pandas as pd
@@ -9,6 +10,7 @@ from os import remove
 from re import findall
 from random import shuffle,choice
 from scipy.sparse.linalg import eigsh
+from scipy.spatial.distance import euclidean
 from itertools import combinations
 from math import sqrt
 from scipy.spatial import ConvexHull
@@ -78,7 +80,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
     np0: Only gets the Np0, by means, the one that is build by plane replication
     """
-    # print('holiii')
     global _debug
     _debug = debug
 
@@ -190,8 +191,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             areasIndex=areaCalculation(atoms_midpoint,norms)
             # print('areasIndex',areasIndex)
             plane_area=planeArea(symbol,areasIndex,surfaces)
-            print('plane_area',plane_area)
-            print('--------------')
+            # print('plane_area',plane_area)
+            # print('--------------')
             # print(len(plane_area))
 
             # Calculate the Wulff-like index
@@ -231,7 +232,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 return np0Properties
             else:
                 # view(atoms_midpoint) 
-                reduceNano(atoms_midpoint,size)
+                reduceNano(symbol,atoms_midpoint,size)
                 # os.chdir('../')
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
@@ -731,17 +732,13 @@ def singulizator(nanoList):
         # print('NP '+nanoList[results[i][0]]+' and '+nanoList[results[i][1]]+ ' are equal')
         # print('Removing '+nanoList[results[i][0]])
         remove(nanoList[i])
+    finalModels=len(nanoList)-len(toRemove)
+    print('Removed NPs:',len(toRemove))
+    print('Final models:',finalModels)
 
     time_F1 = time.time()
-    print("Total time singulizator", round(time_F1-time_F0,5)," s")
-    print('Removed NPs:',len(toRemove))
+    print("Total time singulizator", round(time_F1-time_F0,5)," s\n")
 
-    """
-    rename and calculate the DC
-    """
-    # print('reducing')
-    # np.savetxt('sprints',sprintCoordinates,fmt='%s')
-    # print (len(sprintCoordinates))
 
 def sprint(nano):
     """
@@ -845,7 +842,7 @@ def coordination_testing(atoms):
         indices, offsets = nl.get_neighbors(i)
         C.append(len(indices))
     return C
-def reduceNano(atoms,size):
+def reduceNano(symbol,atoms,size):
     """
     function that make the nano stoichiometrically
     """
@@ -942,8 +939,8 @@ def reduceNano(atoms,size):
     mid=int(0.5*maxCord-1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
-    print('allowedCoordinations')
-    print(allowedCoordination)
+    # print('allowedCoordinations')
+    # print(allowedCoordination)
 
 
     replicas=1000
@@ -989,7 +986,7 @@ def reduceNano(atoms,size):
         S.append(sorted(toRemove))
 
     """
-    at the end we get an array S with 1000 list of atoms
+    at the end we get an array S with 10000 list of atoms
     to be removed. Previous to the removal and to make the things faster
     we remove duplicates (I guess that is not duplicates in the list)
     """
@@ -1031,72 +1028,37 @@ def reduceNano(atoms,size):
         NP=copy.deepcopy(atoms)
         s.sort(reverse=True)
         del NP[[s]]
+
+        #DC calculation
         atomsOnlyNotMetal = copy.deepcopy(NP)
         del atomsOnlyNotMetal[[atom.index for atom in atomsOnlyNotMetal if atom.symbol not in nonMetals]]
         centerOfNonMetal = atomsOnlyNotMetal.get_center_of_mass()
         # print('centerOfNotMetal',centerOfNonMetal)
         dev = np.std(abs(centerOfMetal-centerOfNonMetal))
         dev_p = float("{:.7f}".format(round(float(dev*100),7)))
-        # print('dev_p',dev_p)
         name=str(NP.get_chemical_formula(mode='hill'))+'_'+str(dev_p)+'_'+str(n)+'.xyz'
         # print('name',name)
         nanoList.append(name)
+        #Saving NP
         write(name,NP,format='xyz')
+        #calculating coulomb energy
+        #calculating real dipole moment
+        coulomb_energy=coulombEnergy(symbol,NP)
+        # print('coulomb_energy',coulomb_energy)
+        dipole_moment=dipole(NP)
+        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)
+        #replace the ase standard comment by ours
+        command='sed -i \'2s/.*/'+comment+'/\' '+name
+        # print(command)
+        subprocess.run(command,shell=True)
+        # view(NP)
+        # break
 
     time_F1 = time.time()
-    print("Total time reduceNano", round(time_F1-time_F0,5)," s")
+    print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
 
     #Calling the singulizator function 
     singulizator(nanoList)
-
-def evaluateNp0(NP0_list):
-    """
-    For the exhaustive center evaluation is mandatory
-    to select the most stable ones. As a criteria
-    I want to use the sum of connectivity matrix
-    also I can try the sum of SPRINT coordinates.
-    just to reduce the sum cost(JOKE)
-    """
-
-    """
-    1- compute the adjacency matrix and then sum the matrix
-    and keep the attribute to the n NP0 in nanoAndSum array
-    """
-    nanoAndSum=[]
-    for k in NP0_list:
-        atoms=read(k,format='xyz')
-        atoms.center(vacuum=20) 
-
-        nearest_neighbour=[]
-        C=[]
-
-        for i in range(len(atoms.get_atomic_numbers())):
-            nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
-
-        half_nn = [x /2.5 for x in nearest_neighbour]
-        nl = NeighborList(half_nn,self_interaction=False,bothways=True)
-        nl.update(atoms)
-
-        for i in range(len(atoms.get_atomic_numbers())):
-            indices, offsets = nl.get_neighbors(i)
-            C.append([i,indices])
-            # print(i,indices) 
-
-        m=len(C)
-        adjMatrix=np.zeros((m,m))
-        for i in C:
-            for j in i[1]:
-                adjMatrix[i[0],j]=1.0
-
-        nanoAndSum.append([k,np.sum(adjMatrix)])
-
-    """
-    2-sort decreasingly the nanoAndSum list 
-    """
-    sorted_nanoSum=sorted(nanoAndSum,key=lambda x:x[1],reverse=True)
-    np.savetxt('sorted_reverse',sorted_nanoSum,fmt='%s')
-
-    # print (sorted_nanoSum)
 
 def interplanarDistance(recCell,millerIndexes): 
     """Function that calculates the interplanar distances
@@ -1304,8 +1266,8 @@ def planeArea(atoms,areasIndex,millerIndexes):
             # print(areaPerSurface)
             # print('-------------')
             tempArea=["%.4f"%i for i in areaPerSurface if i!=0.0]
-            print(s,tempArea)
-            print('-------------')
+            # print(s,tempArea)
+            # print('-------------')
             # temp=np.asarray(tempArea)
             unique=list(set((tempArea)))
             if len(unique)>1:
@@ -1403,9 +1365,47 @@ def idealWulffFractions(atoms,surfaces,energies):
         idealWulffAreasFraction.append([millerIndex,areaFraction])
     # print(idealWulffAreasFraction)
     return idealWulffAreasFraction 
+def coulombEnergy(symbol,atoms):
+    """
+    Function that calculate the coulomb like energy
+    E=sum((qiqj/d(i,j)))for np.
+    Args:
+        symbol(Atoms): Crystal atoms object
+        atoms(Atoms): Atoms object
+    Return:
+        coulombLikeEnergy(float): coulomb like energy
+    """
+    #Add the charges
+    for iatom in atoms:
+        for jatom in symbol:
+            if iatom.symbol==jatom.symbol:
+                iatom.charge=jatom.charge
 
+    #Calculating the energy
+    coulombLikeEnergy=0
+    for c in combinations(atoms,2):
+        #coulomb
+        tempCoulomb=(c[0].charge*c[1].charge)/euclidean(c[0].position,c[1].position)
+        # print('tempCoulomb',tempCoulomb)
+        coulombLikeEnergy+=tempCoulomb
 
+    return coulombLikeEnergy
 
+def dipole(atoms):
+    """
+    Function that calculate the dipole moment
+    E=sum(qi/ri))for np.
+    Args:
+        atoms(Atoms): Atoms object
+    Return:
+        dipole(float): dipole
+    """
+    dipole=0
+    for atom in atoms:
+        dipoleTemp=np.sum(atom.charge*atom.position)
+        dipole+=dipoleTemp
+
+    return dipole
 
 
 
