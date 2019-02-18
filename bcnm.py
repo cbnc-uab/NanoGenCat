@@ -6,9 +6,15 @@
 '''
 import os
 import sys
+import uuid
+import time
+
 from yaml import load
+
 import numpy as np
+
 from argparse import ArgumentParser
+
 from ase.spacegroup import crystal
 from ase.visualize import view
 from ase.build import cut, bulk
@@ -17,6 +23,8 @@ from ase.io import  write, read
 ####
 sys.path.append(os.path.abspath("bcnm/"))
 from bcn_wulff import bcn_wulff_construction
+
+startTime = time.time()
 
 print('''
 BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
@@ -34,12 +42,30 @@ with open(args.input,'r') as file:
 
 file.close()
 
-#
-os.chdir('tmp')
-crystalObject = crystal(data['chemicalSpecie'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
-write('crystalShape.out',crystalObject,format='xyz')
+####Creating a execution directory
+execDir='tmp/'+str(uuid.uuid4().hex)
+os.mkdir(execDir)
+os.chdir(execDir)
+print('Running directory: ',execDir)
 
-# Centering
+####Printing running parameters
+print('Running parameters')
+for key,values in data.items():
+    print(key,':',values)
+
+###Start execution
+print('\nStart execution')
+## Making the crystalObject
+crystalObject = crystal(data['chemicalSpecies'], data['basis'], spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
+write('crystalShape.xyz',crystalObject,format='xyz')
+
+##feeding the initial charges 
+for atom in crystalObject:
+    for n,element in enumerate(data['chemicalSpecies']):
+        if atom.symbol==element:
+            atom.charge=data['charges'][n]
+
+#####Centering
 if data['centering'] == 'none':
     shifts = [[0.0, 0.0, 0.0]]
 
@@ -83,26 +109,94 @@ elif data ['centering'] == 'nShift':
     for i in range(nShift[0]):
         for j in range(nShift[1]):
             for k in range(nShift[2]):
-                shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)]) 
+                shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)])
+
+elif data ['centering'] == 'automatic':
+    shifts = []
+    #Center of mass
+    # print(crystalObject.get_center_of_mass(scaled= True))
+    shift=[x for x in crystalObject.get_center_of_mass(scaled= True)]
+    shift = []
+    shifts.append(shift)
+    # Atom center
+    for coordinate in data['basis']:
+        shifts.append(coordinate)
+    #Bond Center
+    for element in range(3):
+        shift.append((data['basis'][0][element]+data['basis'][1][element])/2)
+    shifts.append(shift)
+
 
 else:
     print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
     exit(1)
 
-min_size = int(data['nanoparticleSize'] - data['sizeRange']/2)
-if min_size < 8:
-    min_size = 8
 
-max_size = int(data['nanoparticleSize'] + data['sizeRange']/2)
-if max_size < 8:
-    max_size = 8
+# print(data['nanoparticleSize'],data['sizeRange'])
 
-for size in range(min_size, max_size, data['step']):
-    for shift in shifts:
-        newPath = str(shift[0])+'_'+str(shift[1])+'_'+str(shift[2])
-        if not os.path.exists(newPath):
-            os.makedirs(newPath)
-        os.chdir(newPath)
-        atoms = bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(data['nanoparticleSize']),'ext',center = shift, rounding='above',debug=1)
+min_size = data['nanoparticleSize'] - data['sizeRange']
+max_size = data['nanoparticleSize'] + data['sizeRange']
+# print(min_size,max_size)
 
+## Initial screening of shifts
+print('\nEvaluation of running parameters on NP0')
+startingScreeningTime = time.time()
+
+
+evaluation=[]
+for size in np.arange(min_size, max_size, data['step']):
+    if size >8:
+        for shift in shifts:
+            print('Size:',size,'Shift:',shift)
+            temp=[size,shift]
+            # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
+            temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
+            # print(temp2)
+            temp.extend(temp2)
+            evaluation.append(temp)
+            # print(temp)
+            # break
+            # print('Done')
+    else:
+        print('Size',size,'are too small')
+    # break
+#Discard the models that have false inside
+# print(evaluation)
+print('\nNumber of evaluated NP0s: ',len(evaluation))
+print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas, Wulff-like index')
+print('Results:')
+print(*evaluation, sep='\n')
+
+aprovedNp0Models=[i for i in evaluation if not False in i]
+print('\nAproved NP0s:', len(aprovedNp0Models))
+print(*aprovedNp0Models, sep='\n')
+
+#For each number of metal atoms keep the one with the highest total coordination
+#list of unique metal sizes
+metalSize=list(set([i[3] for i in aprovedNp0Models]))
+
+#Iterate to get only the one that have the maximum total coordination
+finalModels=[]
+for i in metalSize:
+    np0PerMetal=[]
+    for j in aprovedNp0Models:
+        if i==j[3]:
+            np0PerMetal.append(j)
+    tempNp0PerMetal=sorted(np0PerMetal,key=lambda x:x[6],reverse=True)
+    # print(tempNp0PerMetal)
+    finalModels.append(tempNp0PerMetal[0])
+
+print('\nFinal NP0s models:',len(finalModels))
+print(*finalModels, sep='\n')
+finalScreeningTime = time.time()
+
+print("Total time evaluation", round(finalScreeningTime-startingScreeningTime)," s")
+
+
+##Calculation of stoichiometric nanoparticles
+for i in finalModels:
+    print('\nGenerating stoichiometric nanoparticles for ',i,"\n")
+    bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=0)
+finalTime=time.time()
+print("Total execution time:",round(finalTime-startTime),"s")
 exit(0)

@@ -4,6 +4,7 @@ import numpy as np
 from ase.data import atomic_numbers as ref_atomic_numbers
 from ase.spacegroup import Spacegroup
 from ase.cluster.factory import ClusterFactory, reduce_miller
+from bcn_wulff import interplanarDistance
 from ase.utils import basestring
 from re import findall
 from ase.io import write
@@ -26,7 +27,7 @@ class ClusterFactory(ClusterFactory):
         self.debug = 1
         if self.cl_cut == True:
             atoms = symbols
-            # Interpret symbol
+            # Interpret symbols
             self.atomic_numbers = atoms.get_atomic_numbers().tolist()
             self.chemical_formula = atoms.get_chemical_formula()
             self.atomic_basis = atoms.get_scaled_positions()
@@ -54,6 +55,7 @@ class ClusterFactory(ClusterFactory):
 
     def make_cluster(self, vacuum):
         size = np.array(self.size)
+        # print('size\n',size)
         translations = np.zeros((size.prod(), 3))
         for h in range(size[0]):
             for k in range(size[1]):
@@ -110,12 +112,13 @@ class ClusterFactory(ClusterFactory):
             if (offset > 1.0).any() or (offset < 0.0).any():
                 raise ValueError("Center offset must lie within the lattice unit \
                                   cell.")
-        # print('holiiiii')
         max = np.ones(3)
         min = -np.ones(3)
         v = np.linalg.inv(self.lattice_basis.T)
         for s, l in zip(self.surfaces, self.layers):
-            n = self.miller_to_direction(s) * self.bcn_get_layer_distance(s, l*4)
+            # print(s)
+            # n = self.miller_to_direction(s) * self.bcn_get_layer_distance(s, l*4)
+            n = self.miller_to_direction(s) * interplanarDistance(self.resiproc_basis,[s])*l
             k = np.round(np.dot(v, n), 2)
             for i in range(3):
                 if k[i] > 0.0:
@@ -125,7 +128,7 @@ class ClusterFactory(ClusterFactory):
 
             if self.debug > 1:
 
-                print("Spaning %i layers in %s in lattice basis ~ %s" % (l, s, k))
+                print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
             max[k > max] = k[k > max]
             min[k < min] = k[k < min]
             if l % 2 != 0:

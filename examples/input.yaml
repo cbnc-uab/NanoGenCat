@@ -11,14 +11,14 @@ surfaces:
   - [1, 1, 0]
   - [0, 1, 1]
   - [1, 0, 0]
-  - [0, 1, 1]
+  - [0, 0, 1]
 
 nanoparticleSize: 16
-sizeRange: 4
+sizeRange: 1
 step: 1
 
-centering: manualShift 
-numberOfShifts: 2 
-shifts:
-   - [1, 1, 1]
-   - [2, 2, 2]
+centering: none 
+# numberOfShifts: 2 
+# shifts:
+#    - [1, 1, 1]
+#    - [2, 2, 2]
