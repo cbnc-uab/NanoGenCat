@@ -11,9 +11,10 @@ from re import findall
 from random import shuffle,choice
 from scipy.sparse.linalg import eigsh
 from scipy.spatial.distance import euclidean
+from scipy.spatial import ConvexHull
+import scipy.constants as constants
 from itertools import combinations
 from math import sqrt
-from scipy.spatial import ConvexHull
 
 from ase.atoms import symbols2numbers
 from ase.neighborlist import NeighborList
@@ -1387,7 +1388,7 @@ def coulombEnergy(symbol,atoms):
         #coulomb
         tempCoulomb=(c[0].charge*c[1].charge)/euclidean(c[0].position,c[1].position)
         # print('tempCoulomb',tempCoulomb)
-        coulombLikeEnergy+=tempCoulomb
+        coulombLikeEnergy+=0.529*tempCoulomb
 
     return coulombLikeEnergy
 
@@ -1402,7 +1403,7 @@ def dipole(atoms):
     """
     dipole=0
     for atom in atoms:
-        dipoleTemp=np.sum(atom.charge*atom.position)
+        dipoleTemp=np.sum(atom.charge*atom.position*1.88973/8.478353552e-30)
         dipole+=dipoleTemp
 
     return dipole

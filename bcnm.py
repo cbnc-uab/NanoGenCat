@@ -192,6 +192,9 @@ finalScreeningTime = time.time()
 
 print("Total time evaluation", round(finalScreeningTime-startingScreeningTime)," s")
 
+if data['onlyNp0']==True:
+    exit(0)
+
 
 ##Calculation of stoichiometric nanoparticles
 for i in finalModels:
