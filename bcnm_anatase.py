@@ -23,7 +23,7 @@ from ase.io import  write, read
 
 ####
 sys.path.append(os.path.abspath("bcnm/"))
-from bcn_wulff import bcn_wulff_construction
+from bcn_wulff_anatase import bcn_wulff_construction
 ####
 startTime = time.time()
 
@@ -188,7 +188,7 @@ for i in metalSize:
     finalModels.append(tempNp0PerMetal[0])
 
 print('\nFinal NP0s models:',len(finalModels))
-finalSorted=sorted(finalModels,key=lambda x:x[0])
+finalSorted=sorted(finalModels,key=lambda x:x[0],reverse=True)
 print(*finalSorted, sep='\n')
 finalScreeningTime = time.time()
 

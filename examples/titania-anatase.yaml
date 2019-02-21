@@ -1,0 +1,32 @@
+# Bcnm input example in yaml 
+# Titania anatase 
+# experimental info Wyckoff R W G Crystal Structures 1 (1963) 239-444
+chemicalSpecies: [Ti,O]
+charges: [4,-2]
+spaceGroupNumber: 141
+basis:
+ - [0.0, 0.0, 0.0]
+ - [0.0, 0.0, 0.2066]
+cellDimension: [3.785,3.785,9.514, 90, 90, 90]
+
+surfaceEnergy: [0.38,0.38]
+surfaces: 
+  - [1, 0, 1]
+  - [1, 0, 1]
+
+nanoparticleSize: 13
+sizeRange: 5
+step: 1
+
+centering: manualShift
+numberOfShifts: 8
+shifts: 
+- [0.0,0.0,0.2066]
+- [0.5,0.5,0.7066]
+- [0.0,0.5,0.4566]
+- [0.5,0.0,0.9566]
+- [0.5,0.0,0.5434]
+- [0.0,0.5,0.0434]
+- [0.5,0.5,0.2934]
+- [0.0,0.0,0.7934]
+onlyNp0: True

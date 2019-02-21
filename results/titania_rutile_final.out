@@ -1,0 +1,41 @@
+
+BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
+This program comes with ABSOLUTELY NO WARRANTY; for details type 'python bcnm.py --help'. 
+This is free software, and you are welcome to redistribute it under certain conditions; type 'cat LICENSE' for details.
+
+Running directory:  tmp/25b916d5a57a43d0b3742c8c63068107
+Running parameters
+chemicalSpecies : ['Ti', 'O']
+charges : [4, 2]
+spaceGroupNumber : 136
+basis : [[0.0, 0.0, 0.0], [0.306, 0.306, 0.0]]
+cellDimension : [4.603, 4.603, 2.977, 90, 90, 90]
+surfaceEnergy : [0.014, 0.044, 0.022, 0.057]
+surfaces : [[1, 1, 0], [0, 1, 1], [1, 0, 0], [0, 0, 1]]
+nanoparticleSize : 25
+sizeRange : 10
+step : 1
+centering : manualShift
+numberOfShifts : 2
+shifts : [[0.5, 0.5, 0.0], [0.0, 0.0, 0.0]]
+onlyNp0 : False
+
+Start execution
+
+Evaluation of running parameters on NP0
+Size: 15 Shift: [0.5, 0.5, 0.0]
+Size: 15 Shift: [0.0, 0.0, 0.0]
+Size: 16 Shift: [0.5, 0.5, 0.0]
+Size: 16 Shift: [0.0, 0.0, 0.0]
+Size: 17 Shift: [0.5, 0.5, 0.0]
+Size: 17 Shift: [0.0, 0.0, 0.0]
+Size: 18 Shift: [0.5, 0.5, 0.0]
+Size: 18 Shift: [0.0, 0.0, 0.0]
+Size: 19 Shift: [0.5, 0.5, 0.0]
+Size: 19 Shift: [0.0, 0.0, 0.0]
+Size: 20 Shift: [0.5, 0.5, 0.0]
+Size: 20 Shift: [0.0, 0.0, 0.0]
+Size: 21 Shift: [0.5, 0.5, 0.0]
+Size: 21 Shift: [0.0, 0.0, 0.0]
+Size: 22 Shift: [0.5, 0.5, 0.0]
+Size: 22 Shift: [0.0, 0.0, 0.0]

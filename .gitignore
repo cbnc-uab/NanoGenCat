@@ -1,6 +1,7 @@
 # BcnM results / tests
 *.xyz
 *.tar
+*.tar.gz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
