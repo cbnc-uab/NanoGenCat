@@ -6,6 +6,8 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 
 * Python 3
 * Ase
+* Pyyaml
+* Pandas
 
 ### Installation
 
