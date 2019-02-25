@@ -34,8 +34,7 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 
     cd NanoGencat
 
-    python3 iridium.py
-
+    python3 bcnm.py examples/ruthenium.input.yaml
 ### Example
 
 ### Contact
