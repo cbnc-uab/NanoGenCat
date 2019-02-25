@@ -23,7 +23,7 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 
 4 - Install dependences:
     
-    pip3 install ase pyyaml
+    pip3 install ase pyyaml pandas
   
 5 - Clone Bcnm code from git:
 
