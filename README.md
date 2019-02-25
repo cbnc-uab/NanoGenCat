@@ -8,6 +8,7 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 * Ase
 * Pyyaml
 * Pandas
+* Pymatgen
 
 ### Installation
 
@@ -21,11 +22,12 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 
 3 - Activate the new environment as proposed:
 
-    source activate bcnm
+    conda activate bcnm
 
 4 - Install dependences:
-    
-    pip3 install ase pyyaml pandas
+
+    pip install --upgrade pip  
+    pip install ase pyyaml pandas pymatgen
   
 5 - Clone Bcnm code from git:
 
@@ -35,8 +37,10 @@ BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systemat
 ### General usage notes
 
     cd NanoGencat
-
+    conda activate bcnm
     python3 bcnm.py examples/ruthenium.input.yaml
+    
+    
 ### Example
 
 ### Contact
