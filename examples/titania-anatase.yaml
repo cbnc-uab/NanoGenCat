@@ -14,19 +14,10 @@ surfaces:
   - [1, 0, 1]
   - [1, 0, 1]
 
-nanoparticleSize: 13
-sizeRange: 5
+nanoparticleSize: 15
+sizeRange: 1
 step: 1
 
-centering: manualShift
-numberOfShifts: 8
-shifts: 
-- [0.0,0.0,0.2066]
-- [0.5,0.5,0.7066]
-- [0.0,0.5,0.4566]
-- [0.5,0.0,0.9566]
-- [0.5,0.0,0.5434]
-- [0.0,0.5,0.0434]
-- [0.5,0.5,0.2934]
-- [0.0,0.0,0.7934]
+centering: nShift
+nShift:  [2,2,100]
 onlyNp0: True

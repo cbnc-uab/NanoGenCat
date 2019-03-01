@@ -37,7 +37,9 @@ class ClusterFactory(ClusterFactory):
             self.spacegroup = int(str(atoms.info['spacegroup'])[0:3])
             
             self.set_surfaces_layers(surfaces, layers)
+            # print('center pre self center',center)
             self.set_lattice_size(center)
+            # print('selfcenterbitch\n',self.center)
             self.distances = distances
             if distances is not None:
                 self.set_surfaces_distances(surfaces, distances)
@@ -53,9 +55,10 @@ class ClusterFactory(ClusterFactory):
             
         return cluster
 
-    def make_cluster(self, vacuum):
+    def make_cluster(self, vacuum,debug=0):
         size = np.array(self.size)
-        # print('size\n',size)
+        if debug>1:
+            print('size\n',size)
         translations = np.zeros((size.prod(), 3))
         for h in range(size[0]):
             for k in range(size[1]):
@@ -105,6 +108,17 @@ class ClusterFactory(ClusterFactory):
         return self.Cluster(symbols=numbers, positions=positions, cell=cell)
                 
     def set_lattice_size(self, center):
+        """
+        Routine that change the center 
+        in function of how much layers of materials
+        must be added.Also defines the size
+        Args:
+            self(CutCluster):
+            center(list): initial centering
+        """
+        ##Understanding this routine
+        ##Check if the center is inside the cell
+        # print('.........')
         if center is None:
             offset = np.zeros(3)
         else:
@@ -114,27 +128,47 @@ class ClusterFactory(ClusterFactory):
                                   cell.")
         max = np.ones(3)
         min = -np.ones(3)
-        v = np.linalg.inv(self.lattice_basis.T)
+        #Calculate the reciprocal latice, why?
+        v = self.resiproc_basis
+        # v = np.linalg.inv(self.lattice_basis.T)
+        # print('v\n',v)
+        # print('reciprocal cell\n',self.resiproc_basis)
+        #For surface and layers
         for s, l in zip(self.surfaces, self.layers):
-            # print(s)
-            # n = self.miller_to_direction(s) * self.bcn_get_layer_distance(s, l*4)
+            # print('surface',s)
+            # n is the miler to direction of each surface times the interplanarDistance times the layers
+            # its like how much do you have to grow in each direction
             n = self.miller_to_direction(s) * interplanarDistance(self.resiproc_basis,[s])*l
+            # print('n',n)
+            # dot product between inverse latice and n vector(3) and round to 2 decimal to give the k vector(3) 
             k = np.round(np.dot(v, n), 2)
+            # print('k',k)
+            #Round to the smallest integer if i is larger than 0 (ceil) or the largest integer (floor) if i
+            # is smallest than 0
             for i in range(3):
                 if k[i] > 0.0:
                     k[i] = np.ceil(k[i])
                 elif k[i] < 0.0:
                     k[i] = np.floor(k[i])
-
+            # print('k post ceil of floor',k)
             if self.debug > 1:
-
                 print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
+            # print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
+
+            #Update max and min values for every surface with k
             max[k > max] = k[k > max]
             min[k < min] = k[k < min]
+            if self.debug>1:
+                print('max ',max)
+                print('min ',min)
+            #I think that is not necesary
             if l % 2 != 0:
                 self.center = np.dot(offset - min, self.lattice_basis)
             else:
                 self.center = np.dot(offset - min, self.lattice_basis)
+            if self.debug>1:
+                print('self.center set lattice size',self.center)
+                print('............................................')
         self.size = (max - min + np.ones(3)).astype(int)
 
     def set_surfaces_distances(self, surfaces, distances):

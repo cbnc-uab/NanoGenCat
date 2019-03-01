@@ -137,35 +137,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         if len(energies) == 1:
             scale_f = np.array([0.5])
             distances = scale_f*size
-            layers = np.array([distances/d])
+            layers = np.array([distances/dArray])
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                 structure, center, latticeconstant)
-            small = large = None
-            
-            if np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) == size:
-                midpoint = scale_f
-            else:
-                small = large = scale_f
-                if np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) > size:
-                    large = scale_f
-                    while np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) > size:
-                        scale_f = scale_f/2.
-                        distances = scale_f*size
-                        layers = np.array([distances/d])
-                        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                structure, center, latticeconstant)
-                    small = scale_f
-                    midpoint = small
-                elif np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) < size:
-                    small = scale_f
-                    while np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) < size:
-                        scale_f = scale_f*2.
-                        distances = scale_f*size
-                        layers = np.array([distances/d])
-                        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                structure, center, latticeconstant)
-                    large = scale_f
-                    midpoint = large
         else:
             # print('dArray\n',dArray)
 
@@ -174,8 +148,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             midpoint = (large+small)/2.
             distances = midpoint*size
             layers= distances/dArray
-            # print('layers\n',layers)
-            # print('size\n',size)
+            if debug>1:
+                print('layers\n',layers)
+                print('size\n',size)
+                print('surfaces\n',surfaces)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                         structure, center, latticeconstant)
             
@@ -190,15 +166,18 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             
             minCoord=check_min_coord(atoms_midpoint)
             areasIndex=areaCalculation(atoms_midpoint,norms)
-            # print('areasIndex',areasIndex)
+            if debug>1:
+                print('areasIndex',areasIndex)
             plane_area=planeArea(symbol,areasIndex,surfaces)
-            # print('plane_area',plane_area)
-            # print('--------------')
+            if debug>1:
+                print('plane_area',plane_area)
+                print('--------------')
             # print(len(plane_area))
 
             # Calculate the Wulff-like index
             wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-            # print(wulff_like)
+            if debug>1:
+                print(wulff_like)
 
             # view(atoms_midpoint)
         
@@ -1365,7 +1344,8 @@ def idealWulffFractions(atoms,surfaces,energies):
     for millerIndex,areaFraction in areas.items():
         idealWulffAreasFraction.append([millerIndex,areaFraction])
     # print(idealWulffAreasFraction)
-    return idealWulffAreasFraction 
+    return idealWulffAreasFraction
+
 def coulombEnergy(symbol,atoms):
     """
     Function that calculate the coulomb like energy
@@ -1407,6 +1387,67 @@ def dipole(atoms):
         dipole+=dipoleTemp
 
     return dipole
+
+def specialCenterings(spaceGroupNumber):
+    """
+    Function that returns the centerings that Xavi proposes on
+    the draft
+    Args:
+        spaceGroupNumber(int):Standard space group number
+    Return:
+        special_centerings([tuples]): List of tuples with special centerings
+        per spacegroup
+
+    """
+    data=[
+    [[
+    22, 42, 43, 69, 70, 196, 202, 203, 209, 210, 216, 219, 225, 
+    226, 227, 228],
+    [(0.25, 0.25, 0.25),(0.75, 0.25, 0.25),(0.25, 0.75, 0.25),
+    (0.25, 0.25, 0.75),(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),
+    (0.0, 0.0, 0.5),(0.5, 0.5, 0.5)
+    ]],
+    [[
+    23, 24, 44, 45, 46, 71, 72, 73, 74,79, 80, 82, 87, 88, 97, 98,
+    107, 108, 109, 110, 119, 120, 121, 122, 139, 140, 141, 142,
+    197, 199, 204, 206, 211, 214, 217, 220, 229, 230],
+    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),(0.5, 0.5, 0.0),
+    (0.0, 0.5, 0.5),(0.5, 0.0, 0.5)
+    ]],
+    [[
+    5, 8, 9, 12, 15, 20, 21, 35, 36, 37, 63, 64, 65, 66, 67, 68],
+    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),
+    (0.0, 0.5, 0.5),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
+    ]],
+    [[
+    38, 39, 40, 41],
+    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),
+    (0.5, 0.5, 0.0),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
+    ]],
+    [[
+    1, 2,3, 4, 6, 7, 10, 11, 13, 14,16, 17, 18, 19, 25, 26, 27,
+    28, 29, 30, 31, 32, 33,34, 47, 48, 49, 50, 51, 52, 53, 54,
+    55, 56, 57, 58, 59, 60, 61, 62,75, 76, 77, 78, 81, 83, 84,
+    85, 86, 89, 90, 91, 82, 93, 94, 95, 96, 99, 100, 101, 102,
+    103, 104, 105, 106, 111, 112, 113, 114, 115, 116, 117, 118,
+    123, 124, 125, 126, 127, 128 ,129, 130, 131, 132, 133, 134,
+    135, 136, 137, 138, 195, 198, 200, 201, 205, 207, 208, 212,
+    213, 215, 218, 221, 222, 223, 224.],
+    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),(0.5, 0.5, 0.0),
+    (0.0, 0.5, 0.5),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
+    ]]
+    ]
+
+    for familly in data:
+        if spaceGroupNumber in familly[0]:
+            # print('match')
+            # print(familly[1])
+            special_centerings=copy.deepcopy(familly[1])
+    # # print(centerings)
+    return special_centerings
+
+
+
 
 
 

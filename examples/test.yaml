@@ -15,9 +15,9 @@ surfaces:
   - [1, 0, 0]
   - [0, 0, 1]
 
-nanoparticleSize: 17
-sizeRange: 3
+nanoparticleSize: 12
+sizeRange: 1
 step: 1
 
-centering: automatic
+centering: none
 onlyNp0: True

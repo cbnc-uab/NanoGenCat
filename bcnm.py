@@ -23,7 +23,7 @@ from ase.io import  write, read
 
 ####
 sys.path.append(os.path.abspath("bcnm/"))
-from bcn_wulff import bcn_wulff_construction
+from bcn_wulff import bcn_wulff_construction,specialCenterings
 ####
 startTime = time.time()
 
@@ -109,23 +109,19 @@ elif data ['centering'] == 'nShift':
     shifts = []
     for i in range(nShift[0]):
         for j in range(nShift[1]):
-            for k in range(nShift[2]):
+            for C in range(nShift[2]):
                 shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)])
 
 elif data ['centering'] == 'automatic':
     shifts = []
-    #Center of mass
-    # print(crystalObject.get_center_of_mass(scaled= True))
-    shift=[x for x in crystalObject.get_center_of_mass(scaled= True)]
-    shift = []
-    shifts.append(shift)
     # Atom center
     for coordinate in data['basis']:
         shifts.append(coordinate)
-    #Bond Center
-    for element in range(3):
-        shift.append((data['basis'][0][element]+data['basis'][1][element])/2)
-    shifts.append(shift)
+    #Xavi proposed positions
+    shiftsCenters=specialCenterings(data['spaceGroupNumber'])
+    # print (shiftsCenters)
+    for shift in shiftsCenters:
+        shifts.append(list(shift))
 
 
 else:
@@ -148,10 +144,10 @@ evaluation=[]
 for size in np.arange(min_size, max_size, data['step']):
     # if size >8:
     for shift in shifts:
-        print('Size:',size,'Shift:',shift)
         temp=[size,shift]
         # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
         temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
+        print('Size: ',size,'Shift: ',shift,'ChemicalFormula: ',temp2[0])
         # print(temp2)
         temp.extend(temp2)
         evaluation.append(temp)
@@ -164,7 +160,7 @@ for size in np.arange(min_size, max_size, data['step']):
 #Discard the models that have false inside
 # print(evaluation)
 print('\nNumber of evaluated NP0s: ',len(evaluation))
-print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas, Wulff-like index')
+print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
 print('Results:')
 print(*evaluation, sep='\n')
 
