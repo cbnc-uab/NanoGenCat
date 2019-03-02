@@ -2,8 +2,7 @@
 # using automatic shifting
 chemicalSpecies: [Ir,O]
 spaceGroupNumber: 136
-charges: [4,2]
-setting: 1
+charges: [4,-2]
 basis:
  - [0.0, 0.0, 0.0]
  - [0.306, 0.306,0.0]
@@ -16,14 +15,11 @@ surfaces:
   - [1, 0, 0]
   - [0, 0, 1]
 
-nanoparticleSize: 15
-sizeRange: 3
+nanoparticleSize: 14
+sizeRange: 1
 step: 1
 
-centering: manualShift
-numberOfShifts: 1
-shifts: 
-- [0.25,0.25,0.25]
+centering: automatic
 
 onlyNp0: True
 

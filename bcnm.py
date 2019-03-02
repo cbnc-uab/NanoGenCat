@@ -136,10 +136,10 @@ max_size = data['nanoparticleSize'] + data['sizeRange']
 # print(min_size,max_size)
 
 ## Initial screening of shifts
-print('\nEvaluation of running parameters on NP0')
+print('\nEvaluation of running parameters on NP0\n')
 startingScreeningTime = time.time()
 
-
+print('Size,Shift,Chemical Formula\n')
 evaluation=[]
 for size in np.arange(min_size, max_size, data['step']):
     # if size >8:
@@ -147,7 +147,7 @@ for size in np.arange(min_size, max_size, data['step']):
         temp=[size,shift]
         # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
         temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
-        print('Size: ',size,'Shift: ',shift,'ChemicalFormula: ',temp2[0])
+        print(size,shift,temp2[0])
         # print(temp2)
         temp.extend(temp2)
         evaluation.append(temp)
@@ -160,7 +160,10 @@ for size in np.arange(min_size, max_size, data['step']):
 #Discard the models that have false inside
 # print(evaluation)
 print('\nNumber of evaluated NP0s: ',len(evaluation))
-print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
+if len(data['surfaceEnergy'])>1:
+    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
+else:
+    print('Evaluated parameters: Size, Shift, ')
 print('Results:')
 print(*evaluation, sep='\n')
 

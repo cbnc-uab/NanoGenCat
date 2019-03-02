@@ -6,20 +6,19 @@ charges: [4,-2]
 spaceGroupNumber: 141
 basis:
  - [0.0, 0.0, 0.0]
- - [0.0, 0.0, 0.2066]
-cellDimension: [3.785,3.785,9.514, 90, 90, 90]
+ - [0.0, 0.0, 0.2081]
+cellDimension: [3.8585197591 ,3.8585197591,9.7626691682, 90, 90, 90]
 
-surfaceEnergy: [0.38,0.38]
+surfaceEnergy: [0.3729681427,0.7453052762,1.0017888625]
 surfaces: 
   - [1, 0, 1]
-  - [1, 0, 1]
+  - [1, 0, 0]
+  - [0, 0, 1]
 
 nanoparticleSize: 15
 sizeRange: 1
 step: 1
 
-centering: nShift
-nShift:  [1,1,40]
-onlyNp0: True
+centering: automatic
 
 onlyNp0: True
