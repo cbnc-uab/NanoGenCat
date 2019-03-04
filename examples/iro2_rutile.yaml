@@ -15,16 +15,11 @@ surfaces:
   - [1, 0, 0]
   - [0, 0, 1]
 
-nanoparticleSize: 30
-sizeRange: 5
+nanoparticleSize: 14
+sizeRange: 1
 step: 1
 
-centering: manualShift
-numberOfShifts: 3
-shifts: 
-- [0.0,0.0,0.0]
-- [0.306, 0.306,0.0]
-- [0.5,0.5,0.0]
+centering: automatic
 
 onlyNp0: True
 

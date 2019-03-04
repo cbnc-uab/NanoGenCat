@@ -164,7 +164,7 @@ for size in np.arange(min_size, max_size, data['step']):
 #Discard the models that have false inside
 # print(evaluation)
 print('\nNumber of evaluated NP0s: ',len(evaluation))
-print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas, Wulff-like index')
+print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination')
 print('Results:')
 print(*evaluation, sep='\n')
 
