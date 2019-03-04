@@ -1012,6 +1012,10 @@ def reduceNano(symbol,atoms,size):
     del atomsOnlyMetal[[atom.index for atom in atomsOnlyMetal if atom.symbol in nonMetals]]
     centerOfMetal = atomsOnlyMetal.get_center_of_mass()
     # print('centerOfMetal',centerOfMetal)
+
+    #Calculate the size as the maximum distance between cations
+    npFinalSize=np.amax(atomsOnlyMetal.get_all_distances())
+
     print('stoichiometric NPs:',len(S))
     for n,s in enumerate(S):
         NP=copy.deepcopy(atoms)
@@ -1035,7 +1039,8 @@ def reduceNano(symbol,atoms,size):
         coulomb_energy=coulombEnergy(symbol,NP)
         # print('coulomb_energy',coulomb_energy)
         dipole_moment=dipole(NP)
-        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)
+        # size as the maximum distance between cations
+        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)+'size:',str(npFinalSize)
         #replace the ase standard comment by our comment
         command='sed -i \'2s/.*/'+comment+'/\' '+name
         # print(command)
@@ -1446,6 +1451,10 @@ def specialCenterings(spaceGroupNumber):
     213, 215, 218, 221, 222, 223, 224.],
     [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),(0.5, 0.5, 0.0),
     (0.0, 0.5, 0.5),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
+    ]],
+    [[186],
+    [(0.33333,0.66666,0.0),(0.66666,0.333333,0.5),(0,0,1),
+    (0.0,0.0,0.25)
     ]]
     ]
 
