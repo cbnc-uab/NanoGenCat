@@ -163,7 +163,7 @@ print('\nNumber of evaluated NP0s: ',len(evaluation))
 if len(data['surfaceEnergy'])>1:
     print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
 else:
-    print('Evaluated parameters: Size, Shift, ')
+    print('Evaluated parameters: Size, Shift, Chemical Formula, Cations, Anions, Minimum coordination, Global coordination')
 print('Results:')
 print(*evaluation, sep='\n')
 

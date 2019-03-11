@@ -14,9 +14,11 @@ surfaces:
   - [1, 0, 1]
   - [1, 0, 0]
   - [0, 0, 1]
-
-nanoparticleSize: 15
-sizeRange: 1
+##Obtain the glorious 84
+#nanoparticleSize: 22
+#sizeRange: 4
+nanoparticleSize: 26
+sizeRange: 4
 step: 1
 
 centering: automatic

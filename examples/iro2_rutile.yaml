@@ -19,7 +19,7 @@ nanoparticleSize: 14
 sizeRange: 1
 step: 1
 
-centering: automatic
+centering: none
 
-onlyNp0: True
+onlyNp0: False
 

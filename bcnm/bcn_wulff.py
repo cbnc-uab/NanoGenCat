@@ -688,7 +688,7 @@ def check_min_coord(atoms):
 
     return characterization
 
-def singulizator(nanoList):
+def singulizator(nanoList,debug=0):
     """
     Function that eliminates the nanoparticles
     that are equivalent by SPRINT coordinates
@@ -713,8 +713,9 @@ def singulizator(nanoList):
     keeping in mind that a repeated structure can appear
     on both columns, I just take the first
     """
-    # for i in results:
-    #     print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
+    if debug>1:
+        for i in results:
+            print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
 
     
     results1=[i[0] for i in results]
@@ -726,6 +727,7 @@ def singulizator(nanoList):
         # print('NP '+nanoList[results[i][0]]+' and '+nanoList[results[i][1]]+ ' are equal')
         # print('Removing '+nanoList[results[i][0]])
         remove(nanoList[i])
+        # pass
     finalModels=len(nanoList)-len(toRemove)
     print('Removed NPs:',len(toRemove))
     print('Final models:',finalModels)
@@ -847,43 +849,33 @@ def reduceNano(symbol,atoms,size):
     print('Enter to reduceNano')
     time_F0 = time.time()
 
-    # Check the stoichiometry of NP0, also add the stoichiometry attribute
-    check_stoich(atoms)
+    # Check the stoichiometry of NP0
+
+    if check_stoich_v2(symbol,atoms) is 'stop':
+        print("Exiting because the structure is nonmetal defective")
+        return None
+    if check_stoich_v2(symbol,atoms) is 'stoichiometric':
+        print("NP0 is stoichiometric")
+        return None
+
+
 
     # Save as np0_f to distinguish between them and the others 
 
     name=atoms.get_chemical_formula()+'_NP0_f.xyz'
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
 
-    
-    ### Check the NP0 quality proportion 
+    # If the nano pass the test, the program can advance.
+
+    #Calculate the excess
+    check_stoich_v2(symbol,atoms)
+
+
+    ### Calculate the C
 
     nearest_neighbour=[]
     for i in range(len(atoms)):
         nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
-
-    C = make_C(atoms,nearest_neighbour)
-    
-    coord=np.empty((0,5))
-    for d in set(atoms.get_atomic_numbers()):
-        a=np.array([d, np.mean([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
-                    np.max([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
-                    np.min([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
-                    chemical_symbols[d]])
-        coord = np.append(coord,[a],axis=0)
-    coord = coord[coord[:,4].argsort()]
-    # print("coord \n",coord)
-    
-    if check_stoich(atoms,coord) is 'stop':
-        print("Exiting because the structure is nonmetal defective")
-        return None
-
-    # If the nano pass the test, the program can advance.
-
-    for i in atoms.excess:
-        if i !=0:
-            excess=i
-    # print(excess)
 
     C=[]
     half_nn = [x /2.5 for x in nearest_neighbour]
@@ -965,7 +957,7 @@ def reduceNano(symbol,atoms,size):
                         chosen=choice(singlyFather)
                         # print('chosen',chosen)
                         if chosen not in toRemove:
-                            if len(toRemove)==excess:
+                            if len(toRemove)==atoms.excess:
                                 break
                             toRemove.append(chosen)
                             # print('singly',singly)
@@ -1040,7 +1032,7 @@ def reduceNano(symbol,atoms,size):
         # print('coulomb_energy',coulomb_energy)
         dipole_moment=dipole(NP)
         # size as the maximum distance between cations
-        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)+'size:',str(npFinalSize)
+        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)+'size:'+str(npFinalSize)
         #replace the ase standard comment by our comment
         command='sed -i \'2s/.*/'+comment+'/\' '+name
         # print(command)
@@ -1466,6 +1458,84 @@ def specialCenterings(spaceGroupNumber):
     # # print(centerings)
     return special_centerings
 
+def check_stoich_v2(Symbol,atoms):
+	"""
+	Function that evaluates the stoichiometry
+	of a np, if is not stoichiometric,
+	can be happen three scenarios. 
+	The first one is that the np has the same
+	stoichiometry of cell, in that case
+	the nano is stoichiometric.
+	The second one is that the the np
+	is anion poor, so is impossible to
+	obtain a by our method.
+	The third case is that the nano
+	is anionrich. in this case the 
+	function add excess attribute to np
+	that indicates how many anions has to be removed.
+
+	Args:
+		Atoms(atoms): Nanoparticle
+		Symbol(atoms): unit cell atoms structure
+	"""
+
+	#Get the stoichiometry of the unit cell
+
+	#Get the symbols inside the cell
+	listOfChemicalSymbols=Symbol.get_chemical_symbols()
+	
+	#Count and divide by the greatest common divisor
+	chemicalElements=list(set(listOfChemicalSymbols))
+
+	# put the stuff in order, always metals first
+	if chemicalElements[0] in nonMetals:
+		chemicalElementsReorder=chemicalElements.reverse()
+
+	counter=[]
+	for e in chemicalElements:
+		counter.append(listOfChemicalSymbols.count(e))
+
+	gcd=np.gcd.reduce(counter)
+
+	cellStoichiometry=counter/gcd
+	# print(cellStoichiometry)
+	# Compare the cell stoichiometry with the np stoichiometry
+	
+	# Get the nano stoichiometry
+	listOfChemicalSymbolsNp=atoms.get_chemical_symbols()
+	
+	#Count and divide by the greatest common divisor
+	counterNp=[]
+	for e in chemicalElements:
+		# print(e)
+		counterNp.append(listOfChemicalSymbolsNp.count(e))
+
+	gcdNp=np.gcd.reduce(counterNp)
+
+	nanoStoichiometry=counterNp/gcdNp
+	# print('nanoStoichiometry',nanoStoichiometry)
+	
+
+	# Calculate the ratio between metals and nonmetals.
+	# If the ratio of Np are smaller than in crystal
+	# the nano is ok and can be reduced. Else return Stop
+	# because the structure is non metal defective.
+	# Also calculate the number of excess atoms to remove
+
+	cellRatio=cellStoichiometry[0]/cellStoichiometry[1]
+	NanoRatio=nanoStoichiometry[0]/nanoStoichiometry[1]	
+
+	# print(cellRatio)
+	# print(NanoRatio)
+	if cellRatio<NanoRatio:
+		return 'stop'
+	elif cellRatio==NanoRatio:
+		return 'stoichiometric'
+	elif cellRatio>NanoRatio:
+		atoms.excess=None
+		idealNonMetals=(cellStoichiometry[1]*counterNp[0])
+		atoms.excess=int(counterNp[1]-idealNonMetals)
+		# print(atoms.excess)
 
 
 

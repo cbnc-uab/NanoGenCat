@@ -114,18 +114,14 @@ elif data ['centering'] == 'nShift':
 
 elif data ['centering'] == 'automatic':
     shifts = []
-    #Center of mass
-    # print(crystalObject.get_center_of_mass(scaled= True))
-    shift=[x for x in crystalObject.get_center_of_mass(scaled= True)]
-    shift = []
-    shifts.append(shift)
     # Atom center
     for coordinate in data['basis']:
         shifts.append(coordinate)
-    #Bond Center
-    for element in range(3):
-        shift.append((data['basis'][0][element]+data['basis'][1][element])/2)
-    shifts.append(shift)
+    #Xavi proposed positions
+    shiftsCenters=specialCenterings(data['spaceGroupNumber'])
+    # print (shiftsCenters)
+    for shift in shiftsCenters:
+        shifts.append(list(shift))
 
 
 else:
