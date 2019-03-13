@@ -59,6 +59,7 @@ class ClusterFactory(ClusterFactory):
         size = np.array(self.size)
         if debug>1:
             print('size\n',size)
+            print(size.prod())
         translations = np.zeros((size.prod(), 3))
         for h in range(size[0]):
             for k in range(size[1]):
@@ -130,9 +131,7 @@ class ClusterFactory(ClusterFactory):
         min = -np.ones(3)
         #Calculate the reciprocal latice, why?
         v = self.resiproc_basis
-        # v = np.linalg.inv(self.lattice_basis.T)
-        # print('v\n',v)
-        # print('reciprocal cell\n',self.resiproc_basis)
+
         #For surface and layers
         for s, l in zip(self.surfaces, self.layers):
             # print('surface',s)

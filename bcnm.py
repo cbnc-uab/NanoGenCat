@@ -122,7 +122,7 @@ elif data ['centering'] == 'automatic':
     # print (shiftsCenters)
     for shift in shiftsCenters:
         shifts.append(list(shift))
-
+    shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
 
 else:
     print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
@@ -199,7 +199,7 @@ else:
     ##Calculation of stoichiometric nanoparticles
     for i in finalModels:
         print('\nGenerating stoichiometric nanoparticles for ',i,"\n")
-        bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=0)
+        bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=1)
     finalTime=time.time()
     print("Total execution time:",round(finalTime-startTime),"s")
     exit(0)

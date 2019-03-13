@@ -17,7 +17,3 @@ step: 2
 
 centering: automatic
 onlyNp0: True
-# centering: manualShift
-# numberOfShifts: 1
-# shifts:
-#   - [0.153, 0.153, 0.0]

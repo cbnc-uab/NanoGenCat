@@ -40,7 +40,7 @@ _debug = False
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                        rounding='closest', latticeconstant=None, 
-                       debug=False, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
+                       debug=0, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
     """Create a cluster using the Wulff construction.
 
     A cluster is created with approximately the number of atoms
@@ -164,7 +164,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         distances = midpoint*size
         layers= distances/dArray
 
-        if debug>1:
+        if debug>0:
             print('layers\n',layers)
             print('size\n',size)
             print('surfaces\n',surfaces)
@@ -180,17 +180,17 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         
         minCoord=check_min_coord(atoms_midpoint)
         areasIndex=areaCalculation(atoms_midpoint,norms)
-        if debug>1:
+        if debug>0:
             print('areasIndex',areasIndex)
         plane_area=planeArea(symbol,areasIndex,surfaces)
-        if debug>1:
+        if debug>0:
             print('plane_area',plane_area)
             print('--------------')
         # print(len(plane_area))
 
         # Calculate the Wulff-like index
         wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-        if debug>1:
+        if debug>0:
             print(wulff_like)
 
         # view(atoms_midpoint)
@@ -226,7 +226,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             return np0Properties
         else:
             # view(atoms_midpoint) 
-            reduceNano(symbol,atoms_midpoint,size)
+            reduceNano(symbol,atoms_midpoint,size,debug)
             # os.chdir('../')
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
@@ -713,7 +713,7 @@ def singulizator(nanoList,debug=0):
     keeping in mind that a repeated structure can appear
     on both columns, I just take the first
     """
-    if debug>1:
+    if debug>0:
         for i in results:
             print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
 
@@ -777,10 +777,9 @@ def sprint(nano):
             adjMatrix[i[0],j]=1.0
     # np.savetxt('adjMatrix',adjMatrix,newline='\n',fmt='%.1f')
 
-    """
-    Diagonal elements defined by 1+zi/10 if i is non metal
-    and 1+zi/100 if is metal
-    """
+    # Diagonal elements defined by 1+zi/10 if i is non metal
+    # and 1+zi/100 if is metal
+
     numbers=symbols2numbers(atoms.get_atomic_numbers())
     # print(numbers)
     for i in range(len(adjMatrix)):
@@ -811,10 +810,16 @@ def sprint(nano):
     return sFormated
 
 def compare(sprint0,sprint1):
+
     """
     compare the SPRINT coordinates between two nanoparticles.
     If two NP has the same sprint coordinates, both are equally
     connected.
+    Args:
+    	sprint0(list): sprint coordinates list
+    	sprint1(list): sprint coordinates list
+    Return:
+    	(Bool)
     """
     # print(sprint0,'\n',sprint1) 
     # diff=(list(set(sprint0) - set(sprint1)))
@@ -838,26 +843,28 @@ def coordination_testing(atoms):
         indices, offsets = nl.get_neighbors(i)
         C.append(len(indices))
     return C
-def reduceNano(symbol,atoms,size):
+def reduceNano(symbol,atoms,size,debug=0):
     """
     Function that make the nano stoichiometric
+    by removing dangling atoms. It is atom
+    type insensitive
     Args:
         Symbol(Atoms): Atoms object of bulk material
         atoms(Atoms): Atoms object of selected Np0
         size(float): size of nanoparticle
+        debug(int): for print stuff
     """
     print('Enter to reduceNano')
     time_F0 = time.time()
 
     # Check the stoichiometry of NP0
 
-    if check_stoich_v2(symbol,atoms) is 'stop':
-        print("Exiting because the structure is nonmetal defective")
+    if check_stoich_v2(symbol,atoms,debug) is 'stop':
+        print("Exiting because the structure can achieve stoichiometry by removing just one type of ions")
         return None
-    if check_stoich_v2(symbol,atoms) is 'stoichiometric':
+    if check_stoich_v2(symbol,atoms,debug) is 'stoichiometric':
         print("NP0 is stoichiometric")
         return None
-
 
 
     # Save as np0_f to distinguish between them and the others 
@@ -867,9 +874,8 @@ def reduceNano(symbol,atoms,size):
 
     # If the nano pass the test, the program can advance.
 
-    #Calculate the excess
-    check_stoich_v2(symbol,atoms)
-
+    #Add the excess attribute to atoms
+    check_stoich_v2(symbol,atoms,debug)
 
     ### Calculate the C
 
@@ -885,6 +891,7 @@ def reduceNano(symbol,atoms,size):
         indices, offsets = nl.get_neighbors(i)
         C.append([i,indices])
 
+    # print(C)
     
     # 4 lists:
     # singly: contains the singly coordinated atoms
@@ -917,12 +924,13 @@ def reduceNano(symbol,atoms,size):
     # [8, 7, 6, 5, 4] that is fully functional.
     
     maxCord=int(np.max(coordFather))
-    # print (maxCord)
+    # print ('maxCord',maxCord)
     mid=int(0.5*maxCord-1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
     # print('allowedCoordinations')
-    # print(allowedCoordination)
+    if debug>0:
+    	print(allowedCoordination)
 
 
     replicas=1000
@@ -1340,7 +1348,7 @@ def idealWulffFractions(atoms,surfaces,energies):
         idealWulffAreasFraction([index,areas]):list of areas fraction present and areas per each index
     """
     lattice=atoms.get_cell()
-
+    
     tupleMillerIndexes=[]
     for index in surfaces:
         tupleMillerIndexes.append(tuple(index))
@@ -1458,25 +1466,20 @@ def specialCenterings(spaceGroupNumber):
     # # print(centerings)
     return special_centerings
 
-def check_stoich_v2(Symbol,atoms):
+def check_stoich_v2(Symbol,atoms,debug=0):
 	"""
 	Function that evaluates the stoichiometry
-	of a np, if is not stoichiometric,
-	can be happen three scenarios. 
-	The first one is that the np has the same
-	stoichiometry of cell, in that case
-	the nano is stoichiometric.
-	The second one is that the the np
-	is anion poor, so is impossible to
-	obtain a by our method.
-	The third case is that the nano
-	is anionrich. in this case the 
-	function add excess attribute to np
-	that indicates how many anions has to be removed.
+	of a np.
+	To do it compare calculate the excess
+	of majoritary element. If not excess
+	the Np is stoichiometric,
+	else  add the excess atribute to atoms
+	object.
 
 	Args:
 		Atoms(atoms): Nanoparticle
 		Symbol(atoms): unit cell atoms structure
+		debug(int): debug to print stuff
 	"""
 
 	#Get the stoichiometry of the unit cell
@@ -1488,17 +1491,17 @@ def check_stoich_v2(Symbol,atoms):
 	chemicalElements=list(set(listOfChemicalSymbols))
 
 	# put the stuff in order, always metals first
+
 	if chemicalElements[0] in nonMetals:
-		chemicalElementsReorder=chemicalElements.reverse()
+		chemicalElements.reverse()
 
-	counter=[]
+	counterCell=[]
 	for e in chemicalElements:
-		counter.append(listOfChemicalSymbols.count(e))
+		counterCell.append(listOfChemicalSymbols.count(e))
 
-	gcd=np.gcd.reduce(counter)
+	gcd=np.gcd.reduce(counterCell)
 
-	cellStoichiometry=counter/gcd
-	# print(cellStoichiometry)
+	cellStoichiometry=counterCell/gcd
 	# Compare the cell stoichiometry with the np stoichiometry
 	
 	# Get the nano stoichiometry
@@ -1509,33 +1512,39 @@ def check_stoich_v2(Symbol,atoms):
 	for e in chemicalElements:
 		# print(e)
 		counterNp.append(listOfChemicalSymbolsNp.count(e))
-
+	# print(counterNp)
 	gcdNp=np.gcd.reduce(counterNp)
 
 	nanoStoichiometry=counterNp/gcdNp
-	# print('nanoStoichiometry',nanoStoichiometry)
 	
+	# ###
+	# # The nanoparticle must respect the same ratio of ions in the crystal
+	# # Just one of the ions can be excesive
+	# ## Test one, just the largest in proportion is in excess
 
-	# Calculate the ratio between metals and nonmetals.
-	# If the ratio of Np are smaller than in crystal
-	# the nano is ok and can be reduced. Else return Stop
-	# because the structure is non metal defective.
-	# Also calculate the number of excess atoms to remove
+	excesiveIonIndex=np.argmax(nanoStoichiometry)
 
-	cellRatio=cellStoichiometry[0]/cellStoichiometry[1]
-	NanoRatio=nanoStoichiometry[0]/nanoStoichiometry[1]	
+	## calculate how many atoms has to be removed
+	print('valuess')
+	print(np.max(counterNp),np.min(counterNp),np.max(cellStoichiometry))
+	excess=np.max(counterNp)-np.min(counterNp)*(np.max(cellStoichiometry)/np.min(cellStoichiometry))
+	print('excess',type(excess))
 
-	# print(cellRatio)
-	# print(NanoRatio)
-	if cellRatio<NanoRatio:
-		return 'stop'
-	elif cellRatio==NanoRatio:
+	##Verify if excess is the proper
+
+	if debug>0:
+		print(chemicalElements[excesiveIonIndex])
+		print('cellStoichiometry',cellStoichiometry)
+		print('nanoStoichiometry',nanoStoichiometry)
+		print(excess)
+		# print('atoms excess',atoms.excess)
+	
+	if excess==0:
 		return 'stoichiometric'
-	elif cellRatio>NanoRatio:
-		atoms.excess=None
-		idealNonMetals=(cellStoichiometry[1]*counterNp[0])
-		atoms.excess=int(counterNp[1]-idealNonMetals)
-		# print(atoms.excess)
+	elif excess<0:
+		return 'stop'
+	else:
+		atoms.excess=excess
 
 
 
