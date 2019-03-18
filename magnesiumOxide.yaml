@@ -1,7 +1,9 @@
 # Bcnm input example in yaml 
 # magnesium oxide
-chemicalSpecie: MgO 
+chemicalSpecies: [Mg,O]
 spaceGroupNumber: 225
+charges: [2,-2]
+
 basis:
  - [0.0, 0.0, 0.0]
  - [0.5, 0.5,0.5]
