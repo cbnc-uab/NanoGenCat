@@ -146,7 +146,7 @@ for size in np.arange(min_size, max_size, data['step']):
     for shift in shifts:
         temp=[size,shift]
         # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
+        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=data['debug'],np0=True)]
         print(size,shift,temp2[0])
         # print(temp2)
         temp.extend(temp2)
@@ -199,7 +199,7 @@ else:
     ##Calculation of stoichiometric nanoparticles
     for i in finalModels:
         print('\nGenerating stoichiometric nanoparticles for ',i,"\n")
-        bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=1)
+        bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'])
     finalTime=time.time()
     print("Total execution time:",round(finalTime-startTime),"s")
     exit(0)

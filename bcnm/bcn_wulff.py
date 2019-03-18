@@ -228,6 +228,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # view(atoms_midpoint) 
             reduceNano(symbol,atoms_midpoint,size,debug)
             # os.chdir('../')
+
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
     layers = np.round(layers).astype(int)
@@ -467,7 +468,6 @@ def coordination(atoms,debug,size,n_neighbour):
         write(name,atoms,format='xyz',comment=comment,columns=['symbols', 'positions'])
         return atoms
     
-
 def check_stoich(atoms,coord=None):
     stoich_unit = np.array(findall('\d+',atoms.unit_cell_formula))
     stoich_unit = stoich_unit.astype(np.int)
@@ -514,7 +514,6 @@ def make_C(atoms,nearest_neighbour):
     # print('C\n',C)
     return C
     
-
 def make_F(atoms,C,nearest_neighbour,debug):
     #time_0_make_F = time.time()
     """
@@ -630,6 +629,7 @@ def make_F(atoms,C,nearest_neighbour,debug):
         time_F1 = time.time()
         print("Total time to calculate combinations", round(time_F1-time_F0,5)," s")
     return K
+
 def check_min_coord(atoms):
     """function that identify if the nanoparticle not contain lower coordinated metals
     args: atoms
@@ -735,7 +735,6 @@ def singulizator(nanoList,debug=0):
     time_F1 = time.time()
     print("Total time singulizator", round(time_F1-time_F0,5)," s\n")
 
-
 def sprint(nano):
     """
     Calculate the sprint coordinates matrix for a nanoparticle.
@@ -827,6 +826,7 @@ def compare(sprint0,sprint1):
         diff=(list(set(sprint0) - set(sprint1)))
         if len(diff)==0:
             return True
+
 def coordination_testing(atoms):
     print('entre a coordination_testing\n')
     atoms.center(vacuum=10)
@@ -843,6 +843,7 @@ def coordination_testing(atoms):
         indices, offsets = nl.get_neighbors(i)
         C.append(len(indices))
     return C
+
 def reduceNano(symbol,atoms,size,debug=0):
     """
     Function that make the nano stoichiometric
@@ -890,6 +891,14 @@ def reduceNano(symbol,atoms,size,debug=0):
     for i in range(len(atoms.get_atomic_numbers())):
         indices, offsets = nl.get_neighbors(i)
         C.append([i,indices])
+    if debug>0:
+        atomsBeta=copy.deepcopy(atoms)
+        for j in C:
+            if atomsBeta[j[0]].symbol=='Cu':
+                if len(j[1])==1:
+                    atomsBeta[j[0]].symbol='Mg'
+        write('coordinationEvaluation.xyz',atomsBeta)
+        # print(*C, sep='\n')
 
     # print(C)
     
@@ -915,7 +924,11 @@ def reduceNano(symbol,atoms,size,debug=0):
 
     fatherFull_bak=copy.deepcopy(fatherFull)
 
-    
+    if debug>0:
+    	print('singly:',singly)
+    	print('father:',father)
+    	print('coordFather:',coordFather)
+    	print('fatherFull:',fatherFull)
     # allowedCoordination must to be generalized
     # the upper limit is half of maximum coordination -1
     # and the inferior limit is the maximum
@@ -928,7 +941,7 @@ def reduceNano(symbol,atoms,size,debug=0):
     mid=int(0.5*maxCord-1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
-    # print('allowedCoordinations')
+    print('allowedCoordinations')
     if debug>0:
     	print(allowedCoordination)
 
@@ -1078,6 +1091,7 @@ def interplanarDistance(recCell,millerIndexes):
     #     print(millerIndexes[n],d[n])
 
     return(d)
+
 def equivalentSurfaces(atoms,millerIndexes):
     """Function that get the equivalent surfaces for a set of  millerIndexes
     Args:
@@ -1541,7 +1555,7 @@ def check_stoich_v2(Symbol,atoms,debug=0):
 	
 	if excess==0:
 		return 'stoichiometric'
-	elif excess<0:
+	elif excess<0 or excess%1!=0:
 		return 'stop'
 	else:
 		atoms.excess=excess
