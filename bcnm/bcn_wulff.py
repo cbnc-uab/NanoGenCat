@@ -24,7 +24,8 @@ from ase.io import write,read
 from ase.data import chemical_symbols
 from ase.spacegroup import Spacegroup
 
-from pymatgen.analysis.wulff import WulffShape
+#from pymatgen.analysis.wulff import WulffShape
+from bcn_wulffshape import IdealWulff
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -1351,14 +1352,17 @@ def idealWulffFractions(atoms,surfaces,energies):
     return:
         idealWulffAreasFraction([index,areas]):list of areas fraction present and areas per each index
     """
-    lattice=atoms.get_cell()
+    #lattice=atoms.get_cell()
+    spacegroup = int(str(atoms.info['spacegroup'])[0:3])
 
     tupleMillerIndexes=[]
     for index in surfaces:
         tupleMillerIndexes.append(tuple(index))
 
-    idealWulffShape = WulffShape(lattice,tupleMillerIndexes, energies)
+    #idealWulffShape = WulffShape(lattice,tupleMillerIndexes, energies)
+    idealWulffShape = IdealWulff(atoms, spacegroup, tupleMillerIndexes, energies)
     areas=idealWulffShape.area_fraction_dict
+    idealWulffShape.savefig('IdealWulff.png', dpi=300, legend=True, aspect_ratio=(4,4), transparent=False)
 
     idealWulffAreasFraction=[]
     for millerIndex,areaFraction in areas.items():
