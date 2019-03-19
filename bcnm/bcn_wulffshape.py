@@ -81,7 +81,7 @@ class IdealWulff:
 	with given conventional unit cell.
 	"""
 
-	def __init__(self, structure, spacegroup, miller_list, e_surf_list):
+	def __init__(self, structure, miller_list, e_surf_list):
 		"""
 		Structure   : Python-ASE object of the conventional unit cell.
 		Spacegroup  : Symmetry Spacegroup from ASE.
@@ -103,8 +103,8 @@ class IdealWulff:
 		self.miller_list = tuple([tuple(x) for x in miller_list])
 		self.hkl_list = tuple([(x[0], x[1], x[-1]) for x in miller_list])
 		self.e_surf_list = tuple(e_surf_list)
-		self.spacegroup = spacegroup
-		self.sg = Spacegroup(spacegroup)
+		self.spacegroup = int(str(structure.info['spacegroup'])[0:3])
+		self.sg = Spacegroup(self.spacegroup)
 
 		#2.Get surface normal from get_miller_eq
 		self.facets = self.get_miller_eq()
@@ -144,11 +144,10 @@ class IdealWulff:
 		color_ind = self.color_ind
 		planes = []
 		recp = self.structure.get_reciprocal_cell()
-		sg = Spacegroup(self.spacegroup)
-		recp_ops = sg.get_op()
+		recp_ops = self.sg.get_op()
 
 		for i, (hkl, energy) in enumerate(zip(self.hkl_list, self.e_surf_list)):
-			hkl_eq = [all_hkl.append((x[0], x[1], x[2], energy, i)) for x in sg.equivalent_reflections(hkl)]
+			hkl_eq = [all_hkl.append((x[0], x[1], x[2], energy, i)) for x in self.sg.equivalent_reflections(hkl)]
 	
 		for miller in all_hkl:
 			hkl = miller[0:3]
@@ -325,7 +324,7 @@ class IdealWulff:
 			if show_area:
 				ax.legend(color_proxy, self.miller_area, loc='upper left', bbox_to_anchor=(0, 1), fancybox=True, shadow=False)
 			else:
-				ax.legend(color_proxy_on_wulff, self.miller_list, loc='upper center', bbox_to_anchor=(0.5, 1), ncol=3, fancybox=True, shadow=False)
+				ax.legend(color_proxy_on_wulff, self.input_miller_fig, loc='upper center', bbox_to_anchor=(0.5, 1), ncol=3, fancybox=True, shadow=False)
 		
 		ax.set_xlabel('x')
 		ax.set_ylabel('y')
@@ -505,30 +504,48 @@ class IdealWulff:
 	@property
 	def wulff_shape_info(self):
 		"""
-		Returns all the information available of the computed Wulff shape.
+		Returns all the information available of the computed Wulff shape,
+		as a Wulff_Info.txt report into the working directory.
 		"""
-		print(' ')
-		print('====WULFF SHAPE INFO====')
-		print('[+] Shape Factor         : %.6f ' % self.shape_factor)
-		print('[+] Anisotropy           : %.6f ' % self.anisotropy)
-		print('[+] Weighted Surf. Energy: %.6f ' %  self.weighted_surface_energy)
-		print('[+] Surface Area         : %.6f ' % self.surface_area)
-		print('[+] Volume               : %.6f ' % self.volume)
-		print('[+] Effective Radius     : %.6f ' % self.effective_radius)
-		print('[+] Total Surf. Energy   : %.6f ' % self.total_surface_energy)
-		print('[+] N. Corners           : ', self.tot_corner_sites)
-		print('[+] N. Edges             : ', self.tot_edges)
-		print('====Surface Area====')
-		for a, b in zip(self.miller_area_dict.keys(), self.miller_area_dict.values()):
-			print('     [-]'+str(a)+' : '+str(round(b, 6)))
-		print('====Area Fraction====')
-		for c, d in zip(self.area_fraction_dict.keys(), self.area_fraction_dict.values()):
-			print('     [-]'+str(c)+' : '+str(round(d,6)))
-		print('====Surf. Area Percentage====')
-		for e, f in zip(self.surface_area_percentage.keys(), self.surface_area_percentage.values()):
-			print('     [-]'+str(e)+' : '+str(round(f,6)))
-		print('====END====')
-		print(' ')
+		from string import Template
+		src = Template("""
+
+==========================================
+	 IDEAL WULFF INFORMATION
+==========================================
+[+] Shape Factor          : $shape_factor
+[+] Anisotropy            : $anisotropy
+[+] Weighted Surf. Energy : $w_surf_energ
+[+] Total Surface Area    : $total_surf_area
+[+] Volume                : $volume
+[+] Effective Radius      : $radius
+[+] Total Surf. Energy    : $tot_surf_energ
+[+] N. Corners            : $corners
+[+] N. Edges              : $edges
+[+] Surf. Area      [hkl] : $hkl_area
+[+] Area Fraction   [hkl] : $hkl_frac
+[+] Area Percentage [hkl] : $hkl_percent
+
+""")
+		wulff_data = {'shape_factor': self.shape_factor,
+			      'anisotropy': self.anisotropy,
+			      'w_surf_energ': self.weighted_surface_energy,
+			      'total_surf_area': self.surface_area,
+			      'volume': self.volume,
+			      'radius': self.effective_radius,
+			      'tot_surf_energ': self.total_surface_energy,
+			      'corners': self.tot_corner_sites,
+			      'edges': self.tot_edges,
+			      'hkl_area': [str(x)+': '+str(y) for x, y in zip(self.miller_area_dict.keys(), self.miller_area_dict.values())],
+			      'hkl_frac': [str(x)+': '+str(y) for x, y in zip(self.area_fraction_dict.keys(), self.area_fraction_dict.values())],
+			      'hkl_percent': [str(x)+': '+str(y) for x, y in zip(self.surface_area_percentage.keys(), self.surface_area_percentage.values())]}
+		
+		wulff_report = src.safe_substitute(wulff_data)
+		with open('Wulff_Info.txt', 'w') as wulff_out:
+			wulff_out.write(wulff_report)
+
+		wulff_out.close()
+		
 		return
 
 

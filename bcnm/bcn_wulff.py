@@ -1343,32 +1343,42 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     return sameOrder,"%.4f"%wlindex
 
 def idealWulffFractions(atoms,surfaces,energies):
-    """Function that calculate the ideal wulff Areas Fraction
-    using the pymatgen WulffShape.
+    """Function that calculate the ideal wulff Areas Fraction.
+       IdealWulff function is based on the existing pymatgen wulff code.
+
     Args:
-        atoms(atoms):atoms object
+        atoms(atoms)       : Python-ASE atoms object
         surfaces([(index)]): list of index tuples
-        energy([energy]): list of energy floats
+        energy([energy])   : list of energy floats
+
     return:
         idealWulffAreasFraction([index,areas]):list of areas fraction present and areas per each index
-    """
-    #lattice=atoms.get_cell()
-    spacegroup = int(str(atoms.info['spacegroup'])[0:3])
 
+    return_2:
+	idealWulffshape.savefig         : Ideal Wulff image saved into the working directory.
+        idealWulffshape.wulff_shape_info: Wulff_Info.txt report saved into the working directory.
+    """
+
+    #Store Miller Index
     tupleMillerIndexes=[]
     for index in surfaces:
         tupleMillerIndexes.append(tuple(index))
 
-    #idealWulffShape = WulffShape(lattice,tupleMillerIndexes, energies)
-    idealWulffShape = IdealWulff(atoms, spacegroup, tupleMillerIndexes, energies)
+    #Call IdealWulff function from bcnm folder and get facet areas
+    idealWulffShape = IdealWulff(atoms, tupleMillerIndexes, energies)
     areas=idealWulffShape.area_fraction_dict
-    idealWulffShape.savefig('IdealWulff.png', dpi=300, legend=True, aspect_ratio=(4,4), transparent=False)
 
+    #Get IdealWulff image and Wulff_Info.txt report
+    idealWulffShape.savefig('IdealWulff.png', dpi=300, legend=True, aspect_ratio=(4,4), transparent=False)
+    idealWulffShape.wulff_shape_info
+	
+    #Store and return facets areas
     idealWulffAreasFraction=[]
     for millerIndex,areaFraction in areas.items():
         idealWulffAreasFraction.append([millerIndex,areaFraction])
-    # print(idealWulffAreasFraction)
+
     return idealWulffAreasFraction 
+
 def coulombEnergy(symbol,atoms):
     """
     Function that calculate the coulomb like energy
