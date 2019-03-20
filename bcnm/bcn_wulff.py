@@ -861,7 +861,7 @@ def reduceNano(symbol,atoms,size,debug=0):
     # Check the stoichiometry of NP0
 
     if check_stoich_v2(symbol,atoms,debug) is 'stop':
-        print("Exiting because the structure can achieve stoichiometry by removing just one type of ions")
+        print("Exiting because the structure can not achieve stoichiometry by removing just one type of ions")
         return None
     if check_stoich_v2(symbol,atoms,debug) is 'stoichiometric':
         print("NP0 is stoichiometric")
