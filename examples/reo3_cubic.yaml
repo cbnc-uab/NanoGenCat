@@ -1,0 +1,23 @@
+# Bcnm input example in yaml
+# using automatic shifting
+chemicalSpecies: [Re,O]
+spaceGroupNumber: 221
+charges: [6,-2]
+basis:
+- [0.0,0.0,0.0]
+- [0.5,0.0,0.0]
+
+cellDimension: [3.742,3.742,3.742, 90, 90, 90]
+
+surfaceEnergy: [2.52]
+surfaces: 
+  - [0,0,1]
+
+nanoparticleSize: 14
+sizeRange: 4
+step: 1
+
+centering: automatic
+
+onlyNp0: False
+

@@ -5,9 +5,9 @@ spaceGroupNumber: 136
 basis:
  - [0.0, 0.0, 0.0]
  - [0.306, 0.306,0.0]
-cellDimension: [4.49, 4.49, 3.10, 90, 90, 90]
+cellDimension: [4.54, 4.54, 3.18, 90, 90, 90]
 
-surfaceEnergy: [1.05, 1.20, 1.31, 1.58]
+surfaceEnergy: [0.15, 0.158, 0.185, 0.206]
 surfaces: 
   - [1, 1, 0]
   - [0, 1, 1]
@@ -15,7 +15,7 @@ surfaces:
   - [0, 0, 1]
 
 nanoparticleSize: 20
-sizeRange: 10
-step: 1
+sizeRange: 15
+step: 0.5
 
 centering: none

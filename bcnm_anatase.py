@@ -13,7 +13,6 @@ from yaml import load
 
 import numpy as np
 
-from pathlib import Path
 from argparse import ArgumentParser
 
 
@@ -24,7 +23,7 @@ from ase.io import  write, read
 
 ####
 sys.path.append(os.path.abspath("bcnm/"))
-from bcn_wulff import bcn_wulff_construction,specialCenterings
+from bcn_wulff_anatase import bcn_wulff_construction
 ####
 startTime = time.time()
 
@@ -45,10 +44,9 @@ with open(args.input,'r') as file:
 file.close()
 
 ####Creating a execution directory
-execDir = Path('tmp/'+str(uuid.uuid4().hex))
-execDir.mkdir(parents=True, exist_ok=True)
+execDir='tmp/'+str(uuid.uuid4().hex)
+os.mkdir(execDir)
 os.chdir(execDir)
-
 print('Running directory: ',execDir)
 
 ####printing running parameters
@@ -111,7 +109,7 @@ elif data ['centering'] == 'nShift':
     shifts = []
     for i in range(nShift[0]):
         for j in range(nShift[1]):
-            for C in range(nShift[2]):
+            for k in range(nShift[2]):
                 shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)])
 
 elif data ['centering'] == 'automatic':
@@ -124,7 +122,7 @@ elif data ['centering'] == 'automatic':
     # print (shiftsCenters)
     for shift in shiftsCenters:
         shifts.append(list(shift))
-    shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
+
 
 else:
     print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
@@ -138,18 +136,18 @@ max_size = data['nanoparticleSize'] + data['sizeRange']
 # print(min_size,max_size)
 
 ## Initial screening of shifts
-print('\nEvaluation of running parameters on NP0\n')
+print('\nEvaluation of running parameters on NP0')
 startingScreeningTime = time.time()
 
-print('Size,Shift,Chemical Formula\n')
+
 evaluation=[]
 for size in np.arange(min_size, max_size, data['step']):
     # if size >8:
     for shift in shifts:
+        print('Size:',size,'Shift:',shift)
         temp=[size,shift]
         # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=data['debug'],np0=True)]
-        print(size,shift,temp2[0])
+        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)]
         # print(temp2)
         temp.extend(temp2)
         evaluation.append(temp)
@@ -162,10 +160,7 @@ for size in np.arange(min_size, max_size, data['step']):
 #Discard the models that have false inside
 # print(evaluation)
 print('\nNumber of evaluated NP0s: ',len(evaluation))
-if len(data['surfaceEnergy'])>1:
-    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
-else:
-    print('Evaluated parameters: Size, Shift, Chemical Formula, Cations, Anions, Minimum coordination, Global coordination')
+print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination')
 print('Results:')
 print(*evaluation, sep='\n')
 
@@ -189,7 +184,7 @@ for i in metalSize:
     finalModels.append(tempNp0PerMetal[0])
 
 print('\nFinal NP0s models:',len(finalModels))
-finalSorted=sorted(finalModels,key=lambda x:x[0])
+finalSorted=sorted(finalModels,key=lambda x:x[0],reverse=True)
 print(*finalSorted, sep='\n')
 finalScreeningTime = time.time()
 
@@ -201,7 +196,7 @@ else:
     ##Calculation of stoichiometric nanoparticles
     for i in finalModels:
         print('\nGenerating stoichiometric nanoparticles for ',i,"\n")
-        bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'])
+        bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=0)
     finalTime=time.time()
     print("Total execution time:",round(finalTime-startTime),"s")
     exit(0)

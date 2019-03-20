@@ -40,7 +40,7 @@ _debug = False
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                        rounding='closest', latticeconstant=None, 
-                       debug=0, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
+                       debug=False, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
     """Create a cluster using the Wulff construction.
 
     A cluster is created with approximately the number of atoms
@@ -128,107 +128,113 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     eq=equivalentSurfaces(symbol,surfaces)
     #Calculate the normal normalized vectors for each surface
     norms=planesNorms(eq,recCell)
-    if len(surfaces)>1:
-        # Get the ideal wulffPercentages
-        ideal_wulff_fractions=idealWulffFractions(symbol,surfaces,energies)
-    #Array for the np0 properties
-    np0Properties=[]
+    # Get the ideal wulffPercentages
+    # ideal_wulff_fractions=idealWulffFractions(symbol,surfaces,energies)
 
-    #This is the loop to get the NP closest to the desired size
 
-    if len(energies) == 1:
-        #For systems with only one surface energy, we dont evaluate
-        #too much parameters, only chemical formula and min coord 
-        scale_f = np.array([0.5])
-        distances = scale_f*size
-        layers = np.array([distances/dArray])
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                            structure, center, latticeconstant)
-
-        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-
-        minCoord=check_min_coord(atoms_midpoint)
-        if np0==True:
-            np0Properties=[atoms_midpoint.get_chemical_formula()]
-            np0Properties.extend(minCoord)
-            return np0Properties
-
+    if type(size) == float:
+        """This is the loop to get the NP closest to the desired size"""
+        if len(energies) == 1:
+            scale_f = np.array([0.5])
+            distances = scale_f*size
+            layers = np.array([distances/d])
+            atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+                                structure, center, latticeconstant)
+            small = large = None
+            
+            if np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) == size:
+                midpoint = scale_f
+            else:
+                small = large = scale_f
+                if np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) > size:
+                    large = scale_f
+                    while np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) > size:
+                        scale_f = scale_f/2.
+                        distances = scale_f*size
+                        layers = np.array([distances/d])
+                        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+                                structure, center, latticeconstant)
+                    small = scale_f
+                    midpoint = small
+                elif np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) < size:
+                    small = scale_f
+                    while np.mean(atoms_midpoint.get_cell_lengths_and_angles()[0:3]) < size:
+                        scale_f = scale_f*2.
+                        distances = scale_f*size
+                        layers = np.array([distances/d])
+                        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+                                structure, center, latticeconstant)
+                    large = scale_f
+                    midpoint = large
         else:
-            reduceNano(symbol,atoms_midpoint,size)
-    else:
+            # print('dArray\n',dArray)
 
-        small = np.array(energies)/((max(energies)*2.))
-        large = np.array(energies)/((min(energies)*2.))
-        midpoint = (large+small)/2.
-        distances = midpoint*size
-        layers= distances/dArray
+            small = np.array(energies)/((max(energies)*2.))
+            large = np.array(energies)/((min(energies)*2.))
+            midpoint = (large+small)/2.
+            distances = midpoint*size
+            layers= distances/dArray
+            # print('layers\n',layers)
+            # print('size\n',size)
+            atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+                                        structure, center, latticeconstant)
+            
+            # print("Initial NP",atoms_midpoint.get_chemical_formula())
+            # view(atoms_midpoint)
+            name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+            write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
-        if debug>0:
-            print('layers\n',layers)
-            print('size\n',size)
-            print('surfaces\n',surfaces)
+            #Evaluating the np0
+            np0Properties=[]
 
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                    structure, center, latticeconstant)
+            
+            minCoord=check_min_coord(atoms_midpoint)
+            areasIndex=areaCalculation(atoms_midpoint,norms)
+            # print('areasIndex',areasIndex)
+            plane_area=planeArea(symbol,areasIndex,surfaces)
+            # print('plane_area',plane_area)
+            # print('--------------')
+            # print(len(plane_area))
+
+            # Calculate the Wulff-like index
+            # wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+            # print(wulff_like)
+
+            # view(atoms_midpoint)
         
-        # print("Initial NP",atoms_midpoint.get_chemical_formula())
-        # view(atoms_midpoint)
-        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-
-        
-        minCoord=check_min_coord(atoms_midpoint)
-        areasIndex=areaCalculation(atoms_midpoint,norms)
-        if debug>0:
-            print('areasIndex',areasIndex)
-        plane_area=planeArea(symbol,areasIndex,surfaces)
-        if debug>0:
-            print('plane_area',plane_area)
-            print('--------------')
-        # print(len(plane_area))
-
-        # Calculate the Wulff-like index
-        wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-        if debug>0:
-            print(wulff_like)
-
-        # view(atoms_midpoint)
-    
-        # """
-        # For now I will keep it here too
-        # """
-        # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-        # """
-        # testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
-        # """
-        # if check_min_coord(atoms_midpoint)==True:
-        #     print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
-        #     return none
-        #     # raise systemexit(0)
-
-        # if option == 0:
-        #     if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
-        #         n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
-        #     else:
-        #         n_neighbour = none
-        #     coordination(atoms_midpoint,debug,size,n_neighbour)
-        #     os.chdir('../')
-        #     return atoms_midpoint
-        if np0==True:
-            np0Properties=[atoms_midpoint.get_chemical_formula()]
-            np0Properties.extend(minCoord)
-            np0Properties.append(plane_area[0])
-            np0Properties.extend(wulff_like)
+            # """
+            # For now I will keep it here too
+            # """
             # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
             # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-            return np0Properties
-        else:
-            # view(atoms_midpoint) 
-            reduceNano(symbol,atoms_midpoint,size,debug)
-            # os.chdir('../')
+            # """
+            # testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
+            # """
+            # if check_min_coord(atoms_midpoint)==True:
+            #     print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
+            #     return none
+            #     # raise systemexit(0)
 
+            # if option == 0:
+            #     if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
+            #         n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
+            #     else:
+            #         n_neighbour = none
+            #     coordination(atoms_midpoint,debug,size,n_neighbour)
+            #     os.chdir('../')
+            #     return atoms_midpoint
+            if np0==True:
+                np0Properties=[atoms_midpoint.get_chemical_formula()]
+                np0Properties.extend(minCoord)
+                np0Properties.append(plane_area[0])
+             #  np0Properties.extend(wulff_like)
+                # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+                # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                return np0Properties
+            else:
+                # view(atoms_midpoint) 
+                reduceNano(symbol,atoms_midpoint,size)
+                # os.chdir('../')
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
     layers = np.round(layers).astype(int)
@@ -468,6 +474,7 @@ def coordination(atoms,debug,size,n_neighbour):
         write(name,atoms,format='xyz',comment=comment,columns=['symbols', 'positions'])
         return atoms
     
+
 def check_stoich(atoms,coord=None):
     stoich_unit = np.array(findall('\d+',atoms.unit_cell_formula))
     stoich_unit = stoich_unit.astype(np.int)
@@ -514,6 +521,7 @@ def make_C(atoms,nearest_neighbour):
     # print('C\n',C)
     return C
     
+
 def make_F(atoms,C,nearest_neighbour,debug):
     #time_0_make_F = time.time()
     """
@@ -629,7 +637,6 @@ def make_F(atoms,C,nearest_neighbour,debug):
         time_F1 = time.time()
         print("Total time to calculate combinations", round(time_F1-time_F0,5)," s")
     return K
-
 def check_min_coord(atoms):
     """function that identify if the nanoparticle not contain lower coordinated metals
     args: atoms
@@ -688,7 +695,7 @@ def check_min_coord(atoms):
 
     return characterization
 
-def singulizator(nanoList,debug=0):
+def singulizator(nanoList):
     """
     Function that eliminates the nanoparticles
     that are equivalent by SPRINT coordinates
@@ -713,9 +720,8 @@ def singulizator(nanoList,debug=0):
     keeping in mind that a repeated structure can appear
     on both columns, I just take the first
     """
-    if debug>0:
-        for i in results:
-            print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
+    # for i in results:
+    #     print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
 
     
     results1=[i[0] for i in results]
@@ -727,13 +733,13 @@ def singulizator(nanoList,debug=0):
         # print('NP '+nanoList[results[i][0]]+' and '+nanoList[results[i][1]]+ ' are equal')
         # print('Removing '+nanoList[results[i][0]])
         remove(nanoList[i])
-        # pass
     finalModels=len(nanoList)-len(toRemove)
     print('Removed NPs:',len(toRemove))
     print('Final models:',finalModels)
 
     time_F1 = time.time()
     print("Total time singulizator", round(time_F1-time_F0,5)," s\n")
+
 
 def sprint(nano):
     """
@@ -776,9 +782,10 @@ def sprint(nano):
             adjMatrix[i[0],j]=1.0
     # np.savetxt('adjMatrix',adjMatrix,newline='\n',fmt='%.1f')
 
-    # Diagonal elements defined by 1+zi/10 if i is non metal
-    # and 1+zi/100 if is metal
-
+    """
+    Diagonal elements defined by 1+zi/10 if i is non metal
+    and 1+zi/100 if is metal
+    """
     numbers=symbols2numbers(atoms.get_atomic_numbers())
     # print(numbers)
     for i in range(len(adjMatrix)):
@@ -809,16 +816,10 @@ def sprint(nano):
     return sFormated
 
 def compare(sprint0,sprint1):
-
     """
     compare the SPRINT coordinates between two nanoparticles.
     If two NP has the same sprint coordinates, both are equally
     connected.
-    Args:
-    	sprint0(list): sprint coordinates list
-    	sprint1(list): sprint coordinates list
-    Return:
-    	(Bool)
     """
     # print(sprint0,'\n',sprint1) 
     # diff=(list(set(sprint0) - set(sprint1)))
@@ -826,7 +827,6 @@ def compare(sprint0,sprint1):
         diff=(list(set(sprint0) - set(sprint1)))
         if len(diff)==0:
             return True
-
 def coordination_testing(atoms):
     print('entre a coordination_testing\n')
     atoms.center(vacuum=10)
@@ -843,46 +843,57 @@ def coordination_testing(atoms):
         indices, offsets = nl.get_neighbors(i)
         C.append(len(indices))
     return C
-
-def reduceNano(symbol,atoms,size,debug=0):
+def reduceNano(symbol,atoms,size):
     """
-    Function that make the nano stoichiometric
-    by removing dangling atoms. It is atom
-    type insensitive
-    Args:
-        Symbol(Atoms): Atoms object of bulk material
-        atoms(Atoms): Atoms object of selected Np0
-        size(float): size of nanoparticle
-        debug(int): for print stuff
+    function that make the nano stoichiometrically
     """
     print('Enter to reduceNano')
     time_F0 = time.time()
+    check_stoich(atoms)
+    
+    # newpath = './{}'.format(str(int(size)))
+    # if not os.path.exists(newpath):
+    #     os.makedirs(newpath)
+    # os.chdir(newpath)
 
-    # Check the stoichiometry of NP0
-
-    if check_stoich_v2(symbol,atoms,debug) is 'stop':
-        print("Exiting because the structure can achieve stoichiometry by removing just one type of ions")
-        return None
-    if check_stoich_v2(symbol,atoms,debug) is 'stoichiometric':
-        print("NP0 is stoichiometric")
-        return None
-
-
-    # Save as np0_f to distinguish between them and the others 
-
-    name=atoms.get_chemical_formula()+'_NP0_f.xyz'
+    name=atoms.get_chemical_formula()+'_NP0.xyz'
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
 
-    # If the nano pass the test, the program can advance.
-
-    #Add the excess attribute to atoms
-    check_stoich_v2(symbol,atoms,debug)
-
-    ### Calculate the C
-
+    """
+    Check the nano 0 quality
+    """
     nearest_neighbour=[]
     for i in range(len(atoms)):
         nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
+
+    C = make_C(atoms,nearest_neighbour)
+    
+    coord=np.empty((0,5))
+    for d in set(atoms.get_atomic_numbers()):
+        a=np.array([d, np.mean([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
+                    np.max([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
+                    np.min([C[i] for i in range(len(atoms.get_atomic_numbers())) if atoms.get_atomic_numbers()[i] == d]),
+                    chemical_symbols[d]])
+        coord = np.append(coord,[a],axis=0)
+    coord = coord[coord[:,4].argsort()]
+    # print("coord \n",coord)
+    
+    if check_stoich(atoms,coord) is 'stop':
+        print("Exiting because the structure is nonmetal defective")
+        return None
+
+    """
+    If the nano pass the test, the program can advance.
+    """
+    # print(atoms.excess)
+    # if atoms.excess.any==None:
+    #     print('is stoichiometric')
+    #     return None
+    # else:
+    for i in atoms.excess:
+        if i !=0:
+            excess=i
+    # print(excess)
 
     C=[]
     half_nn = [x /2.5 for x in nearest_neighbour]
@@ -891,25 +902,17 @@ def reduceNano(symbol,atoms,size,debug=0):
     for i in range(len(atoms.get_atomic_numbers())):
         indices, offsets = nl.get_neighbors(i)
         C.append([i,indices])
-    if debug>0:
-        atomsBeta=copy.deepcopy(atoms)
-        for j in C:
-            if atomsBeta[j[0]].symbol=='Cu':
-                if len(j[1])==1:
-                    atomsBeta[j[0]].symbol='Mg'
-        write('coordinationEvaluation.xyz',atomsBeta)
-        # print(*C, sep='\n')
 
-    # print(C)
-    
-    # 4 lists:
-    # singly: contains the singly coordinated atoms
-    # father: contains the heavy metal atoms which singly
-    # coordFather:contains the coordination of bounded
-    # coordinated atoms are bounded
-    # coordFather that is the coordination of bounded
-    # fatherFull that is the combination of father and their coordination.
-    # fatherFull: contains the combination of father and their coordination.
+    '''
+    4 lists:
+    singly: contains the singly coordinated atoms
+    father: contains the heavy metal atoms which singly
+    coordinated atoms are bounded
+    coordFather that is the coordination of bounded
+    fatherFull that is the combination of father and their coordination.
+    coordFather:contains the coordination of bounded
+    fatherFull: contains the combination of father and their coordination.
+    '''
     
     singly=[i for i in range(len(atoms)) if len(C[i][1])==1]
     singly_bak=copy.deepcopy(singly)
@@ -924,42 +927,37 @@ def reduceNano(symbol,atoms,size,debug=0):
 
     fatherFull_bak=copy.deepcopy(fatherFull)
 
-    if debug>0:
-    	print('singly:',singly)
-    	print('father:',father)
-    	print('coordFather:',coordFather)
-    	print('fatherFull:',fatherFull)
-    # allowedCoordination must to be generalized
-    # the upper limit is half of maximum coordination -1
-    # and the inferior limit is the maximum
-    # coordination. i.e. for fluorite, the maximum coordination
-    # is 8, so using list(range(8,3,-1)) we obtain the list
-    # [8, 7, 6, 5, 4] that is fully functional.
-    
+    """
+    allowedCoordination must to be generalized
+    the upper limit is half of maximum coordination -1
+    and the inferior limit is the maximum
+    coordination. i.e. for fluorite, the maximum coordination
+    is 8, so using list(range(8,3,-1)) we obtain the list
+    [8, 7, 6, 5, 4] that is fully functional.
+    """
     maxCord=int(np.max(coordFather))
-    # print ('maxCord',maxCord)
+    # print (maxCord)
     mid=int(0.5*maxCord-1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
-    print('allowedCoordinations')
-    if debug>0:
-    	print(allowedCoordination)
+    # print('allowedCoordinations')
+    # print(allowedCoordination)
 
 
     replicas=1000
-    
-    # To have a large amounth of conformation we generate
-    # 1000 replicas for removing atoms. 
-    # To make the selection random we use shuffle and 
-    # choice. 
-    # The loop basically select the metal
-    # atom of higest coordination,aka father, identify the singly coordinated 
-    # atoms bounded to it and choose one randomly.
-    # Then append the selected and reduce the coordination of father.
-    # the process is repeated until the len of remove are equal to 
-    # excess.
+    """
+    To have a large amounth of conformation we generate
+    1000 replicas for removing atoms. 
+    To make the selection random we use shuffle and 
+    choice. 
+    The loop basically select the metal
+    atom of higest coordination,aka father, identify the singly coordinated 
+    atoms bounded to it and chose one randomly.
+    Then append the selected and reduce the coordination of father.
+    the process is repeated until the len of remove are equal to 
+    excess.
 
-
+    """
     S=[]
 
     for r in range(replicas):
@@ -978,7 +976,7 @@ def reduceNano(symbol,atoms,size,debug=0):
                         chosen=choice(singlyFather)
                         # print('chosen',chosen)
                         if chosen not in toRemove:
-                            if len(toRemove)==atoms.excess:
+                            if len(toRemove)==excess:
                                 break
                             toRemove.append(chosen)
                             # print('singly',singly)
@@ -988,19 +986,20 @@ def reduceNano(symbol,atoms,size,debug=0):
         # print(len(toRemove))
         S.append(sorted(toRemove))
 
-    
-    # at the end we get an array S with 10000 list of atoms
-    # to be removed. Previous to the removal and to make the things faster
-    # we remove duplicates (I guess that is not duplicates in the list)
-
+    """
+    at the end we get an array S with 10000 list of atoms
+    to be removed. Previous to the removal and to make the things faster
+    we remove duplicates (I guess that is not duplicates in the list)
+    """
     nanoList=[]
 
-    # Generate the list of pairs and select the repeated pairs
-    # the aceptance criteria is if the intersection between
-    # two s are iqual to the len of the first s. 
-    # The repeated list is set and reversed before remove 
-    # s elements 
-
+    '''
+    Generate the list of pairs and select the repeated pairs
+    the aceptance criteria is if the intersection between
+    two s are iqual to the len of the first s. 
+    The repeated list is set and reversed before remove 
+    s elements 
+    '''
     pairs=[c for c in combinations(range(1000),2)]
 
     repeatedS=[]
@@ -1018,17 +1017,13 @@ def reduceNano(symbol,atoms,size,debug=0):
 
     for i in uniqueRepeated:
         del S[i]
-
-    # Build the nanoparticles removing the s atom list. Then, calculate the DC
-
+    """
+    Build the nanoparticles removing the s atom list. Then, calculate the DC
+    """
     atomsOnlyMetal=copy.deepcopy(atoms)
     del atomsOnlyMetal[[atom.index for atom in atomsOnlyMetal if atom.symbol in nonMetals]]
     centerOfMetal = atomsOnlyMetal.get_center_of_mass()
     # print('centerOfMetal',centerOfMetal)
-
-    #Calculate the size as the maximum distance between cations
-    npFinalSize=np.amax(atomsOnlyMetal.get_all_distances())
-
     print('stoichiometric NPs:',len(S))
     for n,s in enumerate(S):
         NP=copy.deepcopy(atoms)
@@ -1052,9 +1047,8 @@ def reduceNano(symbol,atoms,size,debug=0):
         coulomb_energy=coulombEnergy(symbol,NP)
         # print('coulomb_energy',coulomb_energy)
         dipole_moment=dipole(NP)
-        # size as the maximum distance between cations
-        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)+'size:'+str(npFinalSize)
-        #replace the ase standard comment by our comment
+        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)
+        #replace the ase standard comment by ours
         command='sed -i \'2s/.*/'+comment+'/\' '+name
         # print(command)
         subprocess.run(command,shell=True)
@@ -1091,7 +1085,6 @@ def interplanarDistance(recCell,millerIndexes):
     #     print(millerIndexes[n],d[n])
 
     return(d)
-
 def equivalentSurfaces(atoms,millerIndexes):
     """Function that get the equivalent surfaces for a set of  millerIndexes
     Args:
@@ -1110,10 +1103,8 @@ def equivalentSurfaces(atoms,millerIndexes):
 def planesNorms(millerIndexes,recCell):
     """Function that calculates the normalized
     normal vector of the miller indexes  
-    Args:
-        miller indexes(list)
-    Return:
-        norm(list)
+    Args:miller indexes(list)
+    Return:norm(list)
     """
     norms=[]
     for millerIndex in millerIndexes:
@@ -1362,7 +1353,7 @@ def idealWulffFractions(atoms,surfaces,energies):
         idealWulffAreasFraction([index,areas]):list of areas fraction present and areas per each index
     """
     lattice=atoms.get_cell()
-    
+
     tupleMillerIndexes=[]
     for index in surfaces:
         tupleMillerIndexes.append(tuple(index))
@@ -1374,8 +1365,7 @@ def idealWulffFractions(atoms,surfaces,energies):
     for millerIndex,areaFraction in areas.items():
         idealWulffAreasFraction.append([millerIndex,areaFraction])
     # print(idealWulffAreasFraction)
-    return idealWulffAreasFraction
-
+    return idealWulffAreasFraction 
 def coulombEnergy(symbol,atoms):
     """
     Function that calculate the coulomb like energy
@@ -1384,7 +1374,7 @@ def coulombEnergy(symbol,atoms):
         symbol(Atoms): Crystal atoms object
         atoms(Atoms): Atoms object
     Return:
-        coulombLikeEnergy(float): coulomb like energy in atomic units
+        coulombLikeEnergy(float): coulomb like energy
     """
     #Add the charges
     for iatom in atoms:
@@ -1409,7 +1399,7 @@ def dipole(atoms):
     Args:
         atoms(Atoms): Atoms object
     Return:
-        dipole(float): dipole in atomic units
+        dipole(float): dipole
     """
     dipole=0
     for atom in atoms:
@@ -1417,150 +1407,6 @@ def dipole(atoms):
         dipole+=dipoleTemp
 
     return dipole
-
-def specialCenterings(spaceGroupNumber):
-    """
-    Function that returns the centerings that Xavi proposes on
-    the draft
-    Args:
-        spaceGroupNumber(int):Standard space group number
-    Return:
-        special_centerings([tuples]): List of tuples with special centerings
-        per spacegroup
-
-    """
-    data=[
-    [[
-    22, 42, 43, 69, 70, 196, 202, 203, 209, 210, 216, 219, 225, 
-    226, 227, 228],
-    [(0.25, 0.25, 0.25),(0.75, 0.25, 0.25),(0.25, 0.75, 0.25),
-    (0.25, 0.25, 0.75),(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),
-    (0.0, 0.0, 0.5),(0.5, 0.5, 0.5)
-    ]],
-    [[
-    23, 24, 44, 45, 46, 71, 72, 73, 74,79, 80, 82, 87, 88, 97, 98,
-    107, 108, 109, 110, 119, 120, 121, 122, 139, 140, 141, 142,
-    197, 199, 204, 206, 211, 214, 217, 220, 229, 230],
-    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),(0.5, 0.5, 0.0),
-    (0.0, 0.5, 0.5),(0.5, 0.0, 0.5)
-    ]],
-    [[
-    5, 8, 9, 12, 15, 20, 21, 35, 36, 37, 63, 64, 65, 66, 67, 68],
-    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),
-    (0.0, 0.5, 0.5),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
-    ]],
-    [[
-    38, 39, 40, 41],
-    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),
-    (0.5, 0.5, 0.0),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
-    ]],
-    [[
-    1, 2,3, 4, 6, 7, 10, 11, 13, 14,16, 17, 18, 19, 25, 26, 27,
-    28, 29, 30, 31, 32, 33,34, 47, 48, 49, 50, 51, 52, 53, 54,
-    55, 56, 57, 58, 59, 60, 61, 62,75, 76, 77, 78, 81, 83, 84,
-    85, 86, 89, 90, 91, 82, 93, 94, 95, 96, 99, 100, 101, 102,
-    103, 104, 105, 106, 111, 112, 113, 114, 115, 116, 117, 118,
-    123, 124, 125, 126, 127, 128 ,129, 130, 131, 132, 133, 134,
-    135, 136, 137, 138, 195, 198, 200, 201, 205, 207, 208, 212,
-    213, 215, 218, 221, 222, 223, 224.],
-    [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),(0.5, 0.5, 0.0),
-    (0.0, 0.5, 0.5),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
-    ]],
-    [[186],
-    [(0.33333,0.66666,0.0),(0.66666,0.333333,0.5),(0,0,1),
-    (0.0,0.0,0.25)
-    ]]
-    ]
-
-    for familly in data:
-        if spaceGroupNumber in familly[0]:
-            # print('match')
-            # print(familly[1])
-            special_centerings=copy.deepcopy(familly[1])
-    # # print(centerings)
-    return special_centerings
-
-def check_stoich_v2(Symbol,atoms,debug=0):
-	"""
-	Function that evaluates the stoichiometry
-	of a np.
-	To do it compare calculate the excess
-	of majoritary element. If not excess
-	the Np is stoichiometric,
-	else  add the excess atribute to atoms
-	object.
-
-	Args:
-		Atoms(atoms): Nanoparticle
-		Symbol(atoms): unit cell atoms structure
-		debug(int): debug to print stuff
-	"""
-
-	#Get the stoichiometry of the unit cell
-
-	#Get the symbols inside the cell
-	listOfChemicalSymbols=Symbol.get_chemical_symbols()
-	
-	#Count and divide by the greatest common divisor
-	chemicalElements=list(set(listOfChemicalSymbols))
-
-	# put the stuff in order, always metals first
-
-	if chemicalElements[0] in nonMetals:
-		chemicalElements.reverse()
-
-	counterCell=[]
-	for e in chemicalElements:
-		counterCell.append(listOfChemicalSymbols.count(e))
-
-	gcd=np.gcd.reduce(counterCell)
-
-	cellStoichiometry=counterCell/gcd
-	# Compare the cell stoichiometry with the np stoichiometry
-	
-	# Get the nano stoichiometry
-	listOfChemicalSymbolsNp=atoms.get_chemical_symbols()
-	
-	#Count and divide by the greatest common divisor
-	counterNp=[]
-	for e in chemicalElements:
-		# print(e)
-		counterNp.append(listOfChemicalSymbolsNp.count(e))
-	# print(counterNp)
-	gcdNp=np.gcd.reduce(counterNp)
-
-	nanoStoichiometry=counterNp/gcdNp
-	
-	# ###
-	# # The nanoparticle must respect the same ratio of ions in the crystal
-	# # Just one of the ions can be excesive
-	# ## Test one, just the largest in proportion is in excess
-
-	excesiveIonIndex=np.argmax(nanoStoichiometry)
-
-	## calculate how many atoms has to be removed
-	print('valuess')
-	print(np.max(counterNp),np.min(counterNp),np.max(cellStoichiometry))
-	excess=np.max(counterNp)-np.min(counterNp)*(np.max(cellStoichiometry)/np.min(cellStoichiometry))
-	print('excess',type(excess))
-
-	##Verify if excess is the proper
-
-	if debug>0:
-		print(chemicalElements[excesiveIonIndex])
-		print('cellStoichiometry',cellStoichiometry)
-		print('nanoStoichiometry',nanoStoichiometry)
-		print(excess)
-		# print('atoms excess',atoms.excess)
-	
-	if excess==0:
-		return 'stoichiometric'
-	elif excess<0 or excess%1!=0:
-		return 'stop'
-	else:
-		atoms.excess=excess
-
-
 
 
 

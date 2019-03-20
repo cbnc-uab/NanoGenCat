@@ -1,0 +1,98 @@
+
+BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
+This program comes with ABSOLUTELY NO WARRANTY; for details type 'python bcnm.py --help'. 
+This is free software, and you are welcome to redistribute it under certain conditions; type 'cat LICENSE' for details.
+
+Running directory:  tmp/1f4f3182baed4aa984f85ffda05b79e6
+Running parameters
+chemicalSpecies : ['Ti', 'O']
+charges : [4, 2]
+spaceGroupNumber : 136
+basis : [[0.0, 0.0, 0.0], [0.306, 0.306, 0.0]]
+cellDimension : [4.603, 4.603, 2.977, 90, 90, 90]
+surfaceEnergy : [0.014, 0.044, 0.022, 0.057]
+surfaces : [[1, 1, 0], [0, 1, 1], [1, 0, 0], [0, 0, 1]]
+nanoparticleSize : 25
+sizeRange : 5
+step : 1
+centering : manualShift
+numberOfShifts : 2
+shifts : [[0.5, 0.5, 0.0], [0.0, 0.0, 0.0]]
+onlyNp0 : True
+
+Start execution
+
+Evaluation of running parameters on NP0
+Size: 20 Shift: [0.5, 0.5, 0.0]
+Size: 20 Shift: [0.0, 0.0, 0.0]
+Size: 21 Shift: [0.5, 0.5, 0.0]
+Size: 21 Shift: [0.0, 0.0, 0.0]
+Size: 22 Shift: [0.5, 0.5, 0.0]
+Size: 22 Shift: [0.0, 0.0, 0.0]
+Size: 23 Shift: [0.5, 0.5, 0.0]
+Size: 23 Shift: [0.0, 0.0, 0.0]
+Size: 24 Shift: [0.5, 0.5, 0.0]
+Size: 24 Shift: [0.0, 0.0, 0.0]
+Size: 25 Shift: [0.5, 0.5, 0.0]
+Size: 25 Shift: [0.0, 0.0, 0.0]
+Size: 26 Shift: [0.5, 0.5, 0.0]
+Size: 26 Shift: [0.0, 0.0, 0.0]
+Size: 27 Shift: [0.5, 0.5, 0.0]
+Size: 27 Shift: [0.0, 0.0, 0.0]
+Size: 28 Shift: [0.5, 0.5, 0.0]
+Size: 28 Shift: [0.0, 0.0, 0.0]
+Size: 29 Shift: [0.5, 0.5, 0.0]
+Size: 29 Shift: [0.0, 0.0, 0.0]
+
+Number of evaluated NP0s:  20
+Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas, Wulff-like index
+Results:
+[20, [0.5, 0.5, 0.0], 'O344Ti132', 132, 344, True, 1536, True, True, '0.0141']
+[20, [0.0, 0.0, 0.0], 'O344Ti123', 123, 344, True, 1476, True, True, '0.0129']
+[21, [0.5, 0.5, 0.0], 'O592Ti340', 340, 592, True, 3312, True, True, '0.0029']
+[21, [0.0, 0.0, 0.0], 'O552Ti365', 365, 552, False, 3312, True, True, '0.0007']
+[22, [0.5, 0.5, 0.0], 'O592Ti390', 390, 592, False, 3552, True, True, '0.0012']
+[22, [0.0, 0.0, 0.0], 'O592Ti365', 365, 592, True, 3472, True, True, '0.0007']
+[23, [0.5, 0.5, 0.0], 'O632Ti390', 390, 632, True, 3712, True, True, '0.0012']
+[23, [0.0, 0.0, 0.0], 'O632Ti415', 415, 632, False, 3792, True, True, '0.0028']
+[24, [0.5, 0.5, 0.0], 'O672Ti390', 390, 672, True, 3792, True, True, '0.0012']
+[24, [0.0, 0.0, 0.0], 'O672Ti415', 415, 672, True, 3952, True, True, '0.0028']
+[25, [0.5, 0.5, 0.0], 'O830Ti440', 440, 830, False, 4664, True, True, '0.0043']
+[25, [0.0, 0.0, 0.0], 'O880Ti415', 415, 880, True, 4664, True, True, '0.0028']
+[26, [0.5, 0.5, 0.0], 'O870Ti440', 440, 870, True, 4824, True, True, '0.0043']
+[26, [0.0, 0.0, 0.0], 'O880Ti465', 465, 880, False, 4944, True, True, '0.0057']
+[27, [0.5, 0.5, 0.0], 'O930Ti490', 490, 930, False, 5224, True, True, '0.0069']
+[27, [0.0, 0.0, 0.0], 'O920Ti465', 465, 920, True, 5104, True, True, '0.0057']
+[28, [0.5, 0.5, 0.0], 'O1158Ti490', 490, 1158, True, 5760, True, True, '0.0069']
+[28, [0.0, 0.0, 0.0], 'O1158Ti465', 465, 1158, True, 5580, True, True, '0.0057']
+[29, [0.5, 0.5, 0.0], 'O1218Ti490', 490, 1218, True, 5880, True, True, '0.0069']
+[29, [0.0, 0.0, 0.0], 'O1218Ti515', 515, 1218, True, 6060, True, True, '0.0080']
+
+Aproved NP0s: 14
+[20, [0.5, 0.5, 0.0], 'O344Ti132', 132, 344, True, 1536, True, True, '0.0141']
+[20, [0.0, 0.0, 0.0], 'O344Ti123', 123, 344, True, 1476, True, True, '0.0129']
+[21, [0.5, 0.5, 0.0], 'O592Ti340', 340, 592, True, 3312, True, True, '0.0029']
+[22, [0.0, 0.0, 0.0], 'O592Ti365', 365, 592, True, 3472, True, True, '0.0007']
+[23, [0.5, 0.5, 0.0], 'O632Ti390', 390, 632, True, 3712, True, True, '0.0012']
+[24, [0.5, 0.5, 0.0], 'O672Ti390', 390, 672, True, 3792, True, True, '0.0012']
+[24, [0.0, 0.0, 0.0], 'O672Ti415', 415, 672, True, 3952, True, True, '0.0028']
+[25, [0.0, 0.0, 0.0], 'O880Ti415', 415, 880, True, 4664, True, True, '0.0028']
+[26, [0.5, 0.5, 0.0], 'O870Ti440', 440, 870, True, 4824, True, True, '0.0043']
+[27, [0.0, 0.0, 0.0], 'O920Ti465', 465, 920, True, 5104, True, True, '0.0057']
+[28, [0.5, 0.5, 0.0], 'O1158Ti490', 490, 1158, True, 5760, True, True, '0.0069']
+[28, [0.0, 0.0, 0.0], 'O1158Ti465', 465, 1158, True, 5580, True, True, '0.0057']
+[29, [0.5, 0.5, 0.0], 'O1218Ti490', 490, 1218, True, 5880, True, True, '0.0069']
+[29, [0.0, 0.0, 0.0], 'O1218Ti515', 515, 1218, True, 6060, True, True, '0.0080']
+
+Final NP0s models: 10
+[29, [0.0, 0.0, 0.0], 'O1218Ti515', 515, 1218, True, 6060, True, True, '0.0080']
+[20, [0.5, 0.5, 0.0], 'O344Ti132', 132, 344, True, 1536, True, True, '0.0141']
+[24, [0.5, 0.5, 0.0], 'O672Ti390', 390, 672, True, 3792, True, True, '0.0012']
+[29, [0.5, 0.5, 0.0], 'O1218Ti490', 490, 1218, True, 5880, True, True, '0.0069']
+[22, [0.0, 0.0, 0.0], 'O592Ti365', 365, 592, True, 3472, True, True, '0.0007']
+[28, [0.0, 0.0, 0.0], 'O1158Ti465', 465, 1158, True, 5580, True, True, '0.0057']
+[21, [0.5, 0.5, 0.0], 'O592Ti340', 340, 592, True, 3312, True, True, '0.0029']
+[26, [0.5, 0.5, 0.0], 'O870Ti440', 440, 870, True, 4824, True, True, '0.0043']
+[20, [0.0, 0.0, 0.0], 'O344Ti123', 123, 344, True, 1476, True, True, '0.0129']
+[25, [0.0, 0.0, 0.0], 'O880Ti415', 415, 880, True, 4664, True, True, '0.0028']
+Total time evaluation 1502  s

@@ -1,7 +1,9 @@
 # Bcnm input example in yaml
 # using automatic shifting
-chemicalSpecie: IrO
+chemicalSpecies: [Ir,O]
 spaceGroupNumber: 136
+charges: [4,2]
+setting: 1
 basis:
  - [0.0, 0.0, 0.0]
  - [0.306, 0.306,0.0]
@@ -14,8 +16,14 @@ surfaces:
   - [1, 0, 0]
   - [0, 0, 1]
 
-nanoparticleSize: 14
-sizeRange: 3
+nanoparticleSize: 15
+sizeRange: 1
 step: 1
 
-centering: none
+centering: manualShift
+numberOfShifts: 1
+shifts: 
+- [0.5,0.5,0.0]
+
+onlyNp0: True
+

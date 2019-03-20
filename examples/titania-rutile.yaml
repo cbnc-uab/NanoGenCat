@@ -1,6 +1,7 @@
 # Bcnm input example in yaml 
 # Titania
-chemicalSpecie: TiO
+chemicalSpecies: [Ti,O]
+charges: [4,2]
 spaceGroupNumber: 136
 basis:
  - [0.0, 0.0, 0.0]
@@ -14,12 +15,14 @@ surfaces:
   - [1, 0, 0]
   - [0, 0, 1]
 
-nanoparticleSize: 16
-sizeRange: 1
+nanoparticleSize: 24
+sizeRange: 4
 step: 1
 
-centering: automatic
-# centering: manualShift
-# numberOfShifts: 1
-# shifts:
-#   - [0.153, 0.153, 0.0]
+centering: manualShift
+numberOfShifts: 2
+shifts: 
+- [0.5,0.5,0.0]
+- [0.0,0.0,0.0]
+
+onlyNp0: False

@@ -1,0 +1,26 @@
+# Bcnm input example in yaml 
+# magnesium oxide
+chemicalSpecies: [Mg,O]
+spaceGroupNumber: 225
+charges: [2,-2]
+
+basis:
+ - [0.0, 0.0, 0.0]
+ - [0.5, 0.5,0.5]
+cellDimension: [4.211,4.211,4.211, 90, 90, 90]
+
+surfaceEnergy: [0.86,0.86]
+surfaces: 
+  - [0, 0, 1]
+  - [0, 0, 1]
+
+nanoparticleSize: 8
+sizeRange: 3
+step: 1
+
+centering: manualShift
+numberOfShifts: 1
+shifts:
+ - [0.25,0.25,0.25]
+
+onlyNp0: True
