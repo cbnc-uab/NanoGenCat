@@ -16,4 +16,6 @@ sizeRange: 15
 step: 2
 
 centering: automatic
-onlyNp0: True
+onlyNp0: False
+debug: 0
+
