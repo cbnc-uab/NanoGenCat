@@ -38,11 +38,8 @@ delta = 1e-10
 _debug = False
 
 
-def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
-                       rounding='closest', latticeconstant=None, 
-                       debug=0, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
+def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding='closest', latticeconstant=None, debug=0, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
     """Create a cluster using the Wulff construction.
-
     A cluster is created with approximately the number of atoms
     specified, following the Wulff construction, i.e. minimizing the
     surface energy of the cluster.
@@ -815,10 +812,10 @@ def compare(sprint0,sprint1):
     If two NP has the same sprint coordinates, both are equally
     connected.
     Args:
-    	sprint0(list): sprint coordinates list
-    	sprint1(list): sprint coordinates list
+        sprint0(list): sprint coordinates list
+        sprint1(list): sprint coordinates list
     Return:
-    	(Bool)
+        (Bool)
     """
     # print(sprint0,'\n',sprint1) 
     # diff=(list(set(sprint0) - set(sprint1)))
@@ -826,23 +823,6 @@ def compare(sprint0,sprint1):
         diff=(list(set(sprint0) - set(sprint1)))
         if len(diff)==0:
             return True
-
-def coordination_testing(atoms):
-    print('entre a coordination_testing\n')
-    atoms.center(vacuum=10)
-    nearest_neighbour=[]
-    for i in range(len(atoms)):
-        nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
-
-
-    C=[]
-    half_nn = [x /2.5 for x in nearest_neighbour]
-    nl = NeighborList(half_nn,self_interaction=False,bothways=True)
-    nl.update(atoms)
-    for i in range(len(atoms.get_atomic_numbers())):
-        indices, offsets = nl.get_neighbors(i)
-        C.append(len(indices))
-    return C
 
 def reduceNano(symbol,atoms,size,debug=0):
     """
@@ -873,24 +853,20 @@ def reduceNano(symbol,atoms,size,debug=0):
     name=atoms.get_chemical_formula()+'_NP0_f.xyz'
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
 
-    # If the nano pass the test, the program can advance.
+    ### Calculate the C to remove the unbounded
+    C=coordinationv2(symbol,atoms)
+    # remove atom that is not conected
+
+    for c in C:
+        if len(c[1])==0:
+            del atoms[c[0]]
+
+    ##Recalculate coordination after removal
+    C=coordinationv2(symbol,atoms)
 
     #Add the excess attribute to atoms
     check_stoich_v2(symbol,atoms,debug)
 
-    ### Calculate the C
-
-    nearest_neighbour=[]
-    for i in range(len(atoms)):
-        nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
-
-    C=[]
-    half_nn = [x /2.5 for x in nearest_neighbour]
-    nl = NeighborList(half_nn,self_interaction=False,bothways=True)
-    nl.update(atoms)
-    for i in range(len(atoms.get_atomic_numbers())):
-        indices, offsets = nl.get_neighbors(i)
-        C.append([i,indices])
     if debug>0:
         atomsBeta=copy.deepcopy(atoms)
         for j in C:
@@ -925,10 +901,10 @@ def reduceNano(symbol,atoms,size,debug=0):
     fatherFull_bak=copy.deepcopy(fatherFull)
 
     if debug>0:
-    	print('singly:',singly)
-    	print('father:',father)
-    	print('coordFather:',coordFather)
-    	print('fatherFull:',fatherFull)
+        print('singly:',singly)
+        print('father:',father)
+        print('coordFather:',coordFather)
+        print('fatherFull:',fatherFull)
     # allowedCoordination must to be generalized
     # the upper limit is half of maximum coordination -1
     # and the inferior limit is the maximum
@@ -941,9 +917,9 @@ def reduceNano(symbol,atoms,size,debug=0):
     mid=int(0.5*maxCord-1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
-    print('allowedCoordinations')
     if debug>0:
-    	print(allowedCoordination)
+        print('allowedCoordinations')
+        print(allowedCoordination)
 
 
     replicas=1000
@@ -1481,84 +1457,129 @@ def specialCenterings(spaceGroupNumber):
     return special_centerings
 
 def check_stoich_v2(Symbol,atoms,debug=0):
-	"""
-	Function that evaluates the stoichiometry
-	of a np.
-	To do it compare calculate the excess
-	of majoritary element. If not excess
-	the Np is stoichiometric,
-	else  add the excess atribute to atoms
-	object.
+    """
+    Function that evaluates the stoichiometry
+    of a np.
+    To do it compare calculate the excess
+    of majoritary element. If not excess
+    the Np is stoichiometric,
+    else  add the excess atribute to atoms
+    object.
 
-	Args:
-		Atoms(atoms): Nanoparticle
-		Symbol(atoms): unit cell atoms structure
-		debug(int): debug to print stuff
-	"""
+    Args:
+        Atoms(atoms): Nanoparticle
+        Symbol(atoms): unit cell atoms structure
+        debug(int): debug to print stuff
+    """
 
-	#Get the stoichiometry of the unit cell
+    #Get the stoichiometry of the unit cell
 
-	#Get the symbols inside the cell
-	listOfChemicalSymbols=Symbol.get_chemical_symbols()
-	
-	#Count and divide by the greatest common divisor
-	chemicalElements=list(set(listOfChemicalSymbols))
+    #Get the symbols inside the cell
+    listOfChemicalSymbols=Symbol.get_chemical_symbols()
+    
+    #Count and divide by the greatest common divisor
+    chemicalElements=list(set(listOfChemicalSymbols))
 
-	# put the stuff in order, always metals first
+    # put the stuff in order, always metals first
 
-	if chemicalElements[0] in nonMetals:
-		chemicalElements.reverse()
+    if chemicalElements[0] in nonMetals:
+        chemicalElements.reverse()
 
-	counterCell=[]
-	for e in chemicalElements:
-		counterCell.append(listOfChemicalSymbols.count(e))
+    counterCell=[]
+    for e in chemicalElements:
+        counterCell.append(listOfChemicalSymbols.count(e))
 
-	gcd=np.gcd.reduce(counterCell)
+    gcd=np.gcd.reduce(counterCell)
 
-	cellStoichiometry=counterCell/gcd
-	# Compare the cell stoichiometry with the np stoichiometry
-	
-	# Get the nano stoichiometry
-	listOfChemicalSymbolsNp=atoms.get_chemical_symbols()
-	
-	#Count and divide by the greatest common divisor
-	counterNp=[]
-	for e in chemicalElements:
-		# print(e)
-		counterNp.append(listOfChemicalSymbolsNp.count(e))
-	# print(counterNp)
-	gcdNp=np.gcd.reduce(counterNp)
+    cellStoichiometry=counterCell/gcd
+    # Compare the cell stoichiometry with the np stoichiometry
+    
+    # Get the nano stoichiometry
+    listOfChemicalSymbolsNp=atoms.get_chemical_symbols()
+    
+    #Count and divide by the greatest common divisor
+    counterNp=[]
+    for e in chemicalElements:
+        # print(e)
+        counterNp.append(listOfChemicalSymbolsNp.count(e))
+    # print(counterNp)
+    gcdNp=np.gcd.reduce(counterNp)
 
-	nanoStoichiometry=counterNp/gcdNp
-	
-	# ###
-	# # The nanoparticle must respect the same ratio of ions in the crystal
-	# # Just one of the ions can be excesive
-	# ## Test one, just the largest in proportion is in excess
+    nanoStoichiometry=counterNp/gcdNp
+    
+    # ###
+    # # The nanoparticle must respect the same ratio of ions in the crystal
+    # # Just one of the ions can be excesive
+    # ## Test one, just the largest in proportion is in excess
 
-	excesiveIonIndex=np.argmax(nanoStoichiometry)
+    excesiveIonIndex=np.argmax(nanoStoichiometry)
 
-	## calculate how many atoms has to be removed
-	print('valuess')
-	print(np.max(counterNp),np.min(counterNp),np.max(cellStoichiometry))
-	excess=np.max(counterNp)-np.min(counterNp)*(np.max(cellStoichiometry)/np.min(cellStoichiometry))
-	print('excess',type(excess))
+    ## calculate how many atoms has to be removed
+    excess=np.max(counterNp)-np.min(counterNp)*(np.max(cellStoichiometry)/np.min(cellStoichiometry))
+    if debug>0:
+        print('values')
+        print(np.max(counterNp),np.min(counterNp),np.max(cellStoichiometry))
+        print(chemicalElements[excesiveIonIndex])
+        print('cellStoichiometry',cellStoichiometry)
+        print('nanoStoichiometry',nanoStoichiometry)
+        print(excess)
+        # print('atoms excess',atoms.excess)
+    
+    if excess==0:
+        return 'stoichiometric'
+    elif excess<0 or excess%1!=0:
+        return 'stop'
+    else:
+        atoms.excess=excess
 
-	##Verify if excess is the proper
 
-	if debug>0:
-		print(chemicalElements[excesiveIonIndex])
-		print('cellStoichiometry',cellStoichiometry)
-		print('nanoStoichiometry',nanoStoichiometry)
-		print(excess)
-		# print('atoms excess',atoms.excess)
-	
-	if excess==0:
-		return 'stoichiometric'
-	elif excess<0 or excess%1!=0:
-		return 'stop'
-	else:
-		atoms.excess=excess
+def coordinationv2(crystal,atoms):
+    """
+    function that calculates the
+    coordination based on cutoff
+    distances from the crystal,
+    the distances was calculated
+    by using the MIC
+    Args:
+        crystal(atoms): atoms object of the crystal
+        atoms(atoms): atoms object for the nano
+    """
+    # get the neigboors for the crystal object by
+    # element and keeping the maxima for element
+    # as unique len neighbour
+
+    red_nearest_neighbour=[]
+    distances=crystal.get_all_distances(mic=True)
+    elements=list(set(crystal.get_chemical_symbols()))
+    # print(elements)
+    for i in elements:
+        # print(i)
+        nearest_neighbour_by_element=[]
+        for atom in crystal:
+            if atom.symbol ==i:
+                nearest_neighbour_by_element.append(np.min([x for x in distances[atom.index] if x>0]))
+        # print(list(set(nearest_neighbour_by_element)))
+        red_nearest_neighbour.append(np.max(nearest_neighbour_by_element))
+    # print(red_nearest_neighbour)
+
+    #construct the nearest_neighbour for the nano
+    nearest_neighbour=[]
+    for atom in atoms:
+        for n,element in enumerate(elements):
+            if atom.symbol==element:
+                nearest_neighbour.append(red_nearest_neighbour[n])
+
+    C=[]
+    half_nn = [x /2.5 for x in nearest_neighbour]
+    nl = NeighborList(half_nn,self_interaction=False,bothways=True)
+    nl.update(atoms)
+    for i in range(len(atoms.get_atomic_numbers())):
+        indices, offsets = nl.get_neighbors(i)
+        C.append([i,indices])
+    return C
+    # 
+    # print(C)
+
 
 
 
