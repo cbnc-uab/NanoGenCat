@@ -13,6 +13,7 @@ from yaml import load
 
 import numpy as np
 
+from pathlib import Path
 from argparse import ArgumentParser
 
 
@@ -44,9 +45,10 @@ with open(args.input,'r') as file:
 file.close()
 
 ####Creating a execution directory
-execDir='tmp/'+str(uuid.uuid4().hex)
-os.mkdir(execDir)
+execDir = Path('tmp/'+str(uuid.uuid4().hex))
+execDir.mkdir(parents=True, exist_ok=True)
 os.chdir(execDir)
+
 print('Running directory: ',execDir)
 
 ####printing running parameters

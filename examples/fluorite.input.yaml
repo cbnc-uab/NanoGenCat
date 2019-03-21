@@ -1,0 +1,15 @@
+# Bcnm input example for fluorite 
+chemicalSpecie: CaF
+spaceGroupNumber: 225
+basis:
+ - [0., 0., 0.]
+ - [0.25, 0.25, 0.25]
+cellDimension: [5.411, 5.411, 5.411, 90, 90, 90]
+
+surfaceEnergy: [0.437, 0.719, 0.979]
+surfaces: 
+  - [1, 1, 1]
+  - [1, 1, 0]
+  - [1, 0, 0]
+
+nanoparticleSize: 14
