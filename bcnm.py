@@ -49,6 +49,10 @@ with open(args.input,'r') as file:
             exit(1)
 file.close()
 
+# Values by default
+if not 'debug' in data:
+    data['debug'] = 0
+
 ####Creating a execution directory
 execDir = Path('tmp/'+str(uuid.uuid4().hex))
 execDir.mkdir(parents=True, exist_ok=True)
