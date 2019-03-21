@@ -56,6 +56,9 @@ def main():
     if not 'debug' in data:
         data['debug'] = 0
 
+    if not 'onlyNp0' in data:
+        data['onlyNp0'] = False
+
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
