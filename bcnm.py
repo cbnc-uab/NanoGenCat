@@ -9,7 +9,7 @@ import sys
 import uuid
 import time
 
-from yaml import load
+from yaml import load, YAMLError
 
 import numpy as np
 
@@ -40,8 +40,13 @@ args = parser.parse_args()
 
 # Reading data
 with open(args.input,'r') as file:
- data = load(file)
-
+    try:
+        data = load(file)
+    except YAMLError as exc:
+        if hasattr(exc, 'problem_mark'):
+            mark = exc.problem_mark
+            print ('Invalid yaml format. Check line: %s of %s ' % (mark.line+1, args.input))
+            exit(1)
 file.close()
 
 ####Creating a execution directory
