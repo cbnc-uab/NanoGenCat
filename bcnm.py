@@ -10,22 +10,16 @@ import uuid
 import time
 
 from yaml import load, YAMLError
-
 import numpy as np
-
 from pathlib import Path
 from argparse import ArgumentParser
-
 
 from ase.spacegroup import crystal
 from ase.visualize import view
 from ase.build import cut, bulk
 from ase.io import  write, read
 
-####
-sys.path.append(os.path.abspath("bcnm/"))
-from bcn_wulff import bcn_wulff_construction,specialCenterings
-####
+from bcnm.bcn_wulff import bcn_wulff_construction, specialCenterings
 
 
 def main():
