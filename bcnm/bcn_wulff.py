@@ -1080,7 +1080,10 @@ def equivalentSurfaces(atoms,millerIndexes):
     equivalent_surfaces=[]
     for s in millerIndexes:
         equivalent_surfaces.extend(sg.equivalent_reflections(s))
-
+        # print('-----------------------------------')
+        # print('s',s)
+        # print('equivalent_surfaces',sg.equivalent_reflections(s))
+        # print('-----------------------------------')
     return equivalent_surfaces
 
 def planesNorms(millerIndexes,recCell):
