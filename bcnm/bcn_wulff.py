@@ -138,13 +138,21 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
         #too much parameters, only chemical formula and min coord 
         scale_f = np.array([0.5])
         distances = scale_f*size
+        # print('distances from bcn_wulff_construction',distances)
         layers = np.array([distances/dArray])
+
+        if debug>0:
+            print('layers\n',layers)
+            print('size\n',size)
+            print('surfaces\n',surfaces)
+
         atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                             structure, center, latticeconstant)
 
         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-
+        print('hollllaaaa')
+        wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
         minCoord=check_min_coord(atoms_midpoint)
         if np0==True:
             np0Properties=[atoms_midpoint.get_chemical_formula()]
@@ -1066,7 +1074,7 @@ def interplanarDistance(recCell,millerIndexes):
     # for n,i in enumerate(d):
     #     print(millerIndexes[n],d[n])
 
-    return(d)
+    return d
 
 def equivalentSurfaces(atoms,millerIndexes):
     """Function that get the equivalent surfaces for a set of  millerIndexes
@@ -1535,7 +1543,6 @@ def check_stoich_v2(Symbol,atoms,debug=0):
     else:
         atoms.excess=excess
 
-
 def coordinationv2(crystal,atoms):
     """
     function that calculates the
@@ -1583,6 +1590,77 @@ def coordinationv2(crystal,atoms):
     # 
     # print(C)
 
+def wulffDistanceBased(symbol,atoms,surfaces,distance):
+    """
+    Function that evaluates if equivalent
+    faces has the same lenght from the center of the material
+    or not
+    Args:
+        atoms(Atoms): nanoparticle atoms type
+        surface(list): surface miller index
+        distance(float): distance from the center to the wall
+        recCell(numpy nd array): reciprocal cell
+    """
+
+    # Get the equivalent surfaces and give them the distance
+    # Creating the spacegroup object
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+
+    onlyMetals=copy.deepcopy(atoms)
+    # del atoms[[atom.index for atom in atoms if atom.symbol=='O']]
+
+    positions=np.array([atom.position[:] for atom in atoms])
+    centroid=positions.mean(axis=0)
+
+    #Create the ConvexHull  object
+    hull=ConvexHull(positions)
+    # print(hull.area)
+
+    simplices=[]
+    for simplex in hull.simplices:
+        simplices.extend(simplex)
+    surfaceAtoms=sorted(list(set(simplices)))
+    ###
+    ###
+    #Save the atoms surface in a new atoms object
+    outershell=copy.deepcopy(atoms)
+    
+
+
+    for s in surfaces:
+        equivalentSurfaces=sg.equivalent_reflections(s)
+        # Convert the surface indexes to an string to make it ease to compare
+        equivalentSurfacesStrings=[]
+        for ss in equivalentSurfaces:
+            equivalentSurfacesStrings.append(ss)
+        # break
+        # Get the direction per each miller index
+    rs=[]
+    auxrs=[]
+
+    for i in equivalentSurfacesStrings:
+        rlist=[]
+        direction= np.dot(i,symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
+        for n,j in enumerate(outershell.get_positions()):
+            rlist.append(np.dot(j-centroid,direction))
+        auxrs.append(np.max(rlist))
+        rs.append([i,np.max(rlist)])
+    for i in rs:
+        temp=i[1]/np.max(auxrs)
+        print(i[0],temp)
+    print('------------------')
+        # rs.append(np.round(np.max(np.dot(atoms.get_positions() - center, direction)),2))
+    # all the distances must be the same, so by doing set, just retrieve one
+        # print(i,rs)
+        # test=list(set(rs))
+        # break
+    # print('test',test)
+    # view(atoms)
+
+
+
+    
 
 
 

@@ -39,14 +39,22 @@ class Cluster(Atoms, ClusterBase):
             n = self.miller_to_direction(s)
             c = self.get_positions().mean(axis=0)
             r = np.dot(self.get_positions() - c, n).max()
+            print(r)
+            #Calcula la interlayer para dos capas
             d = self.bcn_get_layer_distance(s, 2)
+            # multiplica por dos el numero de layers por que dividio
+            # por la distancia de dos capas
             l = 2 * np.round(r / d).astype(int)
             ls = np.arange(l - 1, l + 2)
+            print('ls\n',s,ls)
             ds = np.array([self.bcn_get_layer_distance(s, i) for i in ls])
-
+            # print(ds)
             mask = (np.abs(ds - r) < 1e-10)
-
-        return np.array(layers, int)
+            print('mask',mask)
+            # layers.append(ls[mask][0])
+            # layers.append(ls[mask])
+            # print('layers',layers)
+        # return np.array(layers, int)
 
     def get_diameter(self, method='volume'):
         """Returns an estimate of the cluster diameter based on two different

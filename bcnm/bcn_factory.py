@@ -51,10 +51,11 @@ class ClusterFactory(ClusterFactory):
             if distances is not None:
                 self.set_surfaces_distances(surfaces, distances)
             ##keep the default surfaces
-            cluster,realSize = self.make_cluster(vacuum)
+            cluster = self.make_cluster(vacuum)
             # print(realSize)
             # self.test(realSize)
-            self.wulffDistanceBased(surfaces,realSize)
+            # self.wulffDistanceBased(surfaces,realSize)
+            # print(realSize)
             # view(cluster)
             cluster.surfaces = self.surfaces.copy()
             cluster.lattice_basis = self.lattice_basis.copy()
@@ -146,7 +147,7 @@ class ClusterFactory(ClusterFactory):
             index += 1
             n = self.miller_to_direction(s)
             if self.distances is not None:
-                rmax = self.distances[index]
+                rmax = self.distances[index]*1.1
                 # print("RMAX",s,rmax)
 
             # r value is the distance from the position 
@@ -158,22 +159,22 @@ class ClusterFactory(ClusterFactory):
             # print(l)
             # print(s,np.dot(l*self.center,n))
 
-            # by using less function, only keep the positions
-            # that has a lower distance to rmax,
+            # by using less_equal function, only keep the positions
+            # that has a lower or equal distance to rmax,
             # so the largest of the keeped r values
             # has to be on the surface, so i can use it
             # as a criteria to evaluate the growing
 
-            mask = np.less(r, rmax)
+            mask = np.less_equal(r, rmax)
             # print('mask',mask)
             if self.debug > 1:
                 print("Cutting %s at %i layers ~ %.3f A" % (s, l, rmax))
-            rkeeped=r[mask]
+            # rkeeped=r[mask]
             ##Getting the real size as the average of the values that are larger
             # or equal than 80% of rmax
-            rselected=[x for x in rkeeped if x>=(rmax*0.80)]
-            print('rselected',s,len(rselected))
-            realSize.append([s,np.max(rselected)])
+            # rselected=np.max(rkeeped)
+            # print('rselected',s,rselected)
+            # realSize.append([s,np.max(rselected)])
             # print('plane,largestpos',',',s,',',np.max(rkeeped))
             
             #-------------------
@@ -206,8 +207,7 @@ class ClusterFactory(ClusterFactory):
         positions = positions - min + vacuum / 2.0
         self.center = self.center - min + vacuum / 2.0
         self.Cluster.unit_cell_formula = self.chemical_formula
-        return self.Cluster(symbols=numbers, positions=positions, cell=cell),realSize
-                
+        return self.Cluster(symbols=numbers, positions=positions, cell=cell)                
     def set_lattice_size(self, center):
         """
         Routine that change the center 
@@ -305,37 +305,5 @@ class ClusterFactory(ClusterFactory):
         self.surfaces = surfaces_full.copy()
         self.distances = distances_full.copy()
 
-    def wulffDistanceBased(self,surfaces,realSize):
-        """
-        Function that evaluates if equivalent
-        faces has the same lenght from the center of the material
-        or not
-        Args:
-            self(cluster): cluster
-            surfaces(list): Initial surfaces
-            realSize(list): surfaces and r distances from make_cluster
-        """
-        for i in realSize:
-            temp=''.join(map(str,i[0]))
-            i[0]=temp
-
-        # Get the equivalent surfaces 
-        # Creating the spacegroup object
-        sg=Spacegroup(self.spacegroup)
-
-        for s in surfaces:
-            equivalentSurfaces=sg.equivalent_reflections(s)
-            # Convert the surface indexes to an string to make it ease to compare
-            equivalentSurfacesStrings=[]
-            for ss in equivalentSurfaces:
-                surfaceString=''.join(map(str,ss))
-                equivalentSurfacesStrings.append(surfaceString)
-            distancePerEqSurface=[]
-            for ss in equivalentSurfacesStrings:
-                for i in realSize:
-                    if ss==i[0]:
-                        distancePerEqSurface.append("%.4f"%i[1])
-            print(s,distancePerEqSurface)
-            # break
 
 
