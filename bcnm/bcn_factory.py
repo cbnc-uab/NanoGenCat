@@ -4,11 +4,11 @@ import numpy as np
 from ase.data import atomic_numbers as ref_atomic_numbers
 from ase.spacegroup import Spacegroup
 from ase.cluster.factory import ClusterFactory, reduce_miller
-from bcn_wulff import interplanarDistance
+from bcnm.bcn_wulff import interplanarDistance
 from ase.utils import basestring
 from re import findall
 from ase.io import write
-from cluster import Cluster
+from bcnm.cluster import Cluster
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D

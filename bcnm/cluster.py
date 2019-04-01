@@ -4,7 +4,7 @@ import numpy as np
 import pickle
 
 from ase import Atoms
-from bcn_base import ClusterBase
+from bcnm.bcn_base import ClusterBase
 from ase.utils import basestring
 
 class Cluster(Atoms, ClusterBase):

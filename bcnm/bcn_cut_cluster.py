@@ -1,4 +1,4 @@
-from bcn_factory import ClusterFactory
+from bcnm.bcn_factory import ClusterFactory
 import numpy as np
 
 class CutClusterFactory(ClusterFactory):
