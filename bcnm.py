@@ -49,10 +49,12 @@ def main():
     # Values by default
     if not 'debug' in data:
         data['debug'] = 0
-
     if not 'onlyNp0' in data:
         data['onlyNp0'] = False
-
+    if not 'sizeRange' in data:
+        data['sizeRange'] = 1
+    if not 'wulff-like-method' in data:
+        data['wulff-like-method'] = 'surfaceBased'
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -157,7 +159,7 @@ def main():
         for shift in shifts:
             temp=[size,shift]
             # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-            temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=data['debug'],np0=True)]
+            temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=data['debug'],np0=True,wl_method=data['wulff-like-method'])]
             print(size,shift,temp2[0])
             # print(temp2)
             temp.extend(temp2)

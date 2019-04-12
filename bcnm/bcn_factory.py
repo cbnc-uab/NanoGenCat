@@ -147,7 +147,7 @@ class ClusterFactory(ClusterFactory):
             index += 1
             n = self.miller_to_direction(s)
             if self.distances is not None:
-                rmax = self.distances[index]*1.1
+                rmax = self.distances[index]
                 # print("RMAX",s,rmax)
 
             # r value is the distance from the position 
@@ -165,7 +165,7 @@ class ClusterFactory(ClusterFactory):
             # has to be on the surface, so i can use it
             # as a criteria to evaluate the growing
 
-            mask = np.less_equal(r, rmax)
+            mask = np.less(r, rmax)
             # print('mask',mask)
             if self.debug > 1:
                 print("Cutting %s at %i layers ~ %.3f A" % (s, l, rmax))
