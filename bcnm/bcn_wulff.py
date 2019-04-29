@@ -38,7 +38,7 @@ delta = 1e-10
 _debug = False
 
 
-def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding='closest', latticeconstant=None, debug=0, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False):
+def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding='closest', latticeconstant=None, debug=0, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased'):
     """Create a cluster using the Wulff construction.
     A cluster is created with approximately the number of atoms
     specified, following the Wulff construction, i.e. minimizing the
@@ -123,11 +123,12 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
 
     # Get the equivalent surfaces
     eq=equivalentSurfaces(symbol,surfaces)
+    
     #Calculate the normal normalized vectors for each surface
     norms=planesNorms(eq,recCell)
-    if len(surfaces)>1:
-        # Get the ideal wulffPercentages
-        ideal_wulff_fractions=idealWulffFractions(symbol,surfaces,energies)
+
+    # Get the ideal wulffPercentages
+    ideal_wulff_fractions=idealWulffFractions(symbol,surfaces,energies)
     #Array for the np0 properties
     np0Properties=[]
 
@@ -138,21 +139,48 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
         #too much parameters, only chemical formula and min coord 
         scale_f = np.array([0.5])
         distances = scale_f*size
+        # print('distances from bcn_wulff_construction',distances)
         layers = np.array([distances/dArray])
+
+        if debug>0:
+            print('layers\n',layers)
+            print('size\n',size)
+            print('surfaces\n',surfaces)
+
         atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                             structure, center, latticeconstant)
-
+        #### Evaluate coordination 
+        minCoord=check_min_coord(atoms_midpoint)
+        ###Save midpoint
         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
-        minCoord=check_min_coord(atoms_midpoint)
+        ###Calculate the WL index
+        np0Properties=[atoms_midpoint.get_chemical_formula()]
+        np0Properties.extend(minCoord)
+
+        if wl_method=='surfaceBased':
+            areasIndex=areaCalculation(atoms_midpoint,norms)
+            plane_area=planeArea(symbol,areasIndex,surfaces)
+            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+            np0Properties.extend(wulff_like)
+            if debug>0:
+                print('areasIndex',areasIndex)
+                print('plane_area',plane_area)
+                print('--------------')
+        elif wl_method=='distancesBased':
+            wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
+            np0Properties.extend(wulff_like)
+            if debug>0:
+                print('areasIndex',areasIndex)
+                print('--------------')
+        
         if np0==True:
-            np0Properties=[atoms_midpoint.get_chemical_formula()]
-            np0Properties.extend(minCoord)
+            print(np0Properties)
             return np0Properties
 
         else:
-            reduceNano(symbol,atoms_midpoint,size)
+            reduceNano(symbol,atoms_midpoint,size,debug)
     else:
 
         small = np.array(energies)/((max(energies)*2.))
@@ -168,51 +196,26 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
 
         atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                     structure, center, latticeconstant)
-        
-        # print("Initial NP",atoms_midpoint.get_chemical_formula())
-        # view(atoms_midpoint)
+        #Save the NP0
         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
-        
+        #Check the minimum coordination
         minCoord=check_min_coord(atoms_midpoint)
-        areasIndex=areaCalculation(atoms_midpoint,norms)
-        if debug>0:
-            print('areasIndex',areasIndex)
-        plane_area=planeArea(symbol,areasIndex,surfaces)
-        if debug>0:
-            print('plane_area',plane_area)
-            print('--------------')
-        # print(len(plane_area))
 
         # Calculate the Wulff-like index
-        wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-        if debug>0:
-            print(wulff_like)
+        if wl_method=='surfaceBased':
+            areasIndex=areaCalculation(atoms_midpoint,norms)
+            plane_area=planeArea(symbol,areasIndex,surfaces)
+            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+            if debug>0:
+                print('areasIndex',areasIndex)
+                print('plane_area',plane_area)
+                print('--------------')
+        elif wl_method=='distancesBased':
+            wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
 
-        # view(atoms_midpoint)
-    
-        # """
-        # For now I will keep it here too
-        # """
-        # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-        # """
-        # testing it the np0 contains metal atoms with lower coordination than the half of the maximum coordination
-        # """
-        # if check_min_coord(atoms_midpoint)==True:
-        #     print('The initial NP contain metals with coordination lower than the half of the maximum coordination')
-        #     return none
-        #     # raise systemexit(0)
-
-        # if option == 0:
-        #     if all(np.sort(symbol.get_all_distances())[:,1]-max(np.sort(symbol.get_all_distances())[:,1]) < 0.2):
-        #         n_neighbour = max(np.sort(symbol.get_all_distances())[:,1])
-        #     else:
-        #         n_neighbour = none
-        #     coordination(atoms_midpoint,debug,size,n_neighbour)
-        #     os.chdir('../')
-        #     return atoms_midpoint
+        # keeping the properties    
         if np0==True:
             np0Properties=[atoms_midpoint.get_chemical_formula()]
             np0Properties.extend(minCoord)
@@ -685,7 +688,7 @@ def check_min_coord(atoms):
 
     return characterization
 
-def singulizator(nanoList,debug=0):
+def singulizator(nanoList,debug):
     """
     Function that eliminates the nanoparticles
     that are equivalent by SPRINT coordinates
@@ -855,6 +858,7 @@ def reduceNano(symbol,atoms,size,debug=0):
 
     ### Calculate the C to remove the unbounded
     C=coordinationv2(symbol,atoms)
+    print('C:',C)
     # remove atom that is not conected
 
     for c in C:
@@ -921,9 +925,8 @@ def reduceNano(symbol,atoms,size,debug=0):
         print('allowedCoordinations')
         print(allowedCoordination)
 
-
-    replicas=1000
-    
+    # S=xaviSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination)
+    S=daniloSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination)
     # To have a large amounth of conformation we generate
     # 1000 replicas for removing atoms. 
     # To make the selection random we use shuffle and 
@@ -936,64 +939,82 @@ def reduceNano(symbol,atoms,size,debug=0):
     # excess.
 
 
-    S=[]
+    # S=[]
 
-    for r in range(replicas):
-        toRemove=[]
-        fatherFull=copy.deepcopy(fatherFull_bak)
-        singly=copy.deepcopy(singly_bak)
-        for i in allowedCoordination:
-            shuffle(fatherFull)
-            # print('fatherFull, evaluated coordination',fatherFull,i)
-            for n,j in enumerate(fatherFull):
-                if fatherFull[n][1]==i:
-                    # print('fatherFull[n][1]',fatherFull[n])
-                    singlyFather=[k for k in C[j[0]][1] if k in singly]
-                    if len(singlyFather)>0:
-                        # print('singlyFather',singlyFather)
-                        chosen=choice(singlyFather)
-                        # print('chosen',chosen)
-                        if chosen not in toRemove:
-                            if len(toRemove)==atoms.excess:
-                                break
-                            toRemove.append(chosen)
-                            # print('singly',singly)
-                            singly.remove(chosen)
-                            fatherFull[n][1]=fatherFull[n][1]-1
-            # print('len(toRemove)',len(toRemove))
-        # print(len(toRemove))
-        S.append(sorted(toRemove))
+
+    # for r in range(replicas):
+    #     toRemove=[]
+    #     fatherFull=copy.deepcopy(fatherFull_bak)
+    #     singly=copy.deepcopy(singly_bak)
+    #     for i in allowedCoordination:
+    #         startShuffle=time.time()
+    #         shuffle(fatherFull)
+    #         end=time.time()
+    #         print('time per shuffle',end-startShuffle)
+    #         if debug>0:
+    #             print('fatherFull, evaluated coordination',fatherFull,i)
+    #         for n,j in enumerate(fatherFull):
+    #             # get the ones that have the allowed coordination
+    #             if fatherFull[n][1]==i:
+    #                 # if debug>0:
+    #                 #     print('fatherFull[n][1]',fatherFull[n])
+    #                 #create a list with the single coordinated atoms joined to that atom
+    #                 singlyFather=[k for k in C[j[0]][1] if k in singly]
+    #                 # if that list is larger than 0 choice one
+    #                 if len(singlyFather)>0:
+    #                     # if debug>0:
+    #                     #     print('singlyFather',singlyFather)
+    #                     chosen=choice(singlyFather)
+    #                     # print('chosen',chosen)
+    #                     if chosen not in toRemove:
+    #                         #If that atom was not previously chosen
+    #                         #keep it, remove from the singly coordinated
+    #                         #list and decrease the coordination
+    #                         if len(toRemove)==atoms.excess:
+    #                             print('coordinationAllowed',i)
+    #                             break
+    #                         toRemove.append(chosen)
+    #                         # print('singly',singly)
+    #                         singly.remove(chosen)
+    #                         fatherFull[n][1]=fatherFull[n][1]-1
+    #         if len(toRemove)==atoms.excess:
+    #             print('coordinationAllowed',i)
+    #             break
+    #      #     print('len(toRemove)',len(toRemove))
+    #     # print(len(toRemove))
+    #     S.append(sorted(toRemove))
+    #     print(len(S))
 
     
-    # at the end we get an array S with 10000 list of atoms
-    # to be removed. Previous to the removal and to make the things faster
-    # we remove duplicates (I guess that is not duplicates in the list)
+    # # at the end we get an array S with 10000 list of atoms
+    # # to be removed. Previous to the removal and to make the things faster
+    # # we remove duplicates (I guess that is not duplicates in the list)
 
     nanoList=[]
 
-    # Generate the list of pairs and select the repeated pairs
-    # the aceptance criteria is if the intersection between
-    # two s are iqual to the len of the first s. 
-    # The repeated list is set and reversed before remove 
-    # s elements 
+    # # Generate the list of pairs and select the repeated pairs
+    # # the aceptance criteria is if the intersection between
+    # # two s are iqual to the len of the first s. 
+    # # The repeated list is set and reversed before remove 
+    # # s elements 
 
-    pairs=[c for c in combinations(range(1000),2)]
+    # pairs=[c for c in combinations(range(1000),2)]
 
-    repeatedS=[]
-    for c in pairs:
-        # print (c[0],S[c[0]])
+    # repeatedS=[]
+    # for c in pairs:
+    #     # print (c[0],S[c[0]])
 
-        if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
-            # print(c,' are duplicates')
-            repeatedS.append(c[0])
-            # del S[c[0]]
-    # print (n)
+    #     if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
+    #         # print(c,' are duplicates')
+    #         repeatedS.append(c[0])
+    #         # del S[c[0]]
+    # # print (n)
 
-    uniqueRepeated=list(set(repeatedS))
-    uniqueRepeated.sort(reverse=True)
+    # uniqueRepeated=list(set(repeatedS))
+    # uniqueRepeated.sort(reverse=True)
 
-    for i in uniqueRepeated:
-        del S[i]
+    # for i in uniqueRepeated:
+    #     del S[i]
 
     # Build the nanoparticles removing the s atom list. Then, calculate the DC
 
@@ -1041,7 +1062,7 @@ def reduceNano(symbol,atoms,size,debug=0):
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
 
     #Calling the singulizator function 
-    singulizator(nanoList)
+    singulizator(nanoList,debug)
 
 def interplanarDistance(recCell,millerIndexes): 
     """Function that calculates the interplanar distances
@@ -1066,7 +1087,7 @@ def interplanarDistance(recCell,millerIndexes):
     # for n,i in enumerate(d):
     #     print(millerIndexes[n],d[n])
 
-    return(d)
+    return d
 
 def equivalentSurfaces(atoms,millerIndexes):
     """Function that get the equivalent surfaces for a set of  millerIndexes
@@ -1080,7 +1101,10 @@ def equivalentSurfaces(atoms,millerIndexes):
     equivalent_surfaces=[]
     for s in millerIndexes:
         equivalent_surfaces.extend(sg.equivalent_reflections(s))
-
+        # print('-----------------------------------')
+        # print('s',s)
+        # print('equivalent_surfaces',sg.equivalent_reflections(s))
+        # print('-----------------------------------')
     return equivalent_surfaces
 
 def planesNorms(millerIndexes,recCell):
@@ -1210,12 +1234,14 @@ def areaCalculation(atoms,norms):
     return areasIndex
 
 def planeArea(atoms,areasIndex,millerIndexes):
-    """Function that get the areas per miller index.
+    """Function that get the areas per miller index
+    and evaluates the symmetry.
     Args:
         atoms(Atoms): atoms object
         areasIndex([index,area]): list of indexes and areas per each index
         millerIndexes([millerIndex]): list of initial miller indexes
     Return:
+        symmetric(Boolean): True if symmetric, False else.
         areasPerInitialIndex([index,area]): list of initial indexes and areas per each index
 
     """
@@ -1282,7 +1308,6 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
         order(bool): true if the planes have the same area contribution in ideal and real np, false if not 
         wli(float) wulff-like index. Close to 0 means that NP are close to wulffShape
     """
-
     sg=Spacegroup((int(str(atoms.info['spacegroup'])[0:3])))
 
     wli=[]
@@ -1337,6 +1362,7 @@ def idealWulffFractions(atoms,surfaces,energies):
     return:
         idealWulffAreasFraction([index,areas]):list of areas fraction present and areas per each index
     """
+   
     lattice=atoms.get_cell()
     
     tupleMillerIndexes=[]
@@ -1350,6 +1376,7 @@ def idealWulffFractions(atoms,surfaces,energies):
     for millerIndex,areaFraction in areas.items():
         idealWulffAreasFraction.append([millerIndex,areaFraction])
     # print(idealWulffAreasFraction)
+
     return idealWulffAreasFraction
 
 def coulombEnergy(symbol,atoms):
@@ -1532,7 +1559,6 @@ def check_stoich_v2(Symbol,atoms,debug=0):
     else:
         atoms.excess=excess
 
-
 def coordinationv2(crystal,atoms):
     """
     function that calculates the
@@ -1580,6 +1606,322 @@ def coordinationv2(crystal,atoms):
     # 
     # print(C)
 
+def wulffDistanceBased(symbol,atoms,surfaces,distance):
+    """
+    Function that evaluates if equivalent
+    faces has the same lenght from the center of the material
+    or not. Also calculates the WLI
+
+    Warning: Written for only one surface energy.
+
+    Args:
+        symbol(Atoms): bulk atom object
+        atoms(Atoms): nanoparticle atoms type
+        surface(list): surface miller index
+        distance(float): distance from the center to the wall
+    Return:
+        results(list): List that contains:
+                        Symmetric growing(Bool): True if symmetric
+
+    """
+    if len(surfaces)>1:
+        error = 'distanceBased method only available for one surface'
+        raise NotImplementedError(error)
+
+    result=[]
+    # Get the equivalent surfaces and give them the distance
+    # Creating the spacegroup object
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+
+    positions=np.array([atom.position[:] for atom in atoms])
+    centroid=positions.mean(axis=0)
+
+    #Create the ConvexHull  object
+    hull=ConvexHull(positions)
+    # print(hull.area)
+
+    simplices=[]
+    for simplex in hull.simplices:
+        simplices.extend(simplex)
+    surfaceAtoms=sorted(list(set(simplices)))
+
+    #Save the atoms surface in a new atoms object
+    outershell=copy.deepcopy(atoms)
+    del outershell[[atom.index for atom in outershell if atom.index not in surfaceAtoms]]
+
+    #Get the equivalent surfaces
+
+    for s in surfaces:
+        equivalentSurfaces=sg.equivalent_reflections(s)
+        equivalentSurfacesStrings=[]
+        for ss in equivalentSurfaces:
+            equivalentSurfacesStrings.append(ss)
+        # break
+        # Get the direction per each miller index
+    #Project the position to the direction of the miller index
+    # by calculating the dot produequivalentSurfacesStringsct
+
+    rs=[]
+    auxrs=[]
+
+    for i in equivalentSurfacesStrings:
+        rlist=[]
+        direction= np.dot(i,symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
+        for n,j in enumerate(outershell.get_positions()):
+            rlist.append(np.dot(j-centroid,direction))
+        auxrs.append(np.max(rlist))
+        rs.append([i,np.max(rlist)])
+    maxD=np.max(auxrs)
+    #Normalize each distance by the maximum
+    totalD=0.0
+    for i in rs:
+        # print(i[1]/maxD)
+        i[1]=i[1]/maxD
+        totalD+=i[1]
+    # #Calculate the area of each ones
+    percentages=[]
+    auxPercentage=[]
+    for i in rs:
+        areaPerPlane=hull.area*i[1]/totalD
+        percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
+        auxPercentage.append(np.round(areaPerPlane/hull.area,2))
+    ### evaluate if those are equal, limit to  0.1 of difference(10%)
+    minArea=np.min(auxPercentage)
+    maxArea=np.max(auxPercentage)
+    avArea=(minArea+maxArea)/2
+    symmetric=[]
+    for i in percentages:
+        if np.abs(i[1]-avArea)<0.1:
+            # print(i[1],avArea)
+            symmetric.append(0)
+        else:
+            symmetric.append(1)
+    if 0 in symmetric:
+        result.append(True)
+    else:
+        result.append(False)
+    ####
+    #Calculate the WLI
+    ####
+
+    #Ideal surface contribution percentage
+    idealAreasPerEquivalent=[]
+    if len(surfaces)==1:
+        area=1.0/len(equivalentSurfacesStrings)
+        for i in equivalentSurfacesStrings:
+            indexString=''.join(map(str,tuple(i)))
+            idealAreasPerEquivalent.append([indexString,area])
+
+    #Sorting
+    idealAreasPerEquivalentSort=sorted(idealAreasPerEquivalent,key=lambda x:x[1],reverse=True)
+    realAreasPerEquivalentSort=sorted(percentages,key=lambda x:x[1],reverse=True)
+
+
+    #Calculate the index
+    wlindex=0
+    for n,indexArea in enumerate(idealAreasPerEquivalent):
+        wlindex+=abs((indexArea[1]-realAreasPerEquivalentSort[n][1]))
+
+    result.append(wlindex)
+
+    return result
+
+def xaviSingulizator(C,singly,father,fatherFull,excess,allowedCoordination):
+    """
+    Function that returns list of atoms to be removed
+    to achieve stoichiometry(partial randoms)
+    Args:
+        C: coordination list 
+        singly: list of singly coordinated atoms
+        father: list of fathers of singly coordinated atoms
+        fatherFull: list of fathers and their coordination
+        excess: number of singly to remove
+    Return:
+        S: list of list of atmos to remove.
+    """
+    start=time.time()
+    fatherFull_bak=copy.deepcopy(fatherFull)
+    singly_bak=copy.deepcopy(singly)
+
+    # allowedCoordination=list(range(maxCord,mid,-1))
+
+    S=[]
+    replicas=1000
+    for r in range(replicas):
+        toRemove=[]
+        fatherFull=copy.deepcopy(fatherFull_bak)
+        singly=copy.deepcopy(singly_bak)
+        for cordLevel in allowedCoordination:
+            fathersAtthisLevel=[[n,i] for n,i in enumerate(fatherFull) if i[1]==cordLevel]
+            #Structure of each element of fathersAtThisLevel is [position[atomIndex,coordination]]
+            startShuffle=time.time()
+            shuffle(fathersAtthisLevel)
+            # print('cordLevel',cordLevel)
+            # print('sample',fathersAtthisLevel)
+            end=time.time()
+            for j in fathersAtthisLevel:
+                # print(j[1][0])
+                singlyFather=[k for k in C[j[1][0]][1] if k in singly]
+                # print(singlyFather)
+                if len(singlyFather)>0:
+                    chosen=choice(singlyFather)   
+                    toRemove.append(chosen)
+                    # print(toRemove)
+                    singly.remove(chosen)
+                    if len(toRemove)==excess:
+                        # print('coordinationAllowed',i)
+                        break
+                    fatherFull[j[0]][1]=fatherFull[j[0]][1]-1
+            if len(toRemove)==excess:
+                # print('coordinationAllowed',i)
+                break
+            # print(fatherFull)
+            # print('lalala',fathersAtthisLevel)
+            # break
+
+        S.append(sorted(toRemove))
+        # print(len(S))
+
+
+    # at the end we get an array S with 10000 list of atoms
+    # to be removed. Previous to the removal and to make the things faster
+    # we remove duplicates (I guess that is not duplicates in the list)
+
+    nanoList=[]
+
+    # Generate the list of pairs and select the repeated pairs
+    # the aceptance criteria is if the intersection between
+    # two s are iqual to the len of the first s. 
+    # The repeated list is set and reversed before remove 
+    # s elements 
+
+    pairs=[c for c in combinations(range(1000),2)]
+
+    repeatedS=[]
+    for c in pairs:
+        # print (c[0],S[c[0]])
+
+        if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
+            # print(c,' are duplicates')
+            repeatedS.append(c[0])
+            # del S[c[0]]
+    # print (n)
+
+    uniqueRepeated=list(set(repeatedS))
+    uniqueRepeated.sort(reverse=True)
+
+    for i in uniqueRepeated:
+        del S[i]
+    end=time.time()
+    # print('ExecutionTime,finalSamples,excess',end-start,len(S),excess)
+    # print(len(S))
+    return(S)
+
+def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination):
+    """
+    Function that returns list of atoms to be removed
+    to achieve stoichiometry(random over all fathers)
+    Args:
+        C: coordination list 
+        singly: list of singly coordinated atoms
+        father: list of fathers of singly coordinated atoms
+        fatherFull: list of fathers and their coordination
+        excess: number of singly to remove
+    Return:
+        S: list of list of atmos to remove.
+    """
+    start=time.time()
+
+    fatherFull_bak=copy.deepcopy(fatherFull)
+    singly_bak=copy.deepcopy(singly)
+
+    # print ('maxCord',maxCord)
+
+    S=[]
+    replicas=1000
+
+    for r in range(replicas):
+        toRemove=[]
+        fatherFull=copy.deepcopy(fatherFull_bak)
+        singly=copy.deepcopy(singly_bak)
+        for i in allowedCoordination:
+            startShuffle=time.time()
+            shuffle(fatherFull)
+            end=time.time()
+            for n,j in enumerate(fatherFull):
+                # get the ones that have the allowed coordination
+                if fatherFull[n][1]==i:
+                    # if debug>0:
+                    #     print('fatherFull[n][1]',fatherFull[n])
+                    #create a list with the single coordinated atoms joined to that atom
+                    singlyFather=[k for k in C[j[0]][1] if k in singly]
+                    # if that list is larger than 0 choice one
+                    if len(singlyFather)>0:
+                        # if debug>0:
+                        #     print('singlyFather',singlyFather)
+                        chosen=choice(singlyFather)
+                        # print('chosen',chosen)
+                        if chosen not in toRemove:
+                            #If that atom was not previously chosen
+                            #keep it, remove from the singly coordinated
+                            #list and decrease the coordination
+                            if len(toRemove)==excess:
+                                break
+                            toRemove.append(chosen)
+                            # print('singly',singly)
+                            singly.remove(chosen)
+                            fatherFull[n][1]=fatherFull[n][1]-1
+            if len(toRemove)==excess:
+                break
+         #     print('len(toRemove)',len(toRemove))
+        # print(len(toRemove))
+        S.append(sorted(toRemove))
+        # print(len(S))
+
+    
+    # at the end we get an array S with 10000 list of atoms
+    # to be removed. Previous to the removal and to make the things faster
+    # we remove duplicates (I guess that is not duplicates in the list)
+
+    nanoList=[]
+
+    # Generate the list of pairs and select the repeated pairs
+    # the aceptance criteria is if the intersection between
+    # two s are iqual to the len of the first s. 
+    # The repeated list is set and reversed before remove 
+    # s elements 
+
+    pairs=[c for c in combinations(range(1000),2)]
+
+    repeatedS=[]
+    for c in pairs:
+        # print (c[0],S[c[0]])
+
+        if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
+            # print(c,' are duplicates')
+            repeatedS.append(c[0])
+            # del S[c[0]]
+    # print (n)
+
+    uniqueRepeated=list(set(repeatedS))
+    uniqueRepeated.sort(reverse=True)
+
+    for i in uniqueRepeated:
+        del S[i]
+    end=time.time()
+    # print('ExecutionTime,finalSamples,excess',end-start,len(S),excess)
+
+    return(S)
+
+    # print(len(S))
+
+
+
+
+
+
+    
 
 
 

@@ -10,6 +10,10 @@ from re import findall
 from ase.io import write
 from bcnm.cluster import Cluster
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from ase.visualize import view
+
 class ClusterFactory(ClusterFactory):
     directions = [[1, 0, 0],
                   [0, 1, 0],
@@ -41,9 +45,18 @@ class ClusterFactory(ClusterFactory):
             self.set_lattice_size(center)
             # print('selfcenterbitch\n',self.center)
             self.distances = distances
+
+            # At the beggining we add initial distances, but not
+            # all the symmetry equivalent ones
             if distances is not None:
                 self.set_surfaces_distances(surfaces, distances)
+            ##keep the default surfaces
             cluster = self.make_cluster(vacuum)
+            # print(realSize)
+            # self.test(realSize)
+            # self.wulffDistanceBased(surfaces,realSize)
+            # print(realSize)
+            # view(cluster)
             cluster.surfaces = self.surfaces.copy()
             cluster.lattice_basis = self.lattice_basis.copy()
             cluster.atomic_basis = self.atomic_basis.copy()
@@ -52,29 +65,82 @@ class ClusterFactory(ClusterFactory):
                 cluster.distances = self.distances.copy()
             else:
                 cluster.distances = None
+            # print(cluster.get_layers())
             
         return cluster
 
     def make_cluster(self, vacuum,debug=0):
+        """
+        Function that creates the cluster
+        firstly, reproducing the bulk material
+        to get a large enough bulk to cut the
+        nanoparticle.
+        To cut the nanoparticle measure
+        the distance from the ion
+        translated to the center in direction
+        to the plane of interest and 
+        compare it with the distance
+        of layers. If the distance
+        is larger than the distance of layers
+        the ion is removed.
+        Return:
+            Cluster(atoms): cluster structure of the atoms type
+        """
         size = np.array(self.size)
-        if debug>1:
-            print('size\n',size)
-            print(size.prod())
+        # print('size original\n',size)
+        # if debug>1:
+        # size = np.asarray([1,1,1])
+        # print('size\n',size)
+        # print(size.prod())
+        #Construct a list of empty translations
         translations = np.zeros((size.prod(), 3))
+        # print(len(translations))
+
+        #Get a set of points in the range of the size
+
+        #Weird way to iterate 
         for h in range(size[0]):
             for k in range(size[1]):
                 for l in range(size[2]):
+                    # print('h,k,l',h,k,l,)
                     i = h * (size[1] * size[2]) + k * size[2] + l
+                    # print('index',i)
                     translations[i] = np.dot([h, k, l], self.lattice_basis)
+                    # keep in mind that size is the number of cells that has to be
+                    # replied, when we multiply by lattice_basis(unit cell), we get
+                    # the translation in cartesian units
+        # print('self.atomic_basis,self.lattice_basis',self.atomic_basis,'\n',self.lattice_basis)
+        # print('lenselfatomicbasis\n',len(self.atomic_basis))
+        #dot product between lattice and atomic positions
         atomic_basis = np.dot(self.atomic_basis, self.lattice_basis)
+        # print('atomic_basis\n',atomic_basis)
+        #positions is an empty array the product between transitions and atomic basis
         positions = np.zeros((len(translations) * len(atomic_basis), 3))
-        
+        #numbers as the len of positions
         numbers = np.zeros(len(positions))
+        # n is the len of atomic basis 
         n = len(atomic_basis)
+        # print('n\n',n)
+
+        #per each translation add the value to the atomic basis
+        # and save as the position
+
         for i, trans in enumerate(translations):
-            
+            # print('--------------------------------')
+            # print(i,trans)
             positions[n*i:n*(i+1)] = atomic_basis + trans
+            # print(*positions, sep='\n')
+            # print(positions)
             numbers[n*i:n*(i+1)] = self.atomic_numbers
+            # print(numbers)
+            # break
+
+        #Up to here we have the positions of the replied cell by translations
+
+        # For each suface get the interlayer distances
+        # to get the final size
+
+        realSize=[]
 
         index = -1
         for s, l in zip(self.surfaces, self.layers):
@@ -82,16 +148,51 @@ class ClusterFactory(ClusterFactory):
             n = self.miller_to_direction(s)
             if self.distances is not None:
                 rmax = self.distances[index]
-                #print("RMAX",s,rmax)
-            else:
-                rmax = self.bcn_get_layer_distance(s, l + 0.2)
+                # print("RMAX",s,rmax)
+
+            # r value is the distance from the position 
+            # previously translated to the center to the plane
+            
             r = np.dot(positions - self.center, n)
+            
+            # print('r\n',r)
+            # print(l)
+            # print(s,np.dot(l*self.center,n))
+
+            # by using less_equal function, only keep the positions
+            # that has a lower or equal distance to rmax,
+            # so the largest of the keeped r values
+            # has to be on the surface, so i can use it
+            # as a criteria to evaluate the growing
+
             mask = np.less(r, rmax)
+            # print('mask',mask)
             if self.debug > 1:
                 print("Cutting %s at %i layers ~ %.3f A" % (s, l, rmax))
+            # rkeeped=r[mask]
+            ##Getting the real size as the average of the values that are larger
+            # or equal than 80% of rmax
+            # rselected=np.max(rkeeped)
+            # print('rselected',s,rselected)
+            # realSize.append([s,np.max(rselected)])
+            # print('plane,largestpos',',',s,',',np.max(rkeeped))
             
+            #-------------------
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111)
+            # ax.plot(rkeeped)
+            # plt.show()
+            #---------------------
+
             positions = positions[mask]
+            # print(positions)
             numbers = numbers[mask]
+            # break
+        # print('..............')
+        #################################Killing the code
+        # if len(size)==3:
+        #     exit(1)
+        ############################
         # Fit the cell, so it only just consist the atoms
        
         min = np.zeros(3)
@@ -106,8 +207,7 @@ class ClusterFactory(ClusterFactory):
         positions = positions - min + vacuum / 2.0
         self.center = self.center - min + vacuum / 2.0
         self.Cluster.unit_cell_formula = self.chemical_formula
-        return self.Cluster(symbols=numbers, positions=positions, cell=cell)
-                
+        return self.Cluster(symbols=numbers, positions=positions, cell=cell)                
     def set_lattice_size(self, center):
         """
         Routine that change the center 
@@ -165,12 +265,16 @@ class ClusterFactory(ClusterFactory):
                 self.center = np.dot(offset - min, self.lattice_basis)
             else:
                 self.center = np.dot(offset - min, self.lattice_basis)
-            if self.debug>1:
+            if self.debug >1:
                 print('self.center set lattice size',self.center)
                 print('............................................')
         self.size = (max - min + np.ones(3)).astype(int)
 
     def set_surfaces_distances(self, surfaces, distances):
+        """
+        Function that add all the distances to all
+        equivalent surfaces
+        """
         if len(surfaces) != len(distances):
             raise ValueError("Improper size of surface and layer arrays: %i != %i"
                              % (len(surfaces), len(distances)))
@@ -200,7 +304,6 @@ class ClusterFactory(ClusterFactory):
 
         self.surfaces = surfaces_full.copy()
         self.distances = distances_full.copy()
-
 
 
 
