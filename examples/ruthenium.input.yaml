@@ -1,6 +1,8 @@
-# Bcnm input example for fluorite 
-chemicalSpecie: RuO
+# Bcnm input example for Ruthenium
+chemicalSpecie: [Ru, O]
 spaceGroupNumber: 136
+charges: [4,-2]
+
 basis:
  - [0., 0., 0.]
  - [0.306, 0.306, 0.]
@@ -14,3 +16,7 @@ surfaces:
   - [0, 0, 1]
 
 nanoparticleSize: 14
+sizeRange: 3
+step: 1
+
+centering: none
