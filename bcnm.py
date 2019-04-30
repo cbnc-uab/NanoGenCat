@@ -21,6 +21,7 @@ from ase.io import  write, read
 
 from bcnm.bcn_wulff import bcn_wulff_construction, specialCenterings
 
+from shutil import copy2
 
 def main():
     startTime = time.time()
@@ -184,11 +185,20 @@ def main():
     print('\nAproved NP0s:', len(aprovedNp0Models))
     print(*aprovedNp0Models, sep='\n')
 
+    #move the aprovedmodes to a folder
+    savedDir='selected'
+    os.mkdir(savedDir)
+    for i in aprovedNp0Models:
+        fileName=str(i[2])+str(i[1])+'_NP0.xyz'
+        copy2(fileName,savedDir)
+
+
+
     #For each number of metal atoms keep the one with the highest total coordination
     #list of unique metal sizes
     metalSize=list(set([i[3] for i in aprovedNp0Models]))
 
-    #Iterate to get only the one that have the maximum total coordination
+    # Iterate to get only the one that have the maximum total coordination
     finalModels=[]
     for i in metalSize:
         np0PerMetal=[]
@@ -203,6 +213,8 @@ def main():
     finalSorted=sorted(finalModels,key=lambda x:x[0])
     print(*finalSorted, sep='\n')
     finalScreeningTime = time.time()
+
+    #remove the undesired 
 
     print("Total time evaluation", round(finalScreeningTime-startingScreeningTime)," s")
 
