@@ -184,20 +184,21 @@ def main():
     print('\nAproved NP0s:', len(aprovedNp0Models))
     print(*aprovedNp0Models, sep='\n')
 
-    #For each number of metal atoms keep the one with the highest total coordination
-    #list of unique metal sizes
-    metalSize=list(set([i[3] for i in aprovedNp0Models]))
+    #For each formula keep the one that has the highest total coordination
+    # print(aprovedNp0Models[0][2])
+    # chemFormList=[i[2] for i in aprovedNp0Models]
+    chemicalFormulas=list(set(i[2] for i in aprovedNp0Models))
 
     #Iterate to get only the one that have the maximum total coordination
     finalModels=[]
-    for i in metalSize:
-        np0PerMetal=[]
+    for i in chemicalFormulas:
+        np0PerFormula=[]
         for j in aprovedNp0Models:
-            if i==j[3]:
-                np0PerMetal.append(j)
-        tempNp0PerMetal=sorted(np0PerMetal,key=lambda x:x[6],reverse=True)
-        # print(tempNp0PerMetal)
-        finalModels.append(tempNp0PerMetal[0])
+            if i==j[2]:
+                np0PerFormula.append(j)
+        tempNp0PerFormula=sorted(np0PerFormula,key=lambda x:x[6],reverse=True)
+        # print(tempNp0PerFormula)
+        finalModels.append(tempNp0PerFormula[0])
 
     print('\nFinal NP0s models:',len(finalModels))
     finalSorted=sorted(finalModels,key=lambda x:x[0])
@@ -210,7 +211,8 @@ def main():
         exit(0)
     else:
         ##Calculation of stoichiometric nanoparticles
-        for i in finalModels:
+        for i in finalSorted:
+            # print(i)
             print('\nGenerating stoichiometric nanoparticles for ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'])
         finalTime=time.time()
