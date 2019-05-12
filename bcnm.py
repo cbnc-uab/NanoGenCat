@@ -207,10 +207,11 @@ def main():
     if data['onlyNp0']==True:
         exit(0)
     else:
-        ##Calculation of stoichiometric nanoparticles
+        ##Construction of stoichiometric nanoparticles
+        print('\nGenerating stoichiometric nanoparticles\n')
         for i in finalSorted:
             # print(i)
-            print('\nGenerating stoichiometric nanoparticles for ',i,"\n")
+            print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
