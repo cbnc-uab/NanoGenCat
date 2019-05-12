@@ -909,15 +909,17 @@ def reduceNano(symbol,atoms,size,debug=0):
     fatherFull=[[i,coordFather[n]] for n,i in enumerate(father)]
     fatherFull_bak=copy.deepcopy(fatherFull)
 
-    # print('singly',singly)
-    #Add the excess attribute to atoms object
-    test=check_stoich_v2(symbol,atoms,singly,debug)
-    if test=='stop':
+    # Add the excess attribute to atoms object
+    # and checking if the dangling atoms belong
+    # to the excess element. If not, stop
+    danglingElement=check_stoich_v2(symbol,atoms,singly,debug)
+    if danglingElement=='stop':
         return None
 
 
     # if the nano does not have dangling and not stoichiometric, discard 
-    # the model
+    # the modelç
+    
     # if len(singly)==0:
     #     print('NP0 does not have singly coordinated atoms to remove','\n',
     #         'to achive the stoichiometry')
