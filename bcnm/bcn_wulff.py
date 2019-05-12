@@ -72,11 +72,15 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
     debug (optional): If non-zero, information about the iteration towards
     the right cluster size is printed.
 
-    center: The origin of coordinates
+    center[list]: The origin of coordinates
 
     stoichiometryMethod: Method to transform Np0 in Np stoichometric 0 Bruno, 1 Danilo
 
-    np0: Only gets the Np0, by means, the one that is build by plane replication
+    np0(bool): Only gets the Np0, by means, the one that is build by plane replication
+
+    wl_method(string): Method to calculate the plane contributuion. Two options are
+    available by now, surfaceBased and distanceBased being the first one the most
+    robust solution.
     """
     global _debug
     _debug = debug
@@ -111,7 +115,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
             error = 'Crystal structure %s is not supported.' % structure
             raise NotImplementedError(error)
 
-    # Check number of surfaces
+    # Check if the number of surfaces and the number of energies are equal
     nsurf = len(surfaces)
     if len(energies) != nsurf:
         raise ValueError('The energies array should contain %d values.'
@@ -196,7 +200,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
             print('layers\n',layers)
             print('size\n',size)
             print('surfaces\n',surfaces)
-
+        ####Exit just for testing, don't  forget to remove it
+        # exit(0)
         atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                     structure, center, latticeconstant)
         #Save the NP0
@@ -634,9 +639,11 @@ def make_F(atoms,C,nearest_neighbour,debug):
     return K
 
 def check_min_coord(atoms):
-    """function that identify if the nanoparticle not contain lower coordinated metals
+    """function that return information that allows to characterize the
+    NP0 like undercoordinated metals, the number of metals, non metals
+    and also calculates the global coordination.
     args: atoms
-    return: characterization([metals,nonmetals,undercoordinated,globalCoord,])
+    return: characterization([metals,nonmetals,undercoordinated,globalCoord])
             list of information of np0.
 
     """
@@ -861,7 +868,7 @@ def reduceNano(symbol,atoms,size,debug=0):
 
     ### Calculate the C to remove the unbounded
     C=coordinationv2(symbol,atoms)
-    print('C:',C)
+    # print('C:',C)
     # remove atom that is not conected
 
     for c in C:
@@ -870,9 +877,8 @@ def reduceNano(symbol,atoms,size,debug=0):
 
     ##Recalculate coordination after removal
     C=coordinationv2(symbol,atoms)
+    # print('C',C)
 
-    #Add the excess attribute to atoms
-    check_stoich_v2(symbol,atoms,debug)
 
     if debug>0:
         atomsBeta=copy.deepcopy(atoms)
@@ -883,15 +889,12 @@ def reduceNano(symbol,atoms,size,debug=0):
         write('coordinationEvaluation.xyz',atomsBeta)
         # print(*C, sep='\n')
 
-    # print(C)
     
     # 4 lists:
-    # singly: contains the singly coordinated atoms
+    # singly: contains the indexes of singly coordinated atoms
     # father: contains the heavy metal atoms which singly
-    # coordFather:contains the coordination of bounded
     # coordinated atoms are bounded
-    # coordFather that is the coordination of bounded
-    # fatherFull that is the combination of father and their coordination.
+    # coordFather: contains the coordination of father atoms
     # fatherFull: contains the combination of father and their coordination.
     
     singly=[i for i in range(len(atoms)) if len(C[i][1])==1]
@@ -904,14 +907,30 @@ def reduceNano(symbol,atoms,size,debug=0):
     coordFather_bak=copy.deepcopy(coordFather)
 
     fatherFull=[[i,coordFather[n]] for n,i in enumerate(father)]
-
     fatherFull_bak=copy.deepcopy(fatherFull)
+
+    # Add the excess attribute to atoms object
+    # and checking if the dangling atoms belong
+    # to the excess element. If not, stop
+    danglingElement=check_stoich_v2(symbol,atoms,singly,debug)
+    if danglingElement=='stop':
+        return None
+
+
+    # if the nano does not have dangling and not stoichiometric, discard 
+    # the modelç
+    
+    # if len(singly)==0:
+    #     print('NP0 does not have singly coordinated atoms to remove','\n',
+    #         'to achive the stoichiometry')
+    #     return None 
 
     if debug>0:
         print('singly:',singly)
         print('father:',father)
         print('coordFather:',coordFather)
         print('fatherFull:',fatherFull)
+    
     # allowedCoordination must to be generalized
     # the upper limit is half of maximum coordination -1
     # and the inferior limit is the maximum
@@ -1486,7 +1505,7 @@ def specialCenterings(spaceGroupNumber):
     # # print(centerings)
     return special_centerings
 
-def check_stoich_v2(Symbol,atoms,debug=0):
+def check_stoich_v2(Symbol,atoms,singly=0,debug=0):
     """
     Function that evaluates the stoichiometry
     of a np.
@@ -1495,10 +1514,10 @@ def check_stoich_v2(Symbol,atoms,debug=0):
     the Np is stoichiometric,
     else  add the excess atribute to atoms
     object.
-
     Args:
         Atoms(atoms): Nanoparticle
         Symbol(atoms): unit cell atoms structure
+        singly(list): List of single coordinated atoms
         debug(int): debug to print stuff
     """
 
@@ -1536,16 +1555,35 @@ def check_stoich_v2(Symbol,atoms,debug=0):
     gcdNp=np.gcd.reduce(counterNp)
 
     nanoStoichiometry=counterNp/gcdNp
+    # print('nanoStoichiometry:',nanoStoichiometry)
     
     # ###
     # # The nanoparticle must respect the same ratio of ions in the crystal
     # # Just one of the ions can be excesive
     # ## Test one, just the largest in proportion is in excess
 
+    # Get the index of the maximum value of nano stoichiometry
+    # that is the element that is in excess
     excesiveIonIndex=np.argmax(nanoStoichiometry)
+
 
     ## calculate how many atoms has to be removed
     excess=np.max(counterNp)-np.min(counterNp)*(np.max(cellStoichiometry)/np.min(cellStoichiometry))
+
+    ## verify that the number of excess are larger or equal to singly
+    
+    if singly !=0 :
+        # print('holaaaaa')
+        # print('singly del none',singly)
+        # test=[i for i in singly]
+        # print('test',test)
+
+        if len([i for i in singly if atoms[i].symbol==chemicalElements[excesiveIonIndex]])<excess:
+            print('NP0 does not have enough singly coordinated excess atoms to remove','\n',
+                'to achive the stoichiometry for this model')
+            return 'stop'
+
+
     if debug>0:
         print('values')
         print(np.max(counterNp),np.min(counterNp),np.max(cellStoichiometry))
