@@ -160,17 +160,17 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
         ###Calculate the WL index
-        np0Properties=[atoms_midpoint.get_chemical_formula()]
-        np0Properties.extend(minCoord)
 
         if wl_method=='surfaceBased':
             areasIndex=areaCalculation(atoms_midpoint,norms)
             plane_area=planeArea(symbol,areasIndex,surfaces)
             wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-            np0Properties.extend(wulff_like)
+            # np0Properties.extend(plane_area[0])
             if debug>0:
+                print('--------------')
+                print(atoms_midpoint.get_chemical_formula())
                 print('areasIndex',areasIndex)
-                print('plane_area',plane_area)
+                print('plane_area',plane_area[0])
                 print('--------------')
         elif wl_method=='distancesBased':
             wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
@@ -180,7 +180,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 print('--------------')
         
         if np0==True:
-            print(np0Properties)
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
+            np0Properties.append(plane_area[0])
+            np0Properties.extend(wulff_like)
             return np0Properties
 
         else:
