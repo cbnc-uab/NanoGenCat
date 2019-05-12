@@ -166,28 +166,39 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
             plane_area=planeArea(symbol,areasIndex,surfaces)
             wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
             # np0Properties.extend(plane_area[0])
+            if np0==True:
+                np0Properties=[atoms_midpoint.get_chemical_formula()]
+                np0Properties.extend(minCoord)
+                np0Properties.append(plane_area[0])
+                np0Properties.extend(wulff_like)
+                return np0Properties
+            else:
+                print('reduciendoless')
+                reduceNano(symbol,atoms_midpoint,size,debug)
             if debug>0:
                 print('--------------')
                 print(atoms_midpoint.get_chemical_formula())
                 print('areasIndex',areasIndex)
                 print('plane_area',plane_area[0])
                 print('--------------')
+        #################################
         elif wl_method=='distancesBased':
             wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
             np0Properties.extend(wulff_like)
+            # plane_area=planeArea(symbol,areasIndex,surfaces)
             if debug>0:
                 print('areasIndex',areasIndex)
                 print('--------------')
         
-        if np0==True:
-            np0Properties=[atoms_midpoint.get_chemical_formula()]
-            np0Properties.extend(minCoord)
-            np0Properties.append(plane_area[0])
-            np0Properties.extend(wulff_like)
-            return np0Properties
+            if np0==True:
+                np0Properties=[atoms_midpoint.get_chemical_formula()]
+                np0Properties.extend(minCoord)
+                np0Properties.extend(wulff_like)
+                return np0Properties
 
-        else:
-            reduceNano(symbol,atoms_midpoint,size,debug)
+            else:
+                print('reduciendoless')
+                reduceNano(symbol,atoms_midpoint,size,debug)
     else:
 
         small = np.array(energies)/((max(energies)*2.))
