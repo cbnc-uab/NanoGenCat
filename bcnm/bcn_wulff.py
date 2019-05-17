@@ -193,11 +193,13 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
             if np0==True:
                 np0Properties=[atoms_midpoint.get_chemical_formula()]
                 np0Properties.extend(minCoord)
+                np0Properties.append(1)
                 np0Properties.extend(wulff_like)
+
                 return np0Properties
 
             else:
-                print('reduciendoless')
+                # print('reduciendoless')
                 reduceNano(symbol,atoms_midpoint,size,debug)
     else:
 
@@ -227,26 +229,42 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
             areasIndex=areaCalculation(atoms_midpoint,norms)
             plane_area=planeArea(symbol,areasIndex,surfaces)
             wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+            # np0Properties.extend(plane_area[0])
+            if np0==True:
+                np0Properties=[atoms_midpoint.get_chemical_formula()]
+                np0Properties.extend(minCoord)
+                np0Properties.append(plane_area[0])
+                np0Properties.extend(wulff_like)
+                return np0Properties
+            else:
+                print('reduciendoless')
+                reduceNano(symbol,atoms_midpoint,size,debug)
             if debug>0:
-                print('areasIndex',areasIndex)
-                print('plane_area',plane_area)
                 print('--------------')
+                print(atoms_midpoint.get_chemical_formula())
+                print('areasIndex',areasIndex)
+                print('plane_area',plane_area[0])
+                print('--------------')
+        #################################
         elif wl_method=='distancesBased':
             wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
-
-        # keeping the properties    
-        if np0==True:
-            np0Properties=[atoms_midpoint.get_chemical_formula()]
-            np0Properties.extend(minCoord)
-            np0Properties.append(plane_area[0])
             np0Properties.extend(wulff_like)
-            # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-            # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-            return np0Properties
-        else:
-            # view(atoms_midpoint) 
-            reduceNano(symbol,atoms_midpoint,size,debug)
-            # os.chdir('../')
+            # plane_area=planeArea(symbol,areasIndex,surfaces)
+            if debug>0:
+                print('areasIndex',areasIndex)
+                print('--------------')
+        
+            if np0==True:
+                np0Properties=[atoms_midpoint.get_chemical_formula()]
+                np0Properties.extend(minCoord)
+                np0Properties.append(0)
+                np0Properties.extend(wulff_like)
+
+                return np0Properties
+
+            else:
+                # print('reduciendoless')
+                reduceNano(symbol,atoms_midpoint,size,debug)
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
@@ -1676,9 +1694,9 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
                         Symmetric growing(Bool): True if symmetric
 
     """
-    if len(surfaces)>1:
-        error = 'distanceBased method only available for one surface'
-        raise NotImplementedError(error)
+    # if len(surfaces)>1:
+    #     error = 'distanceBased method only available for one surface'
+    #     raise NotImplementedError(error)
 
     result=[]
     # Get the equivalent surfaces and give them the distance

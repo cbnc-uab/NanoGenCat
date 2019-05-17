@@ -176,8 +176,17 @@ def main():
     print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
     print('Results:')
     print(*evaluation, sep='\n')
+    print('testing Zone')
 
-    aprovedNp0Models=[i for i in evaluation if not False in i]
+    #  getting the booleans as strings, this is done because
+    # 0 values are considered as False in the boolean way
+    aprovedNp0Models=[]
+    for i in evaluation:
+        booleans=[str(j) for j in i if str(j)=='True' or str(j)=='False']
+        if not 'False' in booleans:
+            aprovedNp0Models.append(i)
+
+    # aprovedNp0Models=[i for i in evaluation if not False in i]
     print('\nAproved NP0s:', len(aprovedNp0Models))
     print(*aprovedNp0Models, sep='\n')
 
