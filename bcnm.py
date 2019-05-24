@@ -127,6 +127,8 @@ def main():
 
     elif data ['centering'] == 'automatic':
         shifts = []
+        #Coordinate origin
+        shifts.append([0.,0.,0.])
         # Atom center
         for coordinate in data['basis']:
             shifts.append(coordinate)
