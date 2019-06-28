@@ -38,7 +38,9 @@ delta = 1e-10
 _debug = False
 
 
-def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding='closest', latticeconstant=None, debug=0, maxiter=100,center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased'):
+def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
+    rounding='closest',latticeconstant=None, debug=0, maxiter=100,
+    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',sampleSize=1000):
     """Create a cluster using the Wulff construction.
     A cluster is created with approximately the number of atoms
     specified, following the Wulff construction, i.e. minimizing the
@@ -81,6 +83,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
     wl_method(string): Method to calculate the plane contributuion. Two options are
     available by now, surfaceBased and distanceBased being the first one the most
     robust solution.
+
+    sampleSize(float): Number of selected combinations
     """
     global _debug
     _debug = debug
@@ -173,7 +177,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 np0Properties.extend(wulff_like)
                 return np0Properties
             else:
+
                 reduceNano(symbol,atoms_midpoint,size,debug)
+
             if debug>0:
                 print('--------------')
                 print(atoms_midpoint.get_chemical_formula())
@@ -198,7 +204,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 return np0Properties
 
             else:
+
                 reduceNano(symbol,atoms_midpoint,size,debug)
+
     else:
 
         small = np.array(energies)/((max(energies)*2.))
@@ -235,7 +243,11 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 np0Properties.extend(wulff_like)
                 return np0Properties
             else:
+
                 reduceNano(symbol,atoms_midpoint,size,debug)
+
+                
+                
             if debug>0:
                 print('--------------')
                 print(atoms_midpoint.get_chemical_formula())
@@ -261,6 +273,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
 
             else:
                 reduceNano(symbol,atoms_midpoint,size,debug)
+
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
@@ -862,7 +875,7 @@ def compare(sprint0,sprint1):
         if len(diff)==0:
             return True
 
-def reduceNano(symbol,atoms,size,debug=0):
+def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     """
     Function that make the nano stoichiometric
     by removing dangling atoms. It is atom
@@ -871,7 +884,9 @@ def reduceNano(symbol,atoms,size,debug=0):
         Symbol(Atoms): Atoms object of bulk material
         atoms(Atoms): Atoms object of selected Np0
         size(float): size of nanoparticle
+        sampleSize: number of replicas
         debug(int): for print stuff
+
     """
     print('Enter to reduceNano')
     time_F0 = time.time()
@@ -973,7 +988,7 @@ def reduceNano(symbol,atoms,size,debug=0):
         print(allowedCoordination)
 
     # S=xaviSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination)
-    S=daniloSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination)
+    S=daniloSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination,sampleSize)
     # To have a large amounth of conformation we generate
     # 1000 replicas for removing atoms. 
     # To make the selection random we use shuffle and 
@@ -1516,9 +1531,11 @@ def specialCenterings(spaceGroupNumber):
     [(0.5, 0.0, 0.0),(0.0, 0.5, 0.0),(0.0, 0.0, 0.5),(0.5, 0.5, 0.0),
     (0.0, 0.5, 0.5),(0.5, 0.0, 0.5),(0.5, 0.5, 0.5)
     ]],
-    [[186],
-    [(0.33333,0.66666,0.0),(0.66666,0.333333,0.5),(0,0,1),
-    (0.0,0.0,0.25)
+    [[168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180,
+     181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194],
+    [(0.50, 0.50, 0.50), (0.00, 0.00, 0.50),(0.333, 0.333, 0.00),
+    (0.50, 0.00, 0.00), (0.50, 0.50, 0.00),(0.333, 0.333, 0.50),
+    (0.50, 0.00, 0.50),(0.333, 0.667, 0.50) 
     ]]
     ]
 
@@ -1884,7 +1901,7 @@ def xaviSingulizator(C,singly,father,fatherFull,excess,allowedCoordination):
     # print(len(S))
     return(S)
 
-def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination):
+def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sampleSize):
     """
     Function that returns list of atoms to be removed
     to achieve stoichiometry(random over all fathers)
@@ -1894,6 +1911,8 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination):
         father: list of fathers of singly coordinated atoms
         fatherFull: list of fathers and their coordination
         excess: number of singly to remove
+        allowedCoordination(list): list of allowed coordinations
+        sampleSize(int): Number of replicas
     Return:
         S: list of list of atmos to remove.
     """
@@ -1905,7 +1924,7 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination):
     # print ('maxCord',maxCord)
 
     S=[]
-    replicas=1000
+    replicas=sampleSize
 
     for r in range(replicas):
         toRemove=[]

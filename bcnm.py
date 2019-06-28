@@ -55,6 +55,8 @@ def main():
         data['sizeRange'] = 1
     if not 'wulff-like-method' in data:
         data['wulff-like-method'] = 'surfaceBased'
+    if not 'sampleSize' in data:
+    	data['sampleSize']=1000
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -127,6 +129,8 @@ def main():
 
     elif data ['centering'] == 'automatic':
         shifts = []
+        #Coordinate origin
+        shifts.append([0.,0.,0.])
         # Atom center
         for coordinate in data['basis']:
             shifts.append(coordinate)
@@ -221,7 +225,9 @@ def main():
         for i in finalSorted:
             # print(i)
             print('\n NP0: ',i,"\n")
-            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'])
+            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
+            	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
+            	sampleSize=data['sampleSize'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)
