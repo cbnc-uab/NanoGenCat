@@ -177,8 +177,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 np0Properties.extend(wulff_like)
                 return np0Properties
             else:
-                # print('reduciendoless')
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+
+                reduceNano(symbol,atoms_midpoint,size,debug)
+
             if debug>0:
                 print('--------------')
                 print(atoms_midpoint.get_chemical_formula())
@@ -203,8 +204,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 return np0Properties
 
             else:
-                # print('reduciendoless')
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+
+                reduceNano(symbol,atoms_midpoint,size,debug)
+
     else:
 
         small = np.array(energies)/((max(energies)*2.))
@@ -241,8 +243,11 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 np0Properties.extend(wulff_like)
                 return np0Properties
             else:
-                # print('reduciendoless')
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+
+                reduceNano(symbol,atoms_midpoint,size,debug)
+
+                
+                
             if debug>0:
                 print('--------------')
                 print(atoms_midpoint.get_chemical_formula())
@@ -267,8 +272,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 return np0Properties
 
             else:
-                # print('reduciendoless')
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+                reduceNano(symbol,atoms_midpoint,size,debug)
+
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")

@@ -1,8 +1,6 @@
 # About 
 
-Contact:
-
-bcnm@qf.uab.cat
+Contact: bcnm@qf.uab.cat
 
 Facultat de Ciències · Química Física
 Edifici C · C7-153 · Carrer de l'Albareda
@@ -11,5 +9,9 @@ Cerdanyola del Vallès · Barcelona · Spain
 
 ##Developers
 
+* Bruno Camino
+* Danilo González
+* Sergi Peréz Labernia
+* Javier Heras-Domingo
 
 
