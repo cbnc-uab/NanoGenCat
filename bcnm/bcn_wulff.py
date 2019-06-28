@@ -173,7 +173,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 np0Properties.extend(wulff_like)
                 return np0Properties
             else:
-                print('reduciendoless')
                 reduceNano(symbol,atoms_midpoint,size,debug)
             if debug>0:
                 print('--------------')
@@ -199,7 +198,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 return np0Properties
 
             else:
-                # print('reduciendoless')
                 reduceNano(symbol,atoms_midpoint,size,debug)
     else:
 
@@ -237,7 +235,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 np0Properties.extend(wulff_like)
                 return np0Properties
             else:
-                print('reduciendoless')
                 reduceNano(symbol,atoms_midpoint,size,debug)
             if debug>0:
                 print('--------------')
@@ -263,7 +260,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure, rounding
                 return np0Properties
 
             else:
-                # print('reduciendoless')
                 reduceNano(symbol,atoms_midpoint,size,debug)
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):

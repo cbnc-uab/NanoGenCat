@@ -1,4 +1,4 @@
-site_name: BcnM
+site_name: BCNM
 site_url: http://bcnm.qf.uab.cat/
 site_author: QF-UAB
 site_description: 'BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systematic way.'
@@ -8,8 +8,8 @@ repo_url: https://github.com/dagonzalezfo/NanoGenCat
 
 nav:
         - 'Introduction': index.md
-        - 'Installation': installation.md
         - 'User Guide': user-guide.md
+        - 'Input': input.md
         - 'About': about.md
 
 theme: readthedocs
