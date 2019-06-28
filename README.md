@@ -1,4 +1,4 @@
-# Bcnm package 2018
+# Bcnm Models [![GPLv3 license](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/dagonzalezfo/NanoGenCat/blob/master/LICENSE) [![Documentation Status](https://readthedocs.org/projects/bcnm/badge/?version=latest)](https://bcnm.readthedocs.io/en/latest/?badge=latest) [![Website shields.io](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://bcnm.qf.uab.cat)
 
 BCN Models is a tool able to generate stoichiometric Wulff-like NP in a systematic way. The code and website is mantained by the Computational BioNanoCat group at UAB. This code is under the GNU General Public License and uses Atomic Simulation Environment (ASE) library. 
 
