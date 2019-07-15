@@ -178,7 +178,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 return np0Properties
             else:
 
-                reduceNano(symbol,atoms_midpoint,size,debug)
+                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
             if debug>0:
                 print('--------------')
@@ -205,7 +205,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
             else:
 
-                reduceNano(symbol,atoms_midpoint,size,debug)
+                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
     else:
 
@@ -244,7 +244,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 return np0Properties
             else:
 
-                reduceNano(symbol,atoms_midpoint,size,debug)
+                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
                 
                 
@@ -272,7 +272,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 return np0Properties
 
             else:
-                reduceNano(symbol,atoms_midpoint,size,debug)
+                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+
 
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
@@ -920,14 +921,14 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     # print('C',C)
 
 
-    if debug>0:
-        atomsBeta=copy.deepcopy(atoms)
-        for j in C:
-            if atomsBeta[j[0]].symbol=='Cu':
-                if len(j[1])==1:
-                    atomsBeta[j[0]].symbol='Mg'
-        write('coordinationEvaluation.xyz',atomsBeta)
-        # print(*C, sep='\n')
+    # if debug>0:
+    #     atomsBeta=copy.deepcopy(atoms)
+    #     for j in C:
+    #         if atomsBeta[j[0]].symbol=='Cu':
+    #             if len(j[1])==1:
+    #                 atomsBeta[j[0]].symbol='Mg'
+    #     write('coordinationEvaluation.xyz',atomsBeta)
+    #     # print(*C, sep='\n')
 
     
     # 4 lists:
@@ -956,9 +957,8 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     if danglingElement=='stop':
         return None
 
-
     # if the nano does not have dangling and not stoichiometric, discard 
-    # the modelç
+    # the model
     
     # if len(singly)==0:
     #     print('NP0 does not have singly coordinated atoms to remove','\n',
@@ -993,90 +993,6 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     # 1000 replicas for removing atoms. 
     # To make the selection random we use shuffle and 
     # choice. 
-    # The loop basically select the metal
-    # atom of higest coordination,aka father, identify the singly coordinated 
-    # atoms bounded to it and choose one randomly.
-    # Then append the selected and reduce the coordination of father.
-    # the process is repeated until the len of remove are equal to 
-    # excess.
-
-
-    # S=[]
-
-
-    # for r in range(replicas):
-    #     toRemove=[]
-    #     fatherFull=copy.deepcopy(fatherFull_bak)
-    #     singly=copy.deepcopy(singly_bak)
-    #     for i in allowedCoordination:
-    #         startShuffle=time.time()
-    #         shuffle(fatherFull)
-    #         end=time.time()
-    #         print('time per shuffle',end-startShuffle)
-    #         if debug>0:
-    #             print('fatherFull, evaluated coordination',fatherFull,i)
-    #         for n,j in enumerate(fatherFull):
-    #             # get the ones that have the allowed coordination
-    #             if fatherFull[n][1]==i:
-    #                 # if debug>0:
-    #                 #     print('fatherFull[n][1]',fatherFull[n])
-    #                 #create a list with the single coordinated atoms joined to that atom
-    #                 singlyFather=[k for k in C[j[0]][1] if k in singly]
-    #                 # if that list is larger than 0 choice one
-    #                 if len(singlyFather)>0:
-    #                     # if debug>0:
-    #                     #     print('singlyFather',singlyFather)
-    #                     chosen=choice(singlyFather)
-    #                     # print('chosen',chosen)
-    #                     if chosen not in toRemove:
-    #                         #If that atom was not previously chosen
-    #                         #keep it, remove from the singly coordinated
-    #                         #list and decrease the coordination
-    #                         if len(toRemove)==atoms.excess:
-    #                             print('coordinationAllowed',i)
-    #                             break
-    #                         toRemove.append(chosen)
-    #                         # print('singly',singly)
-    #                         singly.remove(chosen)
-    #                         fatherFull[n][1]=fatherFull[n][1]-1
-    #         if len(toRemove)==atoms.excess:
-    #             print('coordinationAllowed',i)
-    #             break
-    #      #     print('len(toRemove)',len(toRemove))
-    #     # print(len(toRemove))
-    #     S.append(sorted(toRemove))
-    #     print(len(S))
-
-    
-    # # at the end we get an array S with 10000 list of atoms
-    # # to be removed. Previous to the removal and to make the things faster
-    # # we remove duplicates (I guess that is not duplicates in the list)
-
-    nanoList=[]
-
-    # # Generate the list of pairs and select the repeated pairs
-    # # the aceptance criteria is if the intersection between
-    # # two s are iqual to the len of the first s. 
-    # # The repeated list is set and reversed before remove 
-    # # s elements 
-
-    # pairs=[c for c in combinations(range(1000),2)]
-
-    # repeatedS=[]
-    # for c in pairs:
-    #     # print (c[0],S[c[0]])
-
-    #     if len(list(set(S[c[0]]).intersection(S[c[1]]))) == len(S[c[0]]):
-    #         # print(c,' are duplicates')
-    #         repeatedS.append(c[0])
-    #         # del S[c[0]]
-    # # print (n)
-
-    # uniqueRepeated=list(set(repeatedS))
-    # uniqueRepeated.sort(reverse=True)
-
-    # for i in uniqueRepeated:
-    #     del S[i]
 
     # Build the nanoparticles removing the s atom list. Then, calculate the DC
 
@@ -1089,6 +1005,8 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     npFinalSize=np.amax(atomsOnlyMetal.get_all_distances())
 
     print('stoichiometric NPs:',len(S))
+
+    nanoList=[]
     for n,s in enumerate(S):
         NP=copy.deepcopy(atoms)
         s.sort(reverse=True)
@@ -1914,14 +1832,19 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
         allowedCoordination(list): list of allowed coordinations
         sampleSize(int): Number of replicas
     Return:
-        S: list of list of atmos to remove.
+        S: list of list of atoms to remove.
     """
     start=time.time()
 
     fatherFull_bak=copy.deepcopy(fatherFull)
     singly_bak=copy.deepcopy(singly)
 
-    # print ('maxCord',maxCord)
+    # The loop basically select the metal
+    # atom of higest coordination,aka father, identify the singly coordinated 
+    # atoms bounded to it and choose one randomly.
+    # Then append the selected and reduce the coordination of father.
+    # the process is repeated until the len of remove are equal to 
+    # excess.
 
     S=[]
     replicas=sampleSize
@@ -1938,7 +1861,7 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
                 # get the ones that have the allowed coordination
                 if fatherFull[n][1]==i:
                     # if debug>0:
-                    #     print('fatherFull[n][1]',fatherFull[n])
+                    # print('fatherFull[n][1]',fatherFull[n])
                     #create a list with the single coordinated atoms joined to that atom
                     singlyFather=[k for k in C[j[0]][1] if k in singly]
                     # if that list is larger than 0 choice one
@@ -1959,12 +1882,11 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
                             fatherFull[n][1]=fatherFull[n][1]-1
             if len(toRemove)==excess:
                 break
-         #     print('len(toRemove)',len(toRemove))
+        # print('len(toRemove)',len(toRemove))
         # print(len(toRemove))
         S.append(sorted(toRemove))
         # print(len(S))
 
-    
     # at the end we get an array S with 10000 list of atoms
     # to be removed. Previous to the removal and to make the things faster
     # we remove duplicates (I guess that is not duplicates in the list)
@@ -1977,7 +1899,7 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
     # The repeated list is set and reversed before remove 
     # s elements 
 
-    pairs=[c for c in combinations(range(1000),2)]
+    pairs=[c for c in combinations(range(sampleSize),2)]
 
     repeatedS=[]
     for c in pairs:
@@ -1999,7 +1921,6 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
 
     return(S)
 
-    # print(len(S))
 
 
 
