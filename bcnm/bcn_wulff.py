@@ -899,11 +899,11 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         return None
     if check_stoich_v2(symbol,atoms,debug) is 'stoichiometric':
         print("NP0 is stoichiometric")
+        name=atoms.get_chemical_formula()+'_NP0_f.xyz'
+        write(name,atoms,format='xyz',columns=['symbols', 'positions'])
         return None
 
-
     # Save as np0_f to distinguish between them and the others 
-
     name=atoms.get_chemical_formula()+'_NP0_f.xyz'
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
 
@@ -953,8 +953,10 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     # Add the excess attribute to atoms object
     # and checking if the dangling atoms belong
     # to the excess element. If not, stop
+    # and removing this nps_f
     danglingElement=check_stoich_v2(symbol,atoms,singly,debug)
     if danglingElement=='stop':
+        remove(name)
         return None
 
     # if the nano does not have dangling and not stoichiometric, discard 
@@ -1003,6 +1005,8 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
 
     #Calculate the size as the maximum distance between cations
     npFinalSize=np.amax(atomsOnlyMetal.get_all_distances())
+    #Calculate the size as the maximum distance between atoms
+    npFinalSize=np.amax(atoms.get_all_distances())
 
     print('stoichiometric NPs:',len(S))
 
@@ -1531,19 +1535,6 @@ def check_stoich_v2(Symbol,atoms,singly=0,debug=0):
     excess=np.max(counterNp)-np.min(counterNp)*(np.max(cellStoichiometry)/np.min(cellStoichiometry))
 
     ## verify that the number of excess are larger or equal to singly
-    
-    if singly !=0 :
-        # print('holaaaaa')
-        # print('singly del none',singly)
-        # test=[i for i in singly]
-        # print('test',test)
-
-        if len([i for i in singly if atoms[i].symbol==chemicalElements[excesiveIonIndex]])<excess:
-            print('NP0 does not have enough singly coordinated excess atoms to remove','\n',
-                'to achive the stoichiometry for this model')
-            return 'stop'
-
-
     if debug>0:
         print('values')
         print(np.max(counterNp),np.min(counterNp),np.max(cellStoichiometry))
@@ -1551,14 +1542,36 @@ def check_stoich_v2(Symbol,atoms,singly=0,debug=0):
         print('cellStoichiometry',cellStoichiometry)
         print('nanoStoichiometry',nanoStoichiometry)
         print(excess)
-        # print('atoms excess',atoms.excess)
-    
+
     if excess==0:
         return 'stoichiometric'
+    if singly !=0 and excess>0:
+        if len([i for i in singly if atoms[i].symbol==chemicalElements[excesiveIonIndex]])<excess:
+            print('NP0 does not have enough singly coordinated excess atoms to remove','\n',
+                'to achive the stoichiometry for this model')
+        return 'stop'
     elif excess<0 or excess%1!=0:
         return 'stop'
     else:
         atoms.excess=excess
+    # if singly !=0:
+    #     # print('holaaaaa')
+    #     # print('singly del none',singly)
+    #     # test=[i for i in singly]
+    #     # print('test',test)
+
+    #     if len([i for i in singly if atoms[i].symbol==chemicalElements[excesiveIonIndex]])<excess:
+    #         print('NP0 does not have enough singly coordinated excess atoms to remove','\n',
+    #             'to achive the stoichiometry for this model')
+    #         return 'stop'
+
+
+        # print('atoms excess',atoms.excess)
+    
+    # if excess==0:
+    #     return 'stoichiometric'
+    # elif excess<0 or excess%1!=0:
+    #     return 'stop'
 
 def coordinationv2(crystal,atoms):
     """
