@@ -902,7 +902,6 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         name=atoms.get_chemical_formula()+'_NP0_f.xyz'
         write(name,atoms,format='xyz',columns=['symbols', 'positions'])
         return None
-
     # Save as np0_f to distinguish between them and the others 
     name=atoms.get_chemical_formula()+'_NP0_f.xyz'
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
@@ -955,7 +954,7 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     # to the excess element. If not, stop
     # and removing this nps_f
     danglingElement=check_stoich_v2(symbol,atoms,singly,debug)
-    if danglingElement=='stop':
+    if danglingElement=='stop it':
         remove(name)
         return None
 
@@ -972,7 +971,6 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         print('father:',father)
         print('coordFather:',coordFather)
         print('fatherFull:',fatherFull)
-    
     # allowedCoordination must to be generalized
     # the upper limit is half of maximum coordination -1
     # and the inferior limit is the maximum
@@ -1023,7 +1021,7 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         # print('centerOfNotMetal',centerOfNonMetal)
         dev = np.std(abs(centerOfMetal-centerOfNonMetal))
         dev_p = float("{:.7f}".format(round(float(dev*100),7)))
-        name=str(NP.get_chemical_formula(mode='hill'))+'_'+str(dev_p)+'_'+str(n)+'.xyz'
+        name=str(NP.get_chemical_formula(mode='hill'))+'_'+str(dev_p)+'_'+str(n)+'_f.xyz'
         # print('name',name)
         nanoList.append(name)
         #Saving NP
@@ -1044,10 +1042,8 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
 
     time_F1 = time.time()
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
-
     #Calling the singulizator function 
     singulizator(nanoList,debug)
-
 def interplanarDistance(recCell,millerIndexes): 
     """Function that calculates the interplanar distances
     using 1/d_hkl^2 = hkl .dot. Gstar .dot. hkl equation.
@@ -1545,11 +1541,12 @@ def check_stoich_v2(Symbol,atoms,singly=0,debug=0):
 
     if excess==0:
         return 'stoichiometric'
-    if singly !=0 and excess>0:
+    if singly !=0:
         if len([i for i in singly if atoms[i].symbol==chemicalElements[excesiveIonIndex]])<excess:
             print('NP0 does not have enough singly coordinated excess atoms to remove','\n',
                 'to achive the stoichiometry for this model')
-        return 'stop'
+            return 'stop it'
+
     elif excess<0 or excess%1!=0:
         return 'stop'
     else:
