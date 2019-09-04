@@ -1044,6 +1044,7 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
     #Calling the singulizator function 
     singulizator(nanoList,debug)
+    
 def interplanarDistance(recCell,millerIndexes): 
     """Function that calculates the interplanar distances
     using 1/d_hkl^2 = hkl .dot. Gstar .dot. hkl equation.
