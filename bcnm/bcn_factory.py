@@ -45,6 +45,8 @@ class ClusterFactory(ClusterFactory):
             self.set_lattice_size(center)
             # print('selfcenterbitch\n',self.center)
             self.distances = distances
+            # print('selfdistancess',self.distances)
+
 
             # At the beggining we add initial distances, but not
             # all the symmetry equivalent ones
@@ -75,6 +77,7 @@ class ClusterFactory(ClusterFactory):
         firstly, reproducing the bulk material
         to get a large enough bulk to cut the
         nanoparticle.
+
         To cut the nanoparticle measure
         the distance from the ion
         translated to the center in direction
@@ -83,6 +86,7 @@ class ClusterFactory(ClusterFactory):
         of layers. If the distance
         is larger than the distance of layers
         the ion is removed.
+
         Return:
             Cluster(atoms): cluster structure of the atoms type
         """

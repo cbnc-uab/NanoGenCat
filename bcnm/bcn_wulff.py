@@ -212,7 +212,18 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         small = np.array(energies)/((max(energies)*2.))
         large = np.array(energies)/((min(energies)*2.))
         midpoint = (large+small)/2.
+        
         distances = midpoint*size
+        print('pureDistances',distances)
+        # Add d/2 to distances to get the equimolar gibbs surface
+        equimolarDistances=[]
+        for distance,interplanarD in zip(distances,dArray):
+            equimolarDistances.append(distance+(0.5*interplanarD))
+
+        print('equimolarDistances',equimolarDistances)
+
+        # distances=np.asarray(equimolarDistances)
+
         layers= distances/dArray
 
         if debug>0:
@@ -274,12 +285,21 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             else:
                 reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
-
-
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
-    # print("here")
+    # Function that calls bcn_factory
+    # Args:
+    #   Symbol(atoms): ase atoms type of bulk material
+    #   surfaces([list]): list of list surfaces indexes
+    #   layers[float] of layers float without rounding
+    #   distances[float]: interlayer distances in the same order as surfaces
+    #   structure: structure type, for this code is bcn_factory
+    #   center[list]: coordinate origin
+    # Return:
+    #   atoms(atoms): Wulff-like nanoparticle cut from bulk material
+
+    # Rounding layers
     layers = np.round(layers).astype(int)
-    # print("1layers",layers)
+    print("1layers",layers)
     atoms = structure(symbol, surfaces, layers, distances, center= center,                   
                       latticeconstant=latticeconstant,debug=1)
 
@@ -1670,20 +1690,25 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             equivalentSurfacesStrings.append(ss)
         # break
         # Get the direction per each miller index
+
     #Project the position to the direction of the miller index
-    # by calculating the dot produequivalentSurfacesStringsct
+    # by calculating the dot product 
 
     rs=[]
     auxrs=[]
 
     for i in equivalentSurfacesStrings:
         rlist=[]
+        # Get the direction and normalize
         direction= np.dot(i,symbol.get_reciprocal_cell())
         direction = direction / np.linalg.norm(direction)
+
         for n,j in enumerate(outershell.get_positions()):
             rlist.append(np.dot(j-centroid,direction))
+
         auxrs.append(np.max(rlist))
         rs.append([i,np.max(rlist)])
+
     maxD=np.max(auxrs)
     #Normalize each distance by the maximum
     totalD=0.0
@@ -1698,6 +1723,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
         areaPerPlane=hull.area*i[1]/totalD
         percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
         auxPercentage.append(np.round(areaPerPlane/hull.area,2))
+
     ### evaluate if those are equal, limit to  0.1 of difference(10%)
     minArea=np.min(auxPercentage)
     maxArea=np.max(auxPercentage)
@@ -1931,18 +1957,5 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
     # print('ExecutionTime,finalSamples,excess',end-start,len(S),excess)
 
     return(S)
-
-
-
-
-
-
-
-    
-
-
-
-
-
 
 
