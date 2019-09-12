@@ -12,6 +12,8 @@ from bcnm.cluster import Cluster
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 from ase.visualize import view
 
 class ClusterFactory(ClusterFactory):
@@ -173,29 +175,30 @@ class ClusterFactory(ClusterFactory):
             # print('mask',mask)
             if self.debug > 1:
                 print("Cutting %s at %i layers ~ %.3f A" % (s, l, rmax))
-            # rkeeped=r[mask]
             ##Getting the real size as the average of the values that are larger
             # or equal than 80% of rmax
-            # rselected=np.max(rkeeped)
-            # print('rselected',s,rselected)
-            # realSize.append([s,np.max(rselected)])
-            # print('plane,largestpos',',',s,',',np.max(rkeeped))
+            rkeeped=r[mask]
+            rselected=np.max(rkeeped)
+            print('rselected',s,rselected)
+            realSize.append([s,np.max(rselected)])
+            print('plane,largestpos',',',s,',',np.max(rkeeped))
             
-            #-------------------
-            # fig = plt.figure()
-            # ax = fig.add_subplot(111)
-            # ax.plot(rkeeped)
-            # plt.show()
-            #---------------------
 
             positions = positions[mask]
-            # print(positions)
+            simplexesPositions=[x for x in positions]
+            print('positions',positions)
             numbers = numbers[mask]
+            # -------------------
+            fig = plt.figure()
+            ax = fig.add_subplot(111,projection='3d')
+            ax.scatter(*positions.T)
+            plt.show()
+            #---------------------
             # break
         # print('..............')
         #################################Killing the code
-        # if len(size)==3:
-        #     exit(1)
+        if len(size)==3:
+            exit(1)
         ############################
         # Fit the cell, so it only just consist the atoms
        
