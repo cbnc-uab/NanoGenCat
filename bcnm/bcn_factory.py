@@ -91,7 +91,7 @@ class ClusterFactory(ClusterFactory):
             Cluster(atoms): cluster structure of the atoms type
         """
         size = np.array(self.size)
-        # print('size original\n',size)
+        print('size original\n',size)
         # if debug>1:
         # size = np.asarray([1,1,1])
         # print('size\n',size)

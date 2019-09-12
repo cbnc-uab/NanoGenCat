@@ -128,6 +128,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     #Calculate the interplanar distance
     recCell=symbol.get_reciprocal_cell()
     dArray=interplanarDistance(recCell,surfaces)
+    print('dArray',dArray)
 
     # Get the equivalent surfaces
     eq=equivalentSurfaces(symbol,surfaces)
@@ -229,7 +230,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
         # print('equimolarDistances',equimolarDistances)
 
-        distances=np.asarray(equimolarDistances)
+        # distances=np.asarray(equimolarDistances)
 
         layers= distances/dArray
         # print('pure layers',layers)
@@ -240,11 +241,11 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             print('surfaces\n',surfaces)
         ####Exit just for testing, don't  forget to remove it
         # exit(0)
-        # atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, dArray, 
-        #                             structure, center, latticeconstant)
-        # print('------------------------------------------')
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, dArray, 
                                     structure, center, latticeconstant)
+        # print('------------------------------------------')
+        # atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+        #                             structure, center, latticeconstant)
         ######Test####################################################################
         if wl_method=='testingWulff':
             print('here')
@@ -321,15 +322,18 @@ def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latt
     #   atoms(atoms): Wulff-like nanoparticle cut from bulk material
 
     # Rounding layers
+    layers = layers+0.5
     layers = np.round(layers).astype(int)
-    # print("layers",layers)
-    # distanceTest=[]
-    # for ipDistance,layer in zip(distances,layers):
-    #     distanceTest.append(ipDistance*(layer+0.5))
+    print("rounded layers",layers)
+    distanceTest=[]
+    for ipDistance,layer in zip(distances,layers):
+        distanceTest.append(ipDistance*(layer))
     # print('distanceTest',distanceTest)
 
-    atoms = structure(symbol, surfaces, layers, distances, center= center,                   
+    atoms = structure(symbol, surfaces, layers, distanceTest, center= center,                   
                       latticeconstant=latticeconstant,debug=1)
+    # atoms = structure(symbol, surfaces, layers, distances, center= center,                   
+    #                   latticeconstant=latticeconstant,debug=1)
     return (atoms)
 
 def coordination(atoms,debug,size,n_neighbour):
@@ -1134,10 +1138,10 @@ def equivalentSurfaces(atoms,millerIndexes):
     equivalent_surfaces=[]
     for s in millerIndexes:
         equivalent_surfaces.extend(sg.equivalent_reflections(s))
-        # print('-----------------------------------')
-        # print('s',s)
-        # print('equivalent_surfaces',sg.equivalent_reflections(s))
-        # print('-----------------------------------')
+        print('-----------------------------------')
+        print('s',s)
+        print('equivalent_surfaces',sg.equivalent_reflections(s))
+        print('-----------------------------------')
     return equivalent_surfaces
 
 def planesNorms(millerIndexes,recCell):
