@@ -47,6 +47,8 @@ class ClusterFactory(ClusterFactory):
             self.distances = distances
             # print('selfdistancess',self.distances)
 
+            #
+            print('center in bcn factory',center)
 
             # At the beggining we add initial distances, but not
             # all the symmetry equivalent ones

@@ -322,15 +322,22 @@ def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latt
     #   atoms(atoms): Wulff-like nanoparticle cut from bulk material
 
     # Rounding layers
-    layers = layers+0.5
     layers = np.round(layers).astype(int)
-    print("rounded layers",layers)
+    layers = layers+0.5
+    print("rounded layers plus gibbs distance",layers)
     distanceTest=[]
     for ipDistance,layer in zip(distances,layers):
         distanceTest.append(ipDistance*(layer))
     # print('distanceTest',distanceTest)
 
-    atoms = structure(symbol, surfaces, layers, distanceTest, center= center,                   
+    # Translate the atoms position inside the cell by the center
+    # print('atoms positions')
+    # for atom in symbol:
+    #     atom.position=atom.position+center
+    #     print(atom.position)
+
+
+    atoms = structure(symbol, surfaces, layers, distanceTest,                   
                       latticeconstant=latticeconstant,debug=1)
     # atoms = structure(symbol, surfaces, layers, distances, center= center,                   
     #                   latticeconstant=latticeconstant,debug=1)
@@ -1105,7 +1112,7 @@ def interplanarDistance(recCell,millerIndexes):
     """Function that calculates the interplanar distances
     using 1/d_hkl^2 = hkl .dot. Gstar .dot. hkl equation.
     A Journey into Reciprocal Space: A Crystallographer's Perspective
-    2-7
+    2-7. G star is the reciprocal metric tensor. 
     Args:
         recCell(list): reciprocal cell of crystal structure
         millerIndexes(list): miller indexes of relevant surfaces
@@ -1138,10 +1145,10 @@ def equivalentSurfaces(atoms,millerIndexes):
     equivalent_surfaces=[]
     for s in millerIndexes:
         equivalent_surfaces.extend(sg.equivalent_reflections(s))
-        print('-----------------------------------')
-        print('s',s)
-        print('equivalent_surfaces',sg.equivalent_reflections(s))
-        print('-----------------------------------')
+        # print('-----------------------------------')
+        # print('s',s)
+        # print('equivalent_surfaces',sg.equivalent_reflections(s))
+        # print('-----------------------------------')
     return equivalent_surfaces
 
 def planesNorms(millerIndexes,recCell):
