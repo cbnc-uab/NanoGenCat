@@ -329,6 +329,7 @@ def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latt
     for ipDistance,layer in zip(distances,layers):
         distanceTest.append(ipDistance*(layer))
     # print('distanceTest',distanceTest)
+    # layers=layers+0.5
 
     # Translate the atoms position inside the cell by the center
     # print('atoms positions')

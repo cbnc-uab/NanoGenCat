@@ -1,20 +1,22 @@
 from __future__ import print_function
 import numpy as np
 
+from ase import Atoms
 from ase.data import atomic_numbers as ref_atomic_numbers
 from ase.spacegroup import Spacegroup
 from ase.cluster.factory import ClusterFactory, reduce_miller
-from bcnm.bcn_wulff import interplanarDistance
 from ase.utils import basestring
-from re import findall
 from ase.io import write
+from ase.visualize import view
+
+from bcnm.bcn_wulff import interplanarDistance
+from re import findall
 from bcnm.cluster import Cluster
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from ase.visualize import view
 
 class ClusterFactory(ClusterFactory):
     directions = [[1, 0, 0],
@@ -41,7 +43,7 @@ class ClusterFactory(ClusterFactory):
             self.resiproc_basis = atoms.get_reciprocal_cell()
             
             self.spacegroup = int(str(atoms.info['spacegroup'])[0:3])
-            
+            print('bcnFactory layers',layers)
             self.set_surfaces_layers(surfaces, layers)
             # print('center pre self center',center)
             self.set_lattice_size(center)
@@ -50,7 +52,7 @@ class ClusterFactory(ClusterFactory):
             # print('selfdistancess',self.distances)
 
             #
-            print('center in bcn factory',center)
+            # print('center in bcn factory',center)
 
             # At the beggining we add initial distances, but not
             # all the symmetry equivalent ones
@@ -95,7 +97,7 @@ class ClusterFactory(ClusterFactory):
             Cluster(atoms): cluster structure of the atoms type
         """
         size = np.array(self.size)
-        print('size original\n',size)
+        # print('size original\n',size)
         # if debug>1:
         # size = np.asarray([1,1,1])
         # print('size\n',size)
@@ -119,6 +121,7 @@ class ClusterFactory(ClusterFactory):
                     # the translation in cartesian units
         # print('self.atomic_basis,self.lattice_basis',self.atomic_basis,'\n',self.lattice_basis)
         # print('lenselfatomicbasis\n',len(self.atomic_basis))
+
         #dot product between lattice and atomic positions
         atomic_basis = np.dot(self.atomic_basis, self.lattice_basis)
         # print('atomic_basis\n',atomic_basis)
@@ -140,8 +143,20 @@ class ClusterFactory(ClusterFactory):
             # print(*positions, sep='\n')
             # print(positions)
             numbers[n*i:n*(i+1)] = self.atomic_numbers
-            # print(numbers)
+            # print(number)
             # break
+        # -------------------
+        testShit=Atoms(symbols=numbers, positions=positions)
+        write('testAtoms.xyz',testShit,format='xyz')
+
+        # print('positions type',type(positions))
+        fig = plt.figure()
+        ax = fig.add_subplot(111,projection='3d')
+        ax.scatter(*positions.T)
+        ax.scatter(*self.center.T,'r')
+        plt.title('rep')
+        plt.show()
+        # #---------------------
 
         #Up to here we have the positions of the replied cell by translations
 
@@ -159,8 +174,8 @@ class ClusterFactory(ClusterFactory):
                 # print("RMAX",s,rmax)
 
             # r value is the distance from the position 
-            # previously translated to the center to the plane
-            
+            # previously translated to the center of the replica
+            # print('self.center',self.center) 
             r = np.dot(positions - self.center, n)
             
             # print('r\n',r)
@@ -179,23 +194,30 @@ class ClusterFactory(ClusterFactory):
                 print("Cutting %s at %i layers ~ %.3f A" % (s, l, rmax))
             ##Getting the real size as the average of the values that are larger
             # or equal than 80% of rmax
-            rkeeped=r[mask]
-            rselected=np.max(rkeeped)
-            print('rselected',s,rselected)
-            realSize.append([s,np.max(rselected)])
-            print('plane,largestpos',',',s,',',np.max(rkeeped))
+            # rkeeped=r[mask]
+            # rselected=np.max(rkeeped)
+            # print('rselected',s,rselected)
+            # realSize.append([s,np.max(rselected)])
+            # print('plane,largestpos',',',s,',',np.max(rkeeped))
             
 
             positions = positions[mask]
-            simplexesPositions=[x for x in positions]
-            print('positions',positions)
+            # simplexesPositions=[x for x in positions]
+            # print('positions',positions)
             numbers = numbers[mask]
-            # -------------------
-            fig = plt.figure()
-            ax = fig.add_subplot(111,projection='3d')
-            ax.scatter(*positions.T)
-            plt.show()
-            #---------------------
+            # # -------------------
+            # print(positions)
+            # center=np.asarray([8.974,8.974,9.447])
+            # # positions.append(center)
+            # # print(positions)
+            # # print(positionsPlusCenter)
+            # fig = plt.figure()
+            # ax = fig.add_subplot(111,projection='3d')
+            # ax.scatter(*positions.T)
+            # ax.scatter(*center.T,'r')
+            # plt.title(s)
+            # plt.show()
+            # #---------------------
             # break
         # print('..............')
         #################################Killing the code
@@ -225,6 +247,7 @@ class ClusterFactory(ClusterFactory):
         Args:
             self(CutCluster):
             center(list): initial centering
+            layers(list)
         """
         ##Understanding this routine
         ##Check if the center is inside the cell
@@ -261,7 +284,7 @@ class ClusterFactory(ClusterFactory):
             # print('k post ceil of floor',k)
             if self.debug > 1:
                 print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
-            # print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
+            print("Spaning %i layers in %s direction in lattice basis ~ %s" % (l, s, k))
 
             #Update max and min values for every surface with k
             max[k > max] = k[k > max]
