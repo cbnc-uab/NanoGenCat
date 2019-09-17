@@ -128,6 +128,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     #Calculate the interplanar distance
     recCell=symbol.get_reciprocal_cell()
     dArray=interplanarDistance(recCell,surfaces)
+    print('dArray',dArray)
 
     # Get the equivalent surfaces
     eq=equivalentSurfaces(symbol,surfaces)
@@ -148,6 +149,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         scale_f = np.array([0.5])
         distances = scale_f*size
         # print('distances from bcn_wulff_construction',distances)
+
+        ## Equimolar distances
+        for distance,interplanarD in zip(distances,dArray):
+            equimolarDistances.append(distance+(0.5*interplanarD))
+
+        print('equimolarDistances',equimolarDistances)
+        distances=np.asarray(equimolarDistances)
+
         layers = np.array([distances/dArray])
 
         if debug>0:
@@ -212,8 +221,19 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         small = np.array(energies)/((max(energies)*2.))
         large = np.array(energies)/((min(energies)*2.))
         midpoint = (large+small)/2.
+        # print('dArray',dArray) 
         distances = midpoint*size
+        # print('pureDistances',distances)
+        equimolarDistances=[]
+        for distance,interplanarD in zip(distances,dArray):
+            equimolarDistances.append(distance+(0.5*interplanarD))
+
+        # print('equimolarDistances',equimolarDistances)
+
+        # distances=np.asarray(equimolarDistances)
+
         layers= distances/dArray
+        # print('pure layers',layers)
 
         if debug>0:
             print('layers\n',layers)
@@ -221,8 +241,24 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             print('surfaces\n',surfaces)
         ####Exit just for testing, don't  forget to remove it
         # exit(0)
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, dArray, 
                                     structure, center, latticeconstant)
+        # print('------------------------------------------')
+        # atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+        #                             structure, center, latticeconstant)
+        ######Test####################################################################
+        if wl_method=='testingWulff':
+            print('here')
+            wulffDistancesBasedTest(symbol,surfaces,layers,dArray)
+
+            # if np0==True:
+            #     np0Properties=[atoms_midpoint.get_chemical_formula()]
+            #     np0Properties.extend(minCoord)
+            #     np0Properties.append(plane_area[0])
+            #     np0Properties.extend(wulff_like)
+            #     return np0Properties
+
+        ##########################################################################
         #Save the NP0
         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
@@ -236,6 +272,12 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             plane_area=planeArea(symbol,areasIndex,surfaces)
             wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
             # np0Properties.extend(plane_area[0])
+            if debug>0:
+                print('--------------')
+                print(atoms_midpoint.get_chemical_formula())
+                print('areasIndex',areasIndex)
+                print('plane_area',plane_area[0])
+                print('--------------')
             if np0==True:
                 np0Properties=[atoms_midpoint.get_chemical_formula()]
                 np0Properties.extend(minCoord)
@@ -246,12 +288,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
                 reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
+
             if debug>0:
                 print('--------------')
                 print(atoms_midpoint.get_chemical_formula())
                 print('areasIndex',areasIndex)
                 print('plane_area',plane_area[0])
                 print('--------------')
+
         #################################
         elif wl_method=='distancesBased':
             wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
@@ -287,18 +331,45 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 np0Properties.append(0)
                 np0Properties.extend(wulff_like)
 
+
                 return np0Properties
 
             else:
                 reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
-    # print("here")
-    layers = np.round(layers).astype(int)
-    # print("1layers",layers)
-    atoms = structure(symbol, surfaces, layers, distances, center= center,                   
-                      latticeconstant=latticeconstant,debug=1)
+    # Function that calls bcn_factory
+    # Args:
+    #   Symbol(atoms): ase atoms type of bulk material
+    #   surfaces([list]): list of list surfaces indexes
+    #   layers[float] of layers float without rounding
+    #   distances[float]: Euclidean distances to the plane of the NP in the same order as surfaces
+    #   structure: structure type, for this code is bcn_factory
+    #   center[list]: coordinate origin
+    # Return:
+    #   atoms(atoms): Wulff-like nanoparticle cut from bulk material
 
+    # Rounding layers
+    layers = np.round(layers).astype(int)
+    layers = layers+0.5
+    print("rounded layers plus gibbs distance",layers)
+    distanceTest=[]
+    for ipDistance,layer in zip(distances,layers):
+        distanceTest.append(ipDistance*(layer))
+    # print('distanceTest',distanceTest)
+    # layers=layers+0.5
+
+    # Translate the atoms position inside the cell by the center
+    # print('atoms positions')
+    # for atom in symbol:
+    #     atom.position=atom.position+center
+    #     print(atom.position)
+
+
+    atoms = structure(symbol, surfaces, layers, distanceTest,                   
+                      latticeconstant=latticeconstant,debug=1)
+    # atoms = structure(symbol, surfaces, layers, distances, center= center,                   
+    #                   latticeconstant=latticeconstant,debug=1)
     return (atoms)
 
 def coordination(atoms,debug,size,n_neighbour):
@@ -996,6 +1067,11 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     
     maxCord=int(np.max(coordFather))
     # print ('maxCord',maxCord)
+    
+    # To convert the allowedCoordination up to the half plus one
+    # mid has to be defined as 
+    # mid=int(0.5*maxCord)
+    
     mid=int(0.5*maxCord-1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
@@ -1065,7 +1141,7 @@ def interplanarDistance(recCell,millerIndexes):
     """Function that calculates the interplanar distances
     using 1/d_hkl^2 = hkl .dot. Gstar .dot. hkl equation.
     A Journey into Reciprocal Space: A Crystallographer's Perspective
-    2-7
+    2-7. G star is the reciprocal metric tensor. 
     Args:
         recCell(list): reciprocal cell of crystal structure
         millerIndexes(list): miller indexes of relevant surfaces
@@ -1315,8 +1391,10 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     for n,i in enumerate(idealWulffAreasFraction):
 
         # number of equivalent faces
+
         numberOfEquivalentFaces.append(len(sg.equivalent_reflections(i[0])))
         # print('equivalentFaces',numberOfEquivalentFaces)
+
 
         #Ideal
         indexStringIdeal=''.join(map(str,i[0])) 
@@ -1374,7 +1452,7 @@ def idealWulffFractions(atoms,surfaces,energies):
     for millerIndex,areaFraction in areas.items():
         idealWulffAreasFraction.append([millerIndex,areaFraction])
     # print(idealWulffAreasFraction)
-
+    # idealWulffShape.show()
     return idealWulffAreasFraction
 
 def coulombEnergy(symbol,atoms):
@@ -1687,20 +1765,25 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             equivalentSurfacesStrings.append(ss)
         # break
         # Get the direction per each miller index
+
     #Project the position to the direction of the miller index
-    # by calculating the dot produequivalentSurfacesStringsct
+    # by calculating the dot product 
 
     rs=[]
     auxrs=[]
 
     for i in equivalentSurfacesStrings:
         rlist=[]
+        # Get the direction and normalize
         direction= np.dot(i,symbol.get_reciprocal_cell())
         direction = direction / np.linalg.norm(direction)
+
         for n,j in enumerate(outershell.get_positions()):
             rlist.append(np.dot(j-centroid,direction))
+
         auxrs.append(np.max(rlist))
         rs.append([i,np.max(rlist)])
+
     maxD=np.max(auxrs)
     #Normalize each distance by the maximum
     totalD=0.0
@@ -1715,6 +1798,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
         areaPerPlane=hull.area*i[1]/totalD
         percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
         auxPercentage.append(np.round(areaPerPlane/hull.area,2))
+
     ### evaluate if those are equal, limit to  0.1 of difference(10%)
     minArea=np.min(auxPercentage)
     maxArea=np.max(auxPercentage)
@@ -1957,6 +2041,7 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     #initial surface energies
     # #Args:
     #     symbol(Atoms): Atoms type 
+
     #     surfaces([srt]):List of surface indexes
     #     layers([float]): List of number of layers
     #     distances([float]): List of interplanar distances
@@ -2018,17 +2103,13 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     # return wulffLike(symbol,ideal_wulff_fractions,realAreas)
 
 
-
-
-
-
-
-
-
-
-
+    return idealWulffFractions(symbol,surfaces,lenghtPerPlane)
     
+# def totalreductor():
 
+# def bvsum():
+
+# def neutralize():
 
 
 
