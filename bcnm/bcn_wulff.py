@@ -246,8 +246,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
                 reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
-                
-                
             if debug>0:
                 print('--------------')
                 print(atoms_midpoint.get_chemical_formula())
@@ -273,8 +271,26 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
             else:
                 reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+        ######################################################################
+        ######################################################################
+        elif wl_method=='wulfflikeLayerBased':
+            wulff_like=wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions)
+            np0Properties.extend(wulff_like)
+            # plane_area=planeArea(symbol,areasIndex,surfaces)
+            if debug>0:
+                print('areasIndex',areasIndex)
+                print('--------------')
+        
+            if np0==True:
+                np0Properties=[atoms_midpoint.get_chemical_formula()]
+                np0Properties.extend(minCoord)
+                np0Properties.append(0)
+                np0Properties.extend(wulff_like)
 
+                return np0Properties
 
+            else:
+                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
@@ -1294,21 +1310,22 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     wli=[]
     idealAreasPerEquivalent=[]
     realAreasPerEquivalent=[]
+    numberOfEquivalentFaces=[]
     ##Calculate the area per equivalent faces and sort
     for n,i in enumerate(idealWulffAreasFraction):
 
         # number of equivalent faces
-        numberOfEquivalentFaces=len(sg.equivalent_reflections(i[0]))
+        numberOfEquivalentFaces.append(len(sg.equivalent_reflections(i[0])))
         # print('equivalentFaces',numberOfEquivalentFaces)
 
         #Ideal
         indexStringIdeal=''.join(map(str,i[0])) 
-        idealAreaPerEquivalent=i[1]/numberOfEquivalentFaces
+        idealAreaPerEquivalent=i[1]/numberOfEquivalentFaces[n]
         idealAreasPerEquivalent.append([indexStringIdeal,idealAreaPerEquivalent])
 
         #Real
         indexStringReal=''.join(map(str,tuple(areasPerInitialIndex[n][0].tolist())))
-        realAreaPerEquivalent=areasPerInitialIndex[n][1]/numberOfEquivalentFaces
+        realAreaPerEquivalent=areasPerInitialIndex[n][1]/numberOfEquivalentFaces[n]
         realAreasPerEquivalent.append([indexStringReal,realAreaPerEquivalent])
 
     #Sorting
@@ -1329,7 +1346,7 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     #Calculate the index
     wlindex=0
     for n,indexArea in enumerate(idealAreasPerEquivalent):
-        wlindex+=abs((indexArea[1]-realAreasPerEquivalentSort[n][1])/numberOfEquivalentFaces)
+        wlindex+=abs((indexArea[1]-realAreasPerEquivalentSort[n][1])/numberOfEquivalentFaces[n])
 
     return sameOrder,"%.4f"%wlindex
 
@@ -1931,6 +1948,78 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
     # print('ExecutionTime,finalSamples,excess',end-start,len(S),excess)
 
     return(S)
+
+def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
+    #Function that creates the wulff polyhedron from distances
+    #instead of surface energies, based on the proportionality
+    #relationship between distances and surface energies.
+    #and compares with the ideal wulff fractions, computed by using the
+    #initial surface energies
+    # #Args:
+    #     symbol(Atoms): Atoms type 
+    #     surfaces([srt]):List of surface indexes
+    #     layers([float]): List of number of layers
+    #     distances([float]): List of interplanar distances
+    # Return:
+    #   Percentages([float]): Area percentages contribution
+
+    # Round the layers
+
+    layersRound = [np.round(l).astype(int) for l in layers]
+    print('layers after rounding',layersRound)
+    lenghtPerPlane=[]
+    # Get the distances and use it to calculate the areas contribution per orientation
+    for layer,distanceValue in zip(layersRound,distances): 
+        lenghtPerPlane.append(distanceValue*(layer+0.5))
+    # print('lenghtPerPlane',lenghtPerPlane)
+    # get all the equivalent surface and the proper lenght 
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+    AllDistances=[]
+    AllSurfaces=[]
+    numberOfEquivalentFaces=[]
+    for s in surfaces:
+    #     # get the surfaces and save it on a list
+    #     equivalentSurfaces=[]
+        numberOfEquivalentFaces.append(len([eqSurf.tolist() for eqSurf in sg.equivalent_reflections(s)]))
+    #     AllSurfaces.extend([str(s) for s in equivalentSurfaces])
+    #     # Get the equivalent layers and save it on a list
+    #     equivalentDistances=[lenght for i in range(len(equivalentSurfaces))]
+    #     AllDistances.extend(equivalentDistances)
+    # print('surfaces',len(AllSurfaces))
+    # print('distances',len(AllDistances))
+
+    realAreas=idealWulffFractions(symbol,surfaces,lenghtPerPlane)
+    # print(realAreas)
+    # print(ideal_wulff_fractions)
+
+    ## Sort the ideal and real 
+    sortedIdeal=sorted(ideal_wulff_fractions,key=lambda x:x[1],reverse=True)
+    sortedReal=sorted(realAreas,key=lambda x:x[1],reverse=True)
+
+    print(sortedReal)
+    print(sortedIdeal)
+    for real,ideal in zip(sortedIdeal,sortedReal):
+        if str(real[0])==str(ideal[0]):
+        # break
+            sameOrder=True
+        else: 
+            sameOrder=False
+        break
+    print(sameOrder)
+    #Calculate the index
+    wlindex=0
+    for n,indexArea in enumerate(ideal_wulff_fractions):
+        wlindex+=abs((indexArea[1]-realAreas[n][1])/numberOfEquivalentFaces[n])
+
+    print(wlindex)
+    return sameOrder,"%.4f"%wlindex
+    
+    # exit(1)
+    # return wulffLike(symbol,ideal_wulff_fractions,realAreas)
+
+
+
+
 
 
 
