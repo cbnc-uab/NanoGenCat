@@ -273,7 +273,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         ######################################################################
         ######################################################################
         elif wl_method=='wulfflikeLayerBased':
-            wulff_like=wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions)
+            wulff_like=wulfflikeLayerBased(symbol,surfaces,layers,dArray,ideal_wulff_fractions)
             np0Properties.extend(wulff_like)
             # plane_area=planeArea(symbol,areasIndex,surfaces)
             if debug>0:
@@ -283,14 +283,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             if np0==True:
                 np0Properties=[atoms_midpoint.get_chemical_formula()]
                 np0Properties.extend(minCoord)
-                np0Properties.append(0)
                 np0Properties.extend(wulff_like)
 
         ######################################################################
         ######################################################################
         elif wl_method=='hybridMethod':
-            wulff_like=wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions)
+            wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
             np0Properties.extend(wulff_like)
+            # exit(1)
             # plane_area=planeArea(symbol,areasIndex,surfaces)
             if debug>0:
                 print('areasIndex',areasIndex)
@@ -299,9 +299,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             if np0==True:
                 np0Properties=[atoms_midpoint.get_chemical_formula()]
                 np0Properties.extend(minCoord)
-                np0Properties.append(0)
                 np0Properties.extend(wulff_like)
-
+                return np0Properties
 
             else:
                 reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
@@ -1762,7 +1761,19 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
     idealAreasPerEquivalentSort=sorted(idealAreasPerEquivalent,key=lambda x:x[1],reverse=True)
     realAreasPerEquivalentSort=sorted(percentages,key=lambda x:x[1],reverse=True)
 
-
+    #Test the order
+    # print('heerreee')
+    # print('idealAreasPerEquivalentSort',idealAreasPerEquivalentSort)
+    # print('realAreasPerEquivalentSort',realAreasPerEquivalentSort)
+    # for real,ideal in zip(realAreasPerEquivalentSort,idealAreasPerEquivalentSort):
+    #     if str(real[0])==str(ideal[0]):
+    #         sameOrder=True
+    #     else: 
+    #         sameOrder=False
+    #     break
+    # 
+    # print(sameOrder)
+    # result.append(sameOrder)
     #Calculate the index
     wlindex=0
     for n,indexArea in enumerate(idealAreasPerEquivalent):
@@ -1986,7 +1997,7 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     # Round the layers
 
     layersRound = [np.round(l).astype(int) for l in layers]
-    print('layers after rounding',layersRound)
+    # print('layers after rounding',layersRound)
     lenghtPerPlane=[]
     # Get the distances and use it to calculate the areas contribution per orientation
     for layer,distanceValue in zip(layersRound,distances): 
@@ -2016,8 +2027,8 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     sortedIdeal=sorted(ideal_wulff_fractions,key=lambda x:x[1],reverse=True)
     sortedReal=sorted(realAreas,key=lambda x:x[1],reverse=True)
 
-    print(sortedReal)
-    print(sortedIdeal)
+    # print(sortedReal)
+    # print(sortedIdeal)
     for real,ideal in zip(sortedIdeal,sortedReal):
         if str(real[0])==str(ideal[0]):
         # break
@@ -2025,20 +2036,34 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
         else: 
             sameOrder=False
         break
-    print(sameOrder)
+    # print(sameOrder)
     #Calculate the index
     wlindex=0
     for n,indexArea in enumerate(ideal_wulff_fractions):
         wlindex+=abs((indexArea[1]-realAreas[n][1])/numberOfEquivalentFaces[n])
 
-    print(wlindex)
+    # print(wlindex)
     return sameOrder,"%.4f"%wlindex
     
     # exit(1)
     # return wulffLike(symbol,ideal_wulff_fractions,realAreas)
 
 
-    return idealWulffFractions(symbol,surfaces,lenghtPerPlane)
+def hybridMethod(symbol,atoms,surfaces,layers,distances,interplanarDistances,ideal_wulff_fractions):
+    """
+    Function that computes the wulff related quality parameters, equivalent planes
+    areas, same order and WLI using two methods, wulfflikeLayerBased and Distancesbased methods
+    """
+    results=[]
+
+    # Execute the Distancesbased method to get the equivalent grow
+    results.append(wulffDistanceBased(symbol,atoms,surfaces,distances)[0])
+    # Execute the layerbased to get the order and wulff-like index
+    results.extend(wulfflikeLayerBased(symbol,surfaces,layers,interplanarDistances,ideal_wulff_fractions)[:])
+
+    return results
+
+
 
 
 
