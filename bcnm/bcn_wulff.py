@@ -969,20 +969,24 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         print('coordFather:',coordFather)
         print('fatherFull:',fatherFull)
     # allowedCoordination must to be generalized
-    # the upper limit is half of maximum coordination -1
+    # the upper limit is maximum coordination -2
     # and the inferior limit is the maximum
     # coordination. i.e. for fluorite, the maximum coordination
-    # is 8, so using list(range(8,3,-1)) we obtain the list
+    # is 8, so using list(range(8,6,-1)) we obtain the list
     # [8, 7, 6, 5, 4] that is fully functional.
     
     maxCord=int(np.max(coordFather))
     # print ('maxCord',maxCord)
-    mid=int(0.5*maxCord-1)
+    mid=int(maxCord-3)
+    # print('mid',mid)
+    # exit(1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
     if debug>0:
         print('allowedCoordinations')
-    print('allowedCoordination',allowedCoordination)
+        print('allowedCoordination:',allowedCoordination)
+        print('excess:',atoms.excess)
+        print('sampleSize:',sampleSize)
 
     # To have a large amounth of conformation we generate
     # 1000 replicas for removing atoms. 
@@ -1893,6 +1897,9 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
                 break
         # print('len(toRemove)',len(toRemove))
         # print(len(toRemove))
+        if len(toRemove)<excess:
+            print ('Is not possible to achieve coordination with the available coordinaation limits')
+            print('allowedCoordination:',allowedCoordination)
         S.append(sorted(toRemove))
         # print(len(S))
     # at the end we get an array S with 10000 list of atoms
