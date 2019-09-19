@@ -332,6 +332,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 np0Properties.extend(wulff_like)
 
 
+
                 return np0Properties
 
             else:
@@ -979,8 +980,15 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     print('Enter to reduceNano')
     time_F0 = time.time()
 
-    # Check the stoichiometry of NP0
 
+    ### Calculate the C to remove the unbounded
+    C=coordinationv2(symbol,atoms)
+
+    for c in C:
+        if len(c[1])==0:
+            del atoms[c[0]]
+
+    # Check the stoichiometry of NP0
     if check_stoich_v2(symbol,atoms,debug) is 'stop':
         print("Exiting because the structure can not achieve stoichiometry by removing just one type of ions")
         return None
@@ -989,18 +997,10 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         name=atoms.get_chemical_formula()+'_NP0_f.xyz'
         write(name,atoms,format='xyz',columns=['symbols', 'positions'])
         return None
+
     # Save as np0_f to distinguish between them and the others 
     name=atoms.get_chemical_formula()+'_NP0_f.xyz'
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
-
-    ### Calculate the C to remove the unbounded
-    C=coordinationv2(symbol,atoms)
-    # print('C:',C)
-    # remove atom that is not conected
-
-    for c in C:
-        if len(c[1])==0:
-            del atoms[c[0]]
 
     ##Recalculate coordination after removal
     C=coordinationv2(symbol,atoms)
@@ -1059,32 +1059,32 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         print('coordFather:',coordFather)
         print('fatherFull:',fatherFull)
     # allowedCoordination must to be generalized
-    # the upper limit is half of maximum coordination -1
+    # the upper limit is maximum coordination -2
     # and the inferior limit is the maximum
     # coordination. i.e. for fluorite, the maximum coordination
-    # is 8, so using list(range(8,3,-1)) we obtain the list
+    # is 8, so using list(range(8,6,-1)) we obtain the list
     # [8, 7, 6, 5, 4] that is fully functional.
     
     maxCord=int(np.max(coordFather))
     # print ('maxCord',maxCord)
-    
-    # To convert the allowedCoordination up to the half plus one
-    # mid has to be defined as 
-    # mid=int(0.5*maxCord)
-    
-    mid=int(0.5*maxCord-1)
+
+    mid=int(maxCord-3)
+    # print('mid',mid)
+    # exit(1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
     if debug>0:
         print('allowedCoordinations')
-        print(allowedCoordination)
+        print('allowedCoordination:',allowedCoordination)
+        print('excess:',atoms.excess)
+        print('sampleSize:',sampleSize)
 
-    # S=xaviSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination)
-    S=daniloSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination,sampleSize)
     # To have a large amounth of conformation we generate
     # 1000 replicas for removing atoms. 
     # To make the selection random we use shuffle and 
     # choice. 
+    # S=xaviSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination)
+    S=daniloSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination,sampleSize)
 
     # Build the nanoparticles removing the s atom list. Then, calculate the DC
 
@@ -1946,6 +1946,7 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
     Return:
         S: list of list of atoms to remove.
     """
+    # print('singulizator')
     start=time.time()
 
     fatherFull_bak=copy.deepcopy(fatherFull)
@@ -1957,7 +1958,6 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
     # Then append the selected and reduce the coordination of father.
     # the process is repeated until the len of remove are equal to 
     # excess.
-
     S=[]
     replicas=sampleSize
 
@@ -1992,13 +1992,16 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
                             # print('singly',singly)
                             singly.remove(chosen)
                             fatherFull[n][1]=fatherFull[n][1]-1
+                # print(len(toRemove),'toRemove',toRemove)
             if len(toRemove)==excess:
                 break
         # print('len(toRemove)',len(toRemove))
         # print(len(toRemove))
+        if len(toRemove)<excess:
+            print ('Is not possible to achieve coordination with the available coordinaation limits')
+            print('allowedCoordination:',allowedCoordination)
         S.append(sorted(toRemove))
         # print(len(S))
-
     # at the end we get an array S with 10000 list of atoms
     # to be removed. Previous to the removal and to make the things faster
     # we remove duplicates (I guess that is not duplicates in the list)

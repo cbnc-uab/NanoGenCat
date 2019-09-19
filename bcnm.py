@@ -143,6 +143,7 @@ def main():
 
     min_size = data['nanoparticleSize'] - data['sizeRange']
     max_size = data['nanoparticleSize'] + data['sizeRange']
+    # size=data['nanoparticleSize']
     # print(min_size,max_size)
 
     ## Initial screening of shifts
@@ -153,33 +154,16 @@ def main():
     evaluation=[]
     for size in np.arange(min_size, max_size, data['step']):
         # if size >8:
-        for shift in shifts:
-            temp=[size,shift]
-            #Translate the basis to the new positions center related
-            # print('basis',data['basis'])
-            newBasis=[]
-            for base in data['basis']:
-                newBase=base+np.asarray(shift)
-                newBasis.append(newBase.tolist())
 
-            print('newBasis',newBasis)
-            ## Making the crystalObject
-            # print('chemicalSpecies',data['chemicalSpecies'])
-            crystalObject = crystal(data['chemicalSpecies'], newBasis, spacegroup=data['spaceGroupNumber'], cellpar=data['cellDimension'],primitive_cell=False)
-            # write('crystalShape.xyz',crystalObject,format='xyz')
-            ##feeding the initial charges 
-            for atom in crystalObject:
-                for n,element in enumerate(data['chemicalSpecies']):
-                    if atom.symbol==element:
-                        atom.charge=data['charges'][n]
-            # view(crystalObject)
-            # exit(1)
-            # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-            temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = [0.,0.,0.], rounding='above',debug=data['debug'],np0=True,wl_method=data['wulff-like-method'])]
-            print(size,shift,temp2[0])
-            # print(temp2)
-            temp.extend(temp2)
-            evaluation.append(temp)
+	    for shift in shifts:
+	        temp=[size,shift]
+	        # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
+	        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=data['debug'],np0=True,wl_method=data['wulff-like-method'])]
+	        print(size,shift,temp2[0])
+	        # print(temp2)
+	        temp.extend(temp2)
+	        evaluation.append(temp)
+
             # print(temp)
             # break
             # print('Done')
