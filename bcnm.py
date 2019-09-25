@@ -159,7 +159,6 @@ def main():
         for shift in shiftsCenters:
             shifts.append(list(shift))
         shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
-        
     else:
         print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
         exit(1)
@@ -199,7 +198,7 @@ def main():
     #Discard the models that have false inside
     # print(evaluation)
     print('\nNumber of evaluated NP0s: ',len(evaluation))
-    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
+    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index,centrosymetric')
     print('Results:')
     print(*evaluation, sep='\n')
     print('testing Zone')

@@ -16,6 +16,7 @@ import scipy.constants as constants
 from itertools import combinations
 from math import sqrt
 
+from ase import Atoms
 from ase.atoms import symbols2numbers
 from ase.neighborlist import NeighborList
 from ase.utils import basestring
@@ -26,6 +27,9 @@ from ase.data import chemical_symbols
 from ase.spacegroup import Spacegroup
 
 from pymatgen.analysis.wulff import WulffShape
+from pymatgen.symmetry.analyzer import PointGroupAnalyzer
+from pymatgen.io.ase import AseAtomsAdaptor
+from pymatgen.core.structure import IMolecule
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -149,64 +153,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         distances = scale_f*size
         # print('distances from bcn_wulff_construction',distances)
         layers = np.array([distances/dArray])
-
-        if debug>0:
-            print('layers\n',layers)
-            print('size\n',size)
-            print('surfaces\n',surfaces)
-
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                            structure, center, latticeconstant)
-        #### Evaluate coordination 
-        minCoord=check_min_coord(atoms_midpoint)
-        ###Save midpoint
-        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-
-        ###Calculate the WL index
-
-        if wl_method=='surfaceBased':
-            areasIndex=areaCalculation(atoms_midpoint,norms)
-            plane_area=planeArea(symbol,areasIndex,surfaces)
-            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-            # np0Properties.extend(plane_area[0])
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(plane_area[0])
-                np0Properties.extend(wulff_like)
-                return np0Properties
-            else:
-
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
-
-            if debug>0:
-                print('--------------')
-                print(atoms_midpoint.get_chemical_formula())
-                print('areasIndex',areasIndex)
-                print('plane_area',plane_area[0])
-                print('--------------')
-        #################################
-        elif wl_method=='distancesBased':
-            wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
-            np0Properties.extend(wulff_like)
-            # plane_area=planeArea(symbol,areasIndex,surfaces)
-            if debug>0:
-                print('areasIndex',areasIndex)
-                print('--------------')
-        
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(1)
-                np0Properties.extend(wulff_like)
-
-                return np0Properties
-
-            else:
-
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
-
     else:
 
         small = np.array(energies)/((max(energies)*2.))
@@ -214,104 +160,109 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         midpoint = (large+small)/2.
         distances = midpoint*size
         layers= distances/dArray
+    if debug>0:
+        print('layers\n',layers)
+        print('size\n',size)
+        print('surfaces\n',surfaces)
+    
+    atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+                        structure, center, latticeconstant)
+    #### Evaluate coordination 
+    minCoord=check_min_coord(atoms_midpoint)
+    ###Save midpoint
+    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
+    # Check symmetry
+    pymatgenMolecule=IMolecule(species=atoms_midpoint.get_chemical_symbols(),coords=atoms_midpoint.get_positions())
+    pga=PointGroupAnalyzer(pymatgenMolecule)
+    centrosym=pga.is_valid_op(pga.inversion_op)
+    # #Check the minimum coordination on metallic centers
+    minCoord=check_min_coord(atoms_midpoint)
+
+    # Calculate the Wulff-like index
+    if wl_method=='surfaceBased':
+        areasIndex=areaCalculation(atoms_midpoint,norms)
+        plane_area=planeArea(symbol,areasIndex,surfaces)
+        wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+    
+        # np0Properties.extend(plane_area[0])
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
+            np0Properties.append(plane_area[0])
+            np0Properties.extend(wulff_like)
+            np0Properties.extend(centrosym)
+            return np0Properties
+        else:
+
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+            
         if debug>0:
-            print('layers\n',layers)
-            print('size\n',size)
-            print('surfaces\n',surfaces)
-        ####Exit just for testing, don't  forget to remove it
-        # exit(0)
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                    structure, center, latticeconstant)
-        #Save the NP0
-        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-
-        #Check the minimum coordination on metallic centers
-        minCoord=check_min_coord(atoms_midpoint)
-
-        # Calculate the Wulff-like index
-        if wl_method=='surfaceBased':
-            areasIndex=areaCalculation(atoms_midpoint,norms)
-            plane_area=planeArea(symbol,areasIndex,surfaces)
-            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-            # np0Properties.extend(plane_area[0])
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(plane_area[0])
-                np0Properties.extend(wulff_like)
-                return np0Properties
-            else:
-
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
-
-                
-                
-            if debug>0:
-                print('--------------')
-                print(atoms_midpoint.get_chemical_formula())
-                print('areasIndex',areasIndex)
-                print('plane_area',plane_area[0])
-                print('--------------')
-        #################################
-        elif wl_method=='distancesBased':
-            wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
+            print('--------------')
+            print(atoms_midpoint.get_chemical_formula())
+            print('areasIndex',areasIndex)
+            print('plane_area',plane_area[0])
+            print('--------------')
+    #################################
+    elif wl_method=='distancesBased':
+        wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
+        np0Properties.extend(wulff_like)
+        # plane_area=planeArea(symbol,areasIndex,surfaces)
+        if debug>0:
+            print('areasIndex',areasIndex)
+            print('--------------')
+    
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
+            np0Properties.append(0)
             np0Properties.extend(wulff_like)
-            # plane_area=planeArea(symbol,areasIndex,surfaces)
-            if debug>0:
-                print('areasIndex',areasIndex)
-                print('--------------')
-        
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(0)
-                np0Properties.extend(wulff_like)
 
-                return np0Properties
-        ######################################################################
-        ######################################################################
-        elif wl_method=='wulfflikeLayerBased':
-            wulff_like=wulfflikeLayerBased(symbol,surfaces,layers,dArray,ideal_wulff_fractions)
+            return np0Properties
+    ######################################################################
+    ######################################################################
+    elif wl_method=='wulfflikeLayerBased':
+        wulff_like=wulfflikeLayerBased(symbol,surfaces,layers,dArray,ideal_wulff_fractions)
+        np0Properties.extend(wulff_like)
+        # plane_area=planeArea(symbol,areasIndex,surfaces)
+        if debug>0:
+            print('areasIndex',areasIndex)
+            print('--------------')
+    
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
             np0Properties.extend(wulff_like)
-            # plane_area=planeArea(symbol,areasIndex,surfaces)
-            if debug>0:
-                print('areasIndex',areasIndex)
-                print('--------------')
-        
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.extend(wulff_like)
 
-        ######################################################################
-        ######################################################################
-        elif wl_method=='hybridMethod':
-            wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
+    ######################################################################
+    ######################################################################
+    elif wl_method=='hybridMethod':
+        wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
+        np0Properties.extend(wulff_like)
+        # exit(1)
+        # plane_area=planeArea(symbol,areasIndex,surfaces)
+        if debug>0:
+            print('areasIndex',areasIndex)
+            print('--------------')
+    
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
             np0Properties.extend(wulff_like)
-            # exit(1)
-            # plane_area=planeArea(symbol,areasIndex,surfaces)
-            if debug>0:
-                print('areasIndex',areasIndex)
-                print('--------------')
-        
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.extend(wulff_like)
-                return np0Properties
+            np0Properties.append(centrosym)
+            return np0Properties
 
-            else:
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+        else:
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
 
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     # print("here")
     layers = np.round(layers).astype(int)
     # print("1layers",layers)
-    atoms = structure(symbol, surfaces, layers, distances, center= center,                   
+    cluster = structure(symbol, surfaces, layers, distances, center= center,                   
                       latticeconstant=latticeconstant,debug=1)
-
+    atoms=Atoms(symbols=cluster.symbols,positions=cluster.positions,cell=cluster.cell)
     return (atoms)
 
 def coordination(atoms,debug,size,n_neighbour):
