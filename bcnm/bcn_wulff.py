@@ -227,7 +227,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
-        #Check the minimum coordination
+        #Check the minimum coordination on metallic centers
         minCoord=check_min_coord(atoms_midpoint)
 
         # Calculate the Wulff-like index
@@ -526,7 +526,7 @@ def coordination(atoms,debug,size,n_neighbour):
                 Identify the equal models with sprint coordinates
                 """
                 # print (os.listdir('.'))
-                singulizator(glob.glob('*.xyz'))
+                singulizator(glob.glob('*.xyz'),debug)
 
 
         dev_p = float("{:.7f}".format(round(float(dev_s*100),7)))
@@ -752,10 +752,16 @@ def check_min_coord(atoms):
     #the half of maximium coordination
     minCoord=np.min(metalsCoordinations)
     # print('minCoord',minCoord)
-    if minCoord>=maxCoord/2:
-        coordTest=True
-    else:
-        coordTest=False
+    if maxCoord<=2:
+        if minCoord>=maxCoord-1:
+            coordTest=True
+        else:
+            coordTest=False
+    else: 
+        if minCoord>=maxCoord-2:
+            coordTest=True
+        else:
+            coordTest=False
 
     # coordTest=all(i >= maxCoord/2 for i in metalsCoordinations)
     # if coordTest==False:
@@ -1980,20 +1986,21 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
     return(S)
 
 def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
-    #Function that creates the wulff polyhedron from distances
-    #instead of surface energies, based on the proportionality
-    #relationship between distances and surface energies.
-    #and compares with the ideal wulff fractions, computed by using the
-    #initial surface energies
-    # #Args:
-    #     symbol(Atoms): Atoms type 
+    '''
+    Function that creates the wulff polyhedron from distances
+    instead of surface energies, based on the proportionality
+    relationship between distances and surface energies.
+    and compares with the ideal wulff fractions, computed by using the
+    initial surface energies
+    Args:
+         symbol(Atoms): Atoms type 
 
-    #     surfaces([srt]):List of surface indexes
-    #     layers([float]): List of number of layers
-    #     distances([float]): List of interplanar distances
-    # Return:
-    #   Percentages([float]): Area percentages contribution
-
+        surfaces([srt]):List of surface indexesk
+        layers([float]): List of number of layers
+        distances([float]): List of interplanar distances
+    Return:
+      Percentages([float]): Area percentages contribution
+    '''
     # Round the layers
 
     layersRound = [np.round(l).astype(int) for l in layers]
@@ -2047,7 +2054,6 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     
     # exit(1)
     # return wulffLike(symbol,ideal_wulff_fractions,realAreas)
-
 
 def hybridMethod(symbol,atoms,surfaces,layers,distances,interplanarDistances,ideal_wulff_fractions):
     """

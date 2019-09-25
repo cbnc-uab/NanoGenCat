@@ -124,27 +124,45 @@ def main():
         shifts = []
         for i in range(nShift[0]):
             for j in range(nShift[1]):
-                for C in range(nShift[2]):
-                    shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)])
+                for k in range(nShift[2]):
+                    shifts.append([float((1/nShift[0])*i),
+                    float((1/nShift[1])*j),
+                    float((1/nShift[2])*k)])
 
     elif data ['centering'] == 'automatic':
         shifts = []
         #Coordinate origin
         shifts.append([0.,0.,0.])
-        # Atom center
-        for coordinate in data['basis']:
-            shifts.append(coordinate)
+
+        # Only the less abundant atom
+        listOfChemicalSymbols=crystalObject.get_chemical_symbols()
+        elements=list(set(listOfChemicalSymbols))
+
+        counts=[]
+        for element in elements:
+            counts.append(listOfChemicalSymbols.count(element))
+
+        # Get the ratios
+        gcd=np.gcd.reduce(counts)
+
+        crystalStoichiometry=counts/gcd
+        lessAbundant=elements[np.argmin(crystalStoichiometry)]
+
+        for element,coordinate in zip(data['chemicalSpecies'],data['basis']):
+            if element ==lessAbundant:
+                if coordinate not in shifts:
+                    shifts.append(coordinate)
+        
         #Xavi proposed positions
         shiftsCenters=specialCenterings(data['spaceGroupNumber'])
-        # print (shiftsCenters)
+        
         for shift in shiftsCenters:
             shifts.append(list(shift))
         shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
-
+        
     else:
         print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
         exit(1)
-
 
     # print(data['nanoparticleSize'],data['sizeRange'])
 
@@ -164,7 +182,10 @@ def main():
 	    for shift in shifts:
 	        temp=[size,shift]
 	        # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-	        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=data['debug'],np0=True,wl_method=data['wulff-like-method'])]
+	        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
+            data['surfaceEnergy'],float(size),'ext',center = shift,
+            rounding='above',debug=data['debug'],np0=True,
+            wl_method=data['wulff-like-method'])]
 	        print(size,shift,temp2[0])
 	        # print(temp2)
 	        temp.extend(temp2)
