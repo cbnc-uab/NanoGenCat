@@ -57,6 +57,8 @@ def main():
         data['wulff-like-method'] = 'surfaceBased'
     if not 'sampleSize' in data:
     	data['sampleSize']=1000
+    if not 'reducedModel' in data:
+        data['reducedModel']=False
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -152,13 +154,17 @@ def main():
             if element ==lessAbundant:
                 if coordinate not in shifts:
                     shifts.append(coordinate)
-        
+        # all atom center
+        for basis in data['basis']:
+            shifts.append(basis)
+
         #Xavi proposed positions
         shiftsCenters=specialCenterings(data['spaceGroupNumber'])
         
         for shift in shiftsCenters:
             shifts.append(list(shift))
-        shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
+        # Center of mass
+        # shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
     else:
         print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
         exit(1)
@@ -240,6 +246,18 @@ def main():
 
     if data['onlyNp0']==True:
         exit(0)
+    if data['reducedModel']==True:
+        print('\nGenerating reduced nanoparticles\n')
+        for i in finalSorted:
+            # print(i)
+            print('\n NP0: ',i,"\n")
+            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
+            	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
+            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],totalReduced=True)
+        finalTime=time.time()
+        print("Total execution time:",round(finalTime-startTime),"s")
+        exit(0)
+
     else:
         ##Construction of stoichiometric nanoparticles
         print('\nGenerating stoichiometric nanoparticles\n')
