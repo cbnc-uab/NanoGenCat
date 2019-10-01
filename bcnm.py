@@ -57,6 +57,10 @@ def main():
         data['wulff-like-method'] = 'surfaceBased'
     if not 'sampleSize' in data:
     	data['sampleSize']=1000
+    if not 'reducedModel' in data:
+        data['reducedModel']=False
+    if not 'reductionLimit' in data:
+        data['reductionLimit']=None
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -124,27 +128,48 @@ def main():
         shifts = []
         for i in range(nShift[0]):
             for j in range(nShift[1]):
-                for C in range(nShift[2]):
-                    shifts.append([float((1/nShift[0])*i),float((1/nShift[1])*j),float((1/nShift[2])*k)])
+                for k in range(nShift[2]):
+                    shifts.append([float((1/nShift[0])*i),
+                    float((1/nShift[1])*j),
+                    float((1/nShift[2])*k)])
 
     elif data ['centering'] == 'automatic':
         shifts = []
         #Coordinate origin
         shifts.append([0.,0.,0.])
-        # Atom center
-        for coordinate in data['basis']:
-            shifts.append(coordinate)
+
+        # Only the less abundant atom
+        listOfChemicalSymbols=crystalObject.get_chemical_symbols()
+        elements=list(set(listOfChemicalSymbols))
+
+        counts=[]
+        for element in elements:
+            counts.append(listOfChemicalSymbols.count(element))
+
+        # Get the ratios
+        gcd=np.gcd.reduce(counts)
+
+        crystalStoichiometry=counts/gcd
+        lessAbundant=elements[np.argmin(crystalStoichiometry)]
+
+        for element,coordinate in zip(data['chemicalSpecies'],data['basis']):
+            if element ==lessAbundant:
+                if coordinate not in shifts:
+                    shifts.append(coordinate)
+        # all atom center
+        for basis in data['basis']:
+            shifts.append(basis)
+
         #Xavi proposed positions
         shiftsCenters=specialCenterings(data['spaceGroupNumber'])
-        # print (shiftsCenters)
+        
         for shift in shiftsCenters:
             shifts.append(list(shift))
-        shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
-
+        # Center of mass
+        # shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
     else:
         print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
         exit(1)
-
 
     # print(data['nanoparticleSize'],data['sizeRange'])
 
@@ -164,7 +189,10 @@ def main():
 	    for shift in shifts:
 	        temp=[size,shift]
 	        # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-	        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=data['debug'],np0=True,wl_method=data['wulff-like-method'])]
+	        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
+            data['surfaceEnergy'],float(size),'ext',center = shift,
+            rounding='above',debug=data['debug'],np0=True,
+            wl_method=data['wulff-like-method'])]
 	        print(size,shift,temp2[0])
 	        # print(temp2)
 	        temp.extend(temp2)
@@ -178,7 +206,7 @@ def main():
     #Discard the models that have false inside
     # print(evaluation)
     print('\nNumber of evaluated NP0s: ',len(evaluation))
-    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
+    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index,centrosymetric')
     print('Results:')
     print(*evaluation, sep='\n')
     print('testing Zone')
@@ -220,6 +248,18 @@ def main():
 
     if data['onlyNp0']==True:
         exit(0)
+    if data['reducedModel']==True:
+        print('\nGenerating reduced nanoparticles\n')
+        for i in finalSorted:
+            # print(i)
+            print('\n NP0: ',i,"\n")
+            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
+            	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
+            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],totalReduced=True)
+        finalTime=time.time()
+        print("Total execution time:",round(finalTime-startTime),"s")
+        exit(0)
+
     else:
         ##Construction of stoichiometric nanoparticles
         print('\nGenerating stoichiometric nanoparticles\n')
@@ -228,7 +268,7 @@ def main():
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'])
+            	sampleSize=data['sampleSize'],reductionLimit=data['reductionLimit'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)

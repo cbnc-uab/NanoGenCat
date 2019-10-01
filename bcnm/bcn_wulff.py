@@ -16,6 +16,7 @@ import scipy.constants as constants
 from itertools import combinations
 from math import sqrt
 
+from ase import Atoms
 from ase.atoms import symbols2numbers
 from ase.neighborlist import NeighborList
 from ase.utils import basestring
@@ -26,6 +27,9 @@ from ase.data import chemical_symbols
 from ase.spacegroup import Spacegroup
 
 from pymatgen.analysis.wulff import WulffShape
+from pymatgen.symmetry.analyzer import PointGroupAnalyzer
+from pymatgen.io.ase import AseAtomsAdaptor
+from pymatgen.core.structure import IMolecule
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -39,52 +43,53 @@ _debug = False
 
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
-    rounding='closest',latticeconstant=None, debug=0, maxiter=100,
-    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',sampleSize=1000):
-    """Create a cluster using the Wulff construction.
-    A cluster is created with approximately the number of atoms
-    specified, following the Wulff construction, i.e. minimizing the
-    surface energy of the cluster.
+    rounding='closest',latticeconstant=None, maxiter=100,
+    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',sampleSize=1000,
+    totalReduced=False,reductionLimit=None,debug=0):
+    """Function that build a Wulff-like nanoparticle.
+    That can be bulk-cut, stoichiometric and reduced
+    
+    Args:
+        symbol(Atom):Crystal structure
 
-    Parameters:
-    -----------
+        surfaces[lists]: A list of list surfaces index. 
 
-    symbol: atom object.
+        energies[float]: A list of surface energies for the surfaces.
 
-    surfaces: A list of surfaces. Each surface is an (h, k, l) tuple or
-    list of integers.
+        size(float): The desired aproximate size.
 
-    energies: A list of surface energies for the surfaces.
+        structure: The desired crystal structure.  Either one of the strings
+        "fcc", "bcc", "sc", "hcp", "graphite"; or one of the cluster factory
+        objects from the ase.cluster.XXX modules.
 
-    size: The desired aproximate size.
+        rounding (optional): Specifies what should be done if no Wulff
+        construction corresponds to exactly the requested size.
+        Should be a string, either "above", "below" or "closest" (the
+        default), meaning that the nearest cluster above or below - or the
+        closest one - is created instead.
 
-    structure: The desired crystal structure.  Either one of the strings
-    "fcc", "bcc", "sc", "hcp", "graphite"; or one of the cluster factory
-    objects from the ase.cluster.XXX modules.
+        latticeconstant (optional): The lattice constant.  If not given,
+        extracted from ase.data.
 
-    rounding (optional): Specifies what should be done if no Wulff
-    construction corresponds to exactly the requested size.
-    Should be a string, either "above", "below" or "closest" (the
-    default), meaning that the nearest cluster above or below - or the
-    closest one - is created instead.
+        debug (optional): If non-zero, information about the iteration towards
+        the right cluster size is printed.
 
-    latticeconstant (optional): The lattice constant.  If not given,
-    extracted from ase.data.
+        center[list]: The origin of coordinates
 
-    debug (optional): If non-zero, information about the iteration towards
-    the right cluster size is printed.
+        stoichiometryMethod: Method to transform Np0 in Np stoichometric 0 Bruno, 1 Danilo
 
-    center[list]: The origin of coordinates
+        np0(bool): Only gets the Np0, by means, the one that is build by plane replication
 
-    stoichiometryMethod: Method to transform Np0 in Np stoichometric 0 Bruno, 1 Danilo
+        wl_method(string): Method to calculate the plane contributuion. Two options are
+        available by now, surfaceBased and distanceBased being the first one the most
+        robust solution.
 
-    np0(bool): Only gets the Np0, by means, the one that is build by plane replication
+        sampleSize(float): Number of selected combinations
 
-    wl_method(string): Method to calculate the plane contributuion. Two options are
-    available by now, surfaceBased and distanceBased being the first one the most
-    robust solution.
+        totalReduced(bool): Removes all unbounded and singly coordinated atoms
 
-    sampleSize(float): Number of selected combinations
+        reductionLimit(int): fathers minimum coordination to remove dangling atoms
+
     """
     global _debug
     _debug = debug
@@ -149,138 +154,134 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         distances = scale_f*size
         # print('distances from bcn_wulff_construction',distances)
         layers = np.array([distances/dArray])
-
-        if debug>0:
-            print('layers\n',layers)
-            print('size\n',size)
-            print('surfaces\n',surfaces)
-
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                            structure, center, latticeconstant)
-        #### Evaluate coordination 
-        minCoord=check_min_coord(atoms_midpoint)
-        ###Save midpoint
-        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-
-        ###Calculate the WL index
-
-        if wl_method=='surfaceBased':
-            areasIndex=areaCalculation(atoms_midpoint,norms)
-            plane_area=planeArea(symbol,areasIndex,surfaces)
-            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-            # np0Properties.extend(plane_area[0])
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(plane_area[0])
-                np0Properties.extend(wulff_like)
-                return np0Properties
-            else:
-
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
-
-            if debug>0:
-                print('--------------')
-                print(atoms_midpoint.get_chemical_formula())
-                print('areasIndex',areasIndex)
-                print('plane_area',plane_area[0])
-                print('--------------')
-        #################################
-        elif wl_method=='distancesBased':
-            wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
-            np0Properties.extend(wulff_like)
-            # plane_area=planeArea(symbol,areasIndex,surfaces)
-            if debug>0:
-                print('areasIndex',areasIndex)
-                print('--------------')
-        
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(1)
-                np0Properties.extend(wulff_like)
-
-                return np0Properties
-
-            else:
-
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
-
     else:
-
         small = np.array(energies)/((max(energies)*2.))
         large = np.array(energies)/((min(energies)*2.))
         midpoint = (large+small)/2.
         distances = midpoint*size
         layers= distances/dArray
+    if debug>0:
+        print('layers\n',layers)
+        print('size\n',size)
+        print('surfaces\n',surfaces)
 
-        if debug>0:
-            print('layers\n',layers)
-            print('size\n',size)
-            print('surfaces\n',surfaces)
-        ####Exit just for testing, don't  forget to remove it
-        # exit(0)
-        atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                    structure, center, latticeconstant)
-        #Save the NP0
-        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
-        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+    # Construct the np0
+    atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+                        structure, center, latticeconstant)
+    # Remove uncordinated atoms
+    removeUnbounded(symbol,atoms_midpoint)
+    # Check the minimum coordination on metallic centers
+    minCoord=check_min_coord(symbol,atoms_midpoint)
+    # Save midpoint
+    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
+    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
 
-        #Check the minimum coordination
-        minCoord=check_min_coord(atoms_midpoint)
+    # Check symmetry
+    # pymatgenMolecule=IMolecule(species=atoms_midpoint.get_chemical_symbols(),coords=atoms_midpoint.get_positions())
+    # pga=PointGroupAnalyzer(pymatgenMolecule)
+    # centrosym=pga.is_valid_op(pga.inversion_op)
 
-        # Calculate the Wulff-like index
-        if wl_method=='surfaceBased':
-            areasIndex=areaCalculation(atoms_midpoint,norms)
-            plane_area=planeArea(symbol,areasIndex,surfaces)
-            wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
-            # np0Properties.extend(plane_area[0])
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(plane_area[0])
-                np0Properties.extend(wulff_like)
-                return np0Properties
-            else:
-
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
-
-                
-                
-            if debug>0:
-                print('--------------')
-                print(atoms_midpoint.get_chemical_formula())
-                print('areasIndex',areasIndex)
-                print('plane_area',plane_area[0])
-                print('--------------')
-        #################################
-        elif wl_method=='distancesBased':
-            wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
+    # Calculate the Wulff-like index
+    if wl_method=='surfaceBased':
+        areasIndex=areaCalculation(atoms_midpoint,norms)
+        plane_area=planeArea(symbol,areasIndex,surfaces)
+        wulff_like=wulffLike(symbol,ideal_wulff_fractions,plane_area[1])
+    
+        # np0Properties.extend(plane_area[0])
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
+            np0Properties.append(plane_area[0])
             np0Properties.extend(wulff_like)
-            # plane_area=planeArea(symbol,areasIndex,surfaces)
-            if debug>0:
-                print('areasIndex',areasIndex)
-                print('--------------')
-        
-            if np0==True:
-                np0Properties=[atoms_midpoint.get_chemical_formula()]
-                np0Properties.extend(minCoord)
-                np0Properties.append(0)
-                np0Properties.extend(wulff_like)
+            # np0Properties.extend(centrosym)
+            return np0Properties
+        else:
 
-                return np0Properties
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
+            
+        if debug>0:
+            print('--------------')
+            print(atoms_midpoint.get_chemical_formula())
+            print('areasIndex',areasIndex)
+            print('plane_area',plane_area[0])
+            print('--------------')
+    #################################
+    elif wl_method=='distancesBased':
+        wulff_like=wulffDistanceBased(symbol,atoms_midpoint,surfaces,distances)
+        np0Properties.extend(wulff_like)
+        # plane_area=planeArea(symbol,areasIndex,surfaces)
+        if debug>0:
+            print('areasIndex',areasIndex)
+            print('--------------')
+    
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
+            np0Properties.append(0)
+            np0Properties.extend(wulff_like)
 
-            else:
-                reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+            return np0Properties
+    ######################################################################
+    ######################################################################
+    elif wl_method=='wulfflikeLayerBased':
+        wulff_like=wulfflikeLayerBased(symbol,surfaces,layers,dArray,ideal_wulff_fractions)
+        np0Properties.extend(wulff_like)
+        # plane_area=planeArea(symbol,areasIndex,surfaces)
+        if debug>0:
+            print('areasIndex',areasIndex)
+            print('--------------')
+    
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
+            np0Properties.append(0)
+            np0Properties.extend(wulff_like)
 
+    ######################################################################
+    ######################################################################
+    elif wl_method=='hybridMethod':
+        wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
+        np0Properties.extend(wulff_like)
+        # exit(1)
+        # plane_area=planeArea(symbol,areasIndex,surfaces)
+        if debug>0:
+            print('areasIndex',areasIndex)
+            print('--------------')
+    
+        if np0==True:
+            np0Properties=[atoms_midpoint.get_chemical_formula()]
+            np0Properties.extend(minCoord)
+            np0Properties.extend(wulff_like)
+            # np0Properties.append(centrosym)
+            return np0Properties
+        elif totalReduced==True:
+            # print('holaaaa')
+            totalReduce(symbol,atoms_midpoint)
+        elif np0==False:
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
+            
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
+    """
+    Function that use the structure to get the nanoparticle.
+    All surface related arguments has the same order
+    Args:
+        symbol(Atoms): crystal structure
+        surfaces([list]): list of list of miller surface index
+        layers([float]): list of number of layers
+        distances([float]): list of distances to cut in each direction.
+        structure(ClusterFactory): Class that contains the functions
+        to build the nanoparticle
+        center([floats]): list of origins
+        latticeconstant: latticeconstant
+    Return:
+        atoms(Atoms): Nanoparticle cut
+    """
     # print("here")
     layers = np.round(layers).astype(int)
     # print("1layers",layers)
-    atoms = structure(symbol, surfaces, layers, distances, center= center,                   
+    cluster = structure(symbol, surfaces, layers, distances, center= center,                   
                       latticeconstant=latticeconstant,debug=1)
-
+    atoms=Atoms(symbols=cluster.symbols,positions=cluster.positions,cell=cluster.cell)
     return (atoms)
 
 def coordination(atoms,debug,size,n_neighbour):
@@ -495,7 +496,7 @@ def coordination(atoms,debug,size,n_neighbour):
                 Identify the equal models with sprint coordinates
                 """
                 # print (os.listdir('.'))
-                singulizator(glob.glob('*.xyz'))
+                singulizator(glob.glob('*.xyz'),debug)
 
 
         dev_p = float("{:.7f}".format(round(float(dev_s*100),7)))
@@ -675,32 +676,27 @@ def make_F(atoms,C,nearest_neighbour,debug):
         print("Total time to calculate combinations", round(time_F1-time_F0,5)," s")
     return K
 
-def check_min_coord(atoms):
-    """function that return information that allows to characterize the
+def check_min_coord(symbol,atoms):
+    """Function that return information that allows to characterize the
     NP0 like undercoordinated metals, the number of metals, non metals
     and also calculates the global coordination.
-    args: atoms
-    return: characterization([metals,nonmetals,undercoordinated,globalCoord])
+    Args:
+        symbol(Atoms): Crystal structure
+        atoms(Atoms): Nanoparticle
+    Return: 
+        characterization([metals,nonmetals,undercoordinated,globalCoord])
             list of information of np0.
 
     """
-    nearest_neighbour= []
-    indexes=[]
+    
     characterization=[]
 
-    for i in range(len(atoms.get_atomic_numbers())):
-        nearest_neighbour.append(np.min([x for x in atoms.get_all_distances()[i] if x>0]))
-
-    # print (nearest_neighbour)
-
-    C=make_C(atoms,nearest_neighbour)
-    atomIndex=[atom.index for atom in atoms]
-    for i in atomIndex:
-        indexes.append([i,C[i]])
-
+    C=coordinationv2(symbol,atoms)
+    indexes=[[c[0],len(c[1])] for c in C]
+    # print(indexes)
     ##Sum the coordination of all elements
     globalCoord=np.sum(indexes,axis=0)[1]
-
+    # print('globalCoord',globalCoord)
     # Get the metals
     metalAtom=[atom.index for atom in atoms if atom.symbol not in nonMetals]
     #Calculate the nonMetals as the diference between metals and total atoms
@@ -708,7 +704,7 @@ def check_min_coord(atoms):
 
     #Get the metals coordinations
     metalsCoordinations=[i[1] for i in indexes if i[0] in metalAtom]
-    # print(metalsCoordinations)/
+    # print(metalsCoordinations)
 
     maxCoord=np.amax(metalsCoordinations)
     # print('maxCoord:',maxCoord)
@@ -725,6 +721,17 @@ def check_min_coord(atoms):
         coordTest=True
     else:
         coordTest=False
+
+    # if maxCoord<=2:
+    #     if minCoord>=maxCoord-1:
+    #         coordTest=True
+    #     else:
+    #         coordTest=False
+    # else: 
+    #     if minCoord>=maxCoord-2:
+    #         coordTest=True
+    #     else:
+    #         coordTest=False
 
     # coordTest=all(i >= maxCoord/2 for i in metalsCoordinations)
     # if coordTest==False:
@@ -874,29 +881,23 @@ def compare(sprint0,sprint1):
         if len(diff)==0:
             return True
 
-def reduceNano(symbol,atoms,size,sampleSize,debug=0):
+def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
     """
     Function that make the nano stoichiometric
-    by removing dangling atoms. It is atom
-    type insensitive
+    by removing dangling atoms. It is element
+    insensitive
     Args:
-        Symbol(Atoms): Atoms object of bulk material
+        symbol(Atoms): Atoms object of bulk material
         atoms(Atoms): Atoms object of selected Np0
         size(float): size of nanoparticle
         sampleSize: number of replicas
+        reductionLimit(int): Lower dangling father coordination
         debug(int): for print stuff
 
     """
     print('Enter to reduceNano')
     time_F0 = time.time()
 
-
-    ### Calculate the C to remove the unbounded
-    C=coordinationv2(symbol,atoms)
-
-    for c in C:
-        if len(c[1])==0:
-            del atoms[c[0]]
 
     # Check the stoichiometry of NP0
     if check_stoich_v2(symbol,atoms,debug) is 'stop':
@@ -935,16 +936,15 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     # fatherFull: contains the combination of father and their coordination.
     
     singly=[i for i in range(len(atoms)) if len(C[i][1])==1]
-    singly_bak=copy.deepcopy(singly)
+    # print('singly test')
+    # for i in singly:
+    #     print(atoms[i].symbol)
 
     father=list(set([C[i][1][0] for i in singly]))
-    father_bak=copy.deepcopy(father)
 
     coordFather=[len(C[i][1]) for i in father]
-    coordFather_bak=copy.deepcopy(coordFather)
 
     fatherFull=[[i,coordFather[n]] for n,i in enumerate(father)]
-    fatherFull_bak=copy.deepcopy(fatherFull)
 
     # Add the excess attribute to atoms object
     # and checking if the dangling atoms belong
@@ -969,28 +969,53 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         print('coordFather:',coordFather)
         print('fatherFull:',fatherFull)
     # allowedCoordination must to be generalized
-    # the upper limit is half of maximum coordination -1
+    # the upper limit is maximum coordination -2
     # and the inferior limit is the maximum
     # coordination. i.e. for fluorite, the maximum coordination
-    # is 8, so using list(range(8,3,-1)) we obtain the list
+    # is 8, so using list(range(8,6,-1)) we obtain the list
     # [8, 7, 6, 5, 4] that is fully functional.
     
     maxCord=int(np.max(coordFather))
+    # if maxCord == 2:
+    #     mid=int(maxCord-2)
+    # else:
     # print ('maxCord',maxCord)
-    mid=int(0.5*maxCord-1)
+
+    # reductionLimit Evaluation
+    # Default value
+    if reductionLimit==None:
+        mid=int(maxCord/2)
+    else:
+        # User value
+        mid=int(reductionLimit-1)
+    # Control the value of reductionLimit
+        if mid > maxCord or mid<=0:
+            print('reduction limit must be lower than the maximum coordination,',
+            'positive, and larger than 0')
+            return None
+    # print('mid',mid)
+    # exit(1)
 
     allowedCoordination=list(range(maxCord,mid,-1))
+    print('allowedCoordination',allowedCoordination)
+    # exit(1)
     if debug>0:
         print('allowedCoordinations')
-    print('allowedCoordination',allowedCoordination)
-
+        print('excess:',atoms.excess)
+        print('sampleSize:',sampleSize)
+    # Discard models where can not remove singly coordinated
+    if np.min(coordFather) < np.min(allowedCoordination):
+        print('We can not remove dangling atoms with the available coordination limits')
+        # exit(1)
+        return None
     # To have a large amounth of conformation we generate
     # 1000 replicas for removing atoms. 
     # To make the selection random we use shuffle and 
     # choice. 
     # S=xaviSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination)
     S=daniloSingulizator(C,singly,father,fatherFull,atoms.excess,allowedCoordination,sampleSize)
-
+    if S==None: 
+        return None
     # Build the nanoparticles removing the s atom list. Then, calculate the DC
 
     atomsOnlyMetal=copy.deepcopy(atoms)
@@ -1559,7 +1584,7 @@ def check_stoich_v2(Symbol,atoms,singly=0,debug=0):
     #         print('NP0 does not have enough singly coordinated excess atoms to remove','\n',
     #             'to achive the stoichiometry for this model')
     #         return 'stop'
-
+   
 
         # print('atoms excess',atoms.excess)
     
@@ -1726,7 +1751,19 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
     idealAreasPerEquivalentSort=sorted(idealAreasPerEquivalent,key=lambda x:x[1],reverse=True)
     realAreasPerEquivalentSort=sorted(percentages,key=lambda x:x[1],reverse=True)
 
-
+    #Test the order
+    # print('heerreee')
+    # print('idealAreasPerEquivalentSort',idealAreasPerEquivalentSort)
+    # print('realAreasPerEquivalentSort',realAreasPerEquivalentSort)
+    # for real,ideal in zip(realAreasPerEquivalentSort,idealAreasPerEquivalentSort):
+    #     if str(real[0])==str(ideal[0]):
+    #         sameOrder=True
+    #     else: 
+    #         sameOrder=False
+    #     break
+    # 
+    # print(sameOrder)
+    # result.append(sameOrder)
     #Calculate the index
     wlindex=0
     for n,indexArea in enumerate(idealAreasPerEquivalent):
@@ -1862,9 +1899,7 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
         fatherFull=copy.deepcopy(fatherFull_bak)
         singly=copy.deepcopy(singly_bak)
         for i in allowedCoordination:
-            startShuffle=time.time()
             shuffle(fatherFull)
-            end=time.time()
             for n,j in enumerate(fatherFull):
                 # get the ones that have the allowed coordination
                 if fatherFull[n][1]==i:
@@ -1888,17 +1923,31 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
                             # print('singly',singly)
                             singly.remove(chosen)
                             fatherFull[n][1]=fatherFull[n][1]-1
+                            # print(fatherFull)
+                            if fatherFull[n][1] < min(allowedCoordination):
+                                break
                 # print(len(toRemove),'toRemove',toRemove)
+                # print('fatherFull',fatherFull)
             if len(toRemove)==excess:
                 break
         # print('len(toRemove)',len(toRemove))
         # print(len(toRemove))
-        S.append(sorted(toRemove))
+        # exit(1)
+        if len(toRemove)< excess:
+            print ('Is not possible to achieve coordination with the available coordinaation limits')
+            print('allowedCoordination:',allowedCoordination)
+            # exit(1)
+            S.append(None)
+            break
+        else:
+            S.append(sorted(toRemove))
         # print(len(S))
     # at the end we get an array S with 10000 list of atoms
     # to be removed. Previous to the removal and to make the things faster
     # we remove duplicates (I guess that is not duplicates in the list)
-
+    # print('Inside singu',S)
+    if None in S:
+        return None 
     nanoList=[]
 
     # Generate the list of pairs and select the repeated pairs
@@ -1928,6 +1977,149 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
     # print('ExecutionTime,finalSamples,excess',end-start,len(S),excess)
 
     return(S)
+
+def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
+    '''
+    Function that creates the wulff polyhedron from distances
+    instead of surface energies, based on the proportionality
+    relationship between distances and surface energies.
+    and compares with the ideal wulff fractions, computed by using the
+    initial surface energies
+    Args:
+         symbol(Atoms): Atoms type 
+
+        surfaces([srt]):List of surface indexesk
+        layers([float]): List of number of layers
+        distances([float]): List of interplanar distances
+    Return:
+      Percentages([float]): Area percentages contribution
+    '''
+    # Round the layers
+
+    layersRound = [np.round(l).astype(int) for l in layers]
+    # print('layers after rounding',layersRound)
+    lenghtPerPlane=[]
+    # Get the distances and use it to calculate the areas contribution per orientation
+    for layer,distanceValue in zip(layersRound,distances): 
+        lenghtPerPlane.append(distanceValue*(layer+0.5))
+    # print('lenghtPerPlane',lenghtPerPlane)
+    # get all the equivalent surface and the proper lenght 
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+    AllDistances=[]
+    AllSurfaces=[]
+    numberOfEquivalentFaces=[]
+    for s in surfaces:
+    #     # get the surfaces and save it on a list
+    #     equivalentSurfaces=[]
+        numberOfEquivalentFaces.append(len([eqSurf.tolist() for eqSurf in sg.equivalent_reflections(s)]))
+    #     AllSurfaces.extend([str(s) for s in equivalentSurfaces])
+    #     # Get the equivalent layers and save it on a list
+    #     equivalentDistances=[lenght for i in range(len(equivalentSurfaces))]
+
+    
+    #     AllDistances.extend(equivalentDistances)
+    # print('surfaces',len(AllSurfaces))
+    # print('distances',len(AllDistances))
+
+    realAreas=idealWulffFractions(symbol,surfaces,lenghtPerPlane)
+    # print(realAreas)
+    # print(ideal_wulff_fractions)
+
+    ## Sort the ideal and real 
+    sortedIdeal=sorted(ideal_wulff_fractions,key=lambda x:x[1],reverse=True)
+    sortedReal=sorted(realAreas,key=lambda x:x[1],reverse=True)
+
+    # print(sortedReal)
+    # print(sortedIdeal)
+    for real,ideal in zip(sortedIdeal,sortedReal):
+        if str(real[0])==str(ideal[0]):
+        # break
+            sameOrder=True
+        else: 
+            sameOrder=False
+        break
+    # print(sameOrder)
+    #Calculate the index
+    wlindex=0
+    for n,indexArea in enumerate(ideal_wulff_fractions):
+        wlindex+=abs((indexArea[1]-realAreas[n][1])/numberOfEquivalentFaces[n])
+
+    # print(wlindex)
+    return sameOrder,"%.4f"%wlindex
+    
+    # exit(1)
+    # return wulffLike(symbol,ideal_wulff_fractions,realAreas)
+
+def hybridMethod(symbol,atoms,surfaces,layers,distances,interplanarDistances,ideal_wulff_fractions):
+    """
+    Function that computes the wulff related quality parameters, equivalent planes
+    areas, same order and WLI using two methods, wulfflikeLayerBased and Distancesbased methods
+    """
+    results=[]
+
+    # Execute the Distancesbased method to get the equivalent grow
+    results.append(wulffDistanceBased(symbol,atoms,surfaces,distances)[0])
+    # Execute the layerbased to get the order and wulff-like index
+    results.extend(wulfflikeLayerBased(symbol,surfaces,layers,interplanarDistances,ideal_wulff_fractions)[:])
+
+    return results
+
+def totalReduce(symbol,atoms):
+    """
+    Function that removes all dangling atoms
+    no element sensible 
+    Args:
+
+
+        symbol(Atoms): Crystal structure
+        atoms(Atoms): Nanoparticle 0
+    """
+    print('running total reduce')
+    # Calculate C
+    C=coordinationv2(symbol,atoms)
+    toRemove=[]
+    for c in C:
+        if len(c[1])==0 or len(c[1].tolist())==1:
+            # print(c)
+            toRemove.append(c[0])
+    print(toRemove)
+    toRemove=sorted(toRemove,reverse=True)
+    del atoms[toRemove]
+    # print(toRemove)
+    # get the total charge
+    for iatom in atoms:
+        for jatom in symbol:
+            if iatom.symbol==jatom.symbol:
+                iatom.charge=jatom.charge
+    totalCharge=np.sum(atoms.get_initial_charges())
+    print('warning: ',atoms.get_chemical_formula(mode='hill'), 'has total charge', totalCharge)
+    # save the reduced Np
+    name=str(atoms.get_chemical_formula(mode='hill'))+str('.xyz')
+    write(name,atoms,format='xyz')
+    comment='Total charge:'+str(totalCharge)
+    command='sed -i \' 2s/.*/'+comment+'/\' '+name
+    subprocess.run(command,shell=True)
+
+def removeUnbounded(symbol,atoms):
+    """
+    Function that removes the unbounded atoms
+    Args:
+        symbol(Atoms): crystal structure
+        atoms(Atoms): Bulk-cut like nanoparticle
+    Return:
+        atoms(Atoms): nanoparticle without unbounded atoms
+    """
+    C=coordinationv2(symbol,atoms)
+    notBonded=[]
+    for c in C:
+        if len(c[1])==0:
+            notBonded.append(c[0])
+
+    notBonded=sorted(notBonded,reverse=True)
+    del atoms[notBonded]
+
+    # return(atoms)
+
 
 
 
