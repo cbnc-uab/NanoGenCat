@@ -45,12 +45,10 @@ _debug = False
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     rounding='closest',latticeconstant=None, maxiter=100,
     center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',sampleSize=1000,
-    totalReduced=False,debug=0):
-    """Create a cluster using the Wulff construction.
-    A cluster is created with approximately the number of atoms
-    specified, following the Wulff construction, i.e. minimizing the
-    surface energy of the cluster.
-
+    totalReduced=False,reductionLimit=None,debug=0):
+    """Function that build a Wulff-like nanoparticle.
+    That can be bulk-cut, stoichiometric and reduced
+    
     Args:
         symbol(Atom):Crystal structure
 
@@ -89,6 +87,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         sampleSize(float): Number of selected combinations
 
         totalReduced(bool): Removes all unbounded and singly coordinated atoms
+
+        reductionLimit(int): fathers minimum coordination to remove dangling atoms
 
     """
     global _debug
@@ -197,7 +197,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             return np0Properties
         else:
 
-            reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
             
         if debug>0:
             print('--------------')
@@ -258,7 +258,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
         elif np0==False:
-            reduceNano(symbol,atoms_midpoint,size,sampleSize,debug)
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
             
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
     """
@@ -717,7 +717,7 @@ def check_min_coord(symbol,atoms):
     #the half of maximium coordination
     minCoord=np.min(metalsCoordinations)
     # print('minCoord',minCoord)
-    if minCoord>maxCoord/2:
+    if minCoord>=maxCoord/2:
         coordTest=True
     else:
         coordTest=False
@@ -881,7 +881,7 @@ def compare(sprint0,sprint1):
         if len(diff)==0:
             return True
 
-def reduceNano(symbol,atoms,size,sampleSize,debug=0):
+def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
     """
     Function that make the nano stoichiometric
     by removing dangling atoms. It is element
@@ -891,6 +891,7 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
         atoms(Atoms): Atoms object of selected Np0
         size(float): size of nanoparticle
         sampleSize: number of replicas
+        reductionLimit(int): Lower dangling father coordination
         debug(int): for print stuff
 
     """
@@ -979,7 +980,19 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     #     mid=int(maxCord-2)
     # else:
     # print ('maxCord',maxCord)
-    mid=int(maxCord/2)
+
+    # reductionLimit Evaluation
+    # Default value
+    if reductionLimit==None:
+        mid=int(maxCord/2)
+    else:
+        # User value
+        mid=int(reductionLimit-1)
+    # Control the value of reductionLimit
+        if mid > maxCord or mid<=0:
+            print('reduction limit must be lower than the maximum coordination,',
+            'positive, and larger than 0')
+            return None
     # print('mid',mid)
     # exit(1)
 
@@ -993,7 +1006,6 @@ def reduceNano(symbol,atoms,size,sampleSize,debug=0):
     # Discard models where can not remove singly coordinated
     if np.min(coordFather) < np.min(allowedCoordination):
         print('We can not remove dangling atoms with the available coordination limits')
-        print('entre aqui en reduced')
         # exit(1)
         return None
     # To have a large amounth of conformation we generate
