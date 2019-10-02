@@ -242,6 +242,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     elif wl_method=='hybridMethod':
         wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
         np0Properties.extend(wulff_like)
+        print('------------------------------------------------------')
         # exit(1)
         # plane_area=planeArea(symbol,areasIndex,surfaces)
         if debug>0:
@@ -1661,7 +1662,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
     # if len(surfaces)>1:
     #     error = 'distanceBased method only available for one surface'
     #     raise NotImplementedError(error)
-
+    print('surfaces',surfaces)
     result=[]
     # Get the equivalent surfaces and give them the distance
     # Creating the spacegroup object
@@ -1684,9 +1685,11 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
     del outershell[[atom.index for atom in outershell if atom.index not in surfaceAtoms]]
 
     #Get the equivalent surfaces
-
     for s in surfaces:
         equivalentSurfaces=sg.equivalent_reflections(s)
+        # print('-------------------')
+        # print(s,equivalentSurfaces)
+        # print('-------------------')
         equivalentSurfacesStrings=[]
         for ss in equivalentSurfaces:
             equivalentSurfacesStrings.append(ss)
@@ -1694,51 +1697,57 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
         # Get the direction per each miller index
     #Project the position to the direction of the miller index
     # by calculating the dot produequivalentSurfacesStringsct
-
-    rs=[]
-    auxrs=[]
-
-    for i in equivalentSurfacesStrings:
-        rlist=[]
-        direction= np.dot(i,symbol.get_reciprocal_cell())
-        direction = direction / np.linalg.norm(direction)
-        for n,j in enumerate(outershell.get_positions()):
-            rlist.append(np.dot(j-centroid,direction))
-        auxrs.append(np.max(rlist))
-        rs.append([i,np.max(rlist)])
-    maxD=np.max(auxrs)
-    #Normalize each distance by the maximum
-    totalD=0.0
-    for i in rs:
-        # print(i[1]/maxD)
-        i[1]=i[1]/maxD
-        totalD+=i[1]
-    # #Calculate the area of each ones
-    percentages=[]
-    auxPercentage=[]
-    for i in rs:
-        areaPerPlane=hull.area*i[1]/totalD
-        percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
-        auxPercentage.append(np.round(areaPerPlane/hull.area,2))
-    ### evaluate if those are equal, limit to  0.1 of difference(10%)
-    minArea=np.min(auxPercentage)
-    maxArea=np.max(auxPercentage)
-    avArea=(minArea+maxArea)/2
-    symmetric=[]
-    for i in percentages:
-        if np.abs(i[1]-avArea)<0.1:
-            # print(i[1],avArea)
-            symmetric.append(0)
+        rs=[]
+        auxrs=[]
+        print('test distances based')
+        for i in equivalentSurfacesStrings:
+            rlist=[]
+            direction= np.dot(i,symbol.get_reciprocal_cell())
+            direction = direction / np.linalg.norm(direction)
+            for n,j in enumerate(outershell.get_positions()):
+                rlist.append(np.dot(j-centroid,direction))
+            # print('rlist',rlist)
+            # print('surface',i)
+            # print('position',outershell.get_positions()[np.argmax(rlist)])
+            print('...........................')
+            auxrs.append(np.max(rlist))
+            rs.append([i,np.max(rlist)])
+        maxD=np.max(auxrs)
+        #Normalize each distance by the maximum
+        totalD=0.0
+        for i in rs:
+            # print(i[1]/maxD)
+            i[1]=i[1]/maxD
+            totalD+=i[1]
+        # #Calculate the area of each ones
+        percentages=[]
+        auxPercentage=[]
+        for i in rs:
+            areaPerPlane=hull.area*i[1]/totalD
+            percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
+            auxPercentage.append(np.round(areaPerPlane/hull.area,2))
+        print('auxPercentage',len(auxPercentage))
+        ### evaluate if those are equal, limit to  0.1 of difference(10%)
+        minArea=np.min(auxPercentage)
+        maxArea=np.max(auxPercentage)
+        print('minArea,maxArea',minArea,maxArea)
+        avArea=(minArea+maxArea)/2
+        print(avArea)
+        symmetric=[]
+        for i in percentages:
+            if (np.abs(i[1]-maxArea)/maxArea)<0.1:
+                print('i',i)
+                symmetric.append(0)
+            else:
+                symmetric.append(1)
+        print(symmetric)
+        if 1 in symmetric:
+            result.append(False)
         else:
-            symmetric.append(1)
-    if 0 in symmetric:
-        result.append(True)
-    else:
-        result.append(False)
+            result.append(True)
     ####
     #Calculate the WLI
     ####
-
     #Ideal surface contribution percentage
     idealAreasPerEquivalent=[]
     if len(surfaces)==1:
@@ -1995,7 +2004,6 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
       Percentages([float]): Area percentages contribution
     '''
     # Round the layers
-
     layersRound = [np.round(l).astype(int) for l in layers]
     # print('layers after rounding',layersRound)
     lenghtPerPlane=[]
@@ -2018,9 +2026,9 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
 
     
     #     AllDistances.extend(equivalentDistances)
-    # print('surfaces',len(AllSurfaces))
-    # print('distances',len(AllDistances))
-
+    print('surfaces',surfaces)
+    print('distances',lenghtPerPlane)
+    
     realAreas=idealWulffFractions(symbol,surfaces,lenghtPerPlane)
     # print(realAreas)
     # print(ideal_wulff_fractions)
@@ -2029,11 +2037,13 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     sortedIdeal=sorted(ideal_wulff_fractions,key=lambda x:x[1],reverse=True)
     sortedReal=sorted(realAreas,key=lambda x:x[1],reverse=True)
 
-    # print(sortedReal)
-    # print(sortedIdeal)
+    print('real',sortedReal)
+    print('ideal',sortedIdeal)
     for real,ideal in zip(sortedIdeal,sortedReal):
         if str(real[0])==str(ideal[0]):
         # break
+            print('real,ideal')
+            print(real,ideal)
             sameOrder=True
         else: 
             sameOrder=False
@@ -2046,7 +2056,7 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
 
     # print(wlindex)
     return sameOrder,"%.4f"%wlindex
-    
+     
     # exit(1)
     # return wulffLike(symbol,ideal_wulff_fractions,realAreas)
 
