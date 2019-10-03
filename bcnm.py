@@ -186,18 +186,18 @@ def main():
     evaluation=[]
     for size in np.arange(min_size, max_size, data['step']):
         # if size >8:
-	    for shift in shifts:
-	        temp=[size,shift]
-	        # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
-	        temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
+        for shift in shifts:
+            temp=[size,shift]
+            # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
+            temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
             data['surfaceEnergy'],float(size),'ext',center = shift,
             rounding='above',debug=data['debug'],np0=True,
             wl_method=data['wulff-like-method'])]
-	        print(size,shift,temp2[0])
-	        # print(temp2)
-	        temp.extend(temp2)
-	        evaluation.append(temp)
-            # print(temp)
+            print(size,shift,temp2[0])
+            # print(temp2)
+            temp.extend(temp2)
+            evaluation.append(temp)
+                # print(temp)
             # break
             # print('Done')
         # else:
@@ -206,7 +206,7 @@ def main():
     #Discard the models that have false inside
     # print(evaluation)
     print('\nNumber of evaluated NP0s: ',len(evaluation))
-    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index,centrosymetric')
+    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
     print('Results:')
     print(*evaluation, sep='\n')
     print('testing Zone')
