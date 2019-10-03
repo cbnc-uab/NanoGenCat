@@ -242,7 +242,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     elif wl_method=='hybridMethod':
         wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
         np0Properties.extend(wulff_like)
-        print('------------------------------------------------------')
+        # print('------------------------------------------------------')
         # exit(1)
         # plane_area=planeArea(symbol,areasIndex,surfaces)
         if debug>0:
@@ -1662,7 +1662,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
     # if len(surfaces)>1:
     #     error = 'distanceBased method only available for one surface'
     #     raise NotImplementedError(error)
-    print('surfaces',surfaces)
+    # print('surfaces',surfaces)
     result=[]
     # Get the equivalent surfaces and give them the distance
     # Creating the spacegroup object
@@ -1699,7 +1699,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
     # by calculating the dot produequivalentSurfacesStringsct
         rs=[]
         auxrs=[]
-        print('test distances based')
+        # print('test distances based')
         for i in equivalentSurfacesStrings:
             rlist=[]
             direction= np.dot(i,symbol.get_reciprocal_cell())
@@ -1709,7 +1709,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             # print('rlist',rlist)
             # print('surface',i)
             # print('position',outershell.get_positions()[np.argmax(rlist)])
-            print('...........................')
+            # print('...........................')
             auxrs.append(np.max(rlist))
             rs.append([i,np.max(rlist)])
         maxD=np.max(auxrs)
@@ -1726,21 +1726,21 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             areaPerPlane=hull.area*i[1]/totalD
             percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
             auxPercentage.append(np.round(areaPerPlane/hull.area,2))
-        print('auxPercentage',len(auxPercentage))
+        # print('auxPercentage',len(auxPercentage))
         ### evaluate if those are equal, limit to  0.1 of difference(10%)
         minArea=np.min(auxPercentage)
         maxArea=np.max(auxPercentage)
-        print('minArea,maxArea',minArea,maxArea)
+        # print('minArea,maxArea',minArea,maxArea)
         avArea=(minArea+maxArea)/2
-        print(avArea)
+        # print(avArea)
         symmetric=[]
         for i in percentages:
             if (np.abs(i[1]-maxArea)/maxArea)<0.1:
-                print('i',i)
+                # print('i',i)
                 symmetric.append(0)
             else:
                 symmetric.append(1)
-        print(symmetric)
+        # print(symmetric)
         if 1 in symmetric:
             result.append(False)
         else:
@@ -2026,8 +2026,8 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
 
     
     #     AllDistances.extend(equivalentDistances)
-    print('surfaces',surfaces)
-    print('distances',lenghtPerPlane)
+    # print('surfaces',surfaces)
+    # print('distances',lenghtPerPlane)
     
     realAreas=idealWulffFractions(symbol,surfaces,lenghtPerPlane)
     # print(realAreas)
@@ -2037,13 +2037,13 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     sortedIdeal=sorted(ideal_wulff_fractions,key=lambda x:x[1],reverse=True)
     sortedReal=sorted(realAreas,key=lambda x:x[1],reverse=True)
 
-    print('real',sortedReal)
-    print('ideal',sortedIdeal)
+    # print('real',sortedReal)
+    # print('ideal',sortedIdeal)
     for real,ideal in zip(sortedIdeal,sortedReal):
         if str(real[0])==str(ideal[0]):
         # break
-            print('real,ideal')
-            print(real,ideal)
+            # print('real,ideal')
+            # print(real,ideal)
             sameOrder=True
         else: 
             sameOrder=False

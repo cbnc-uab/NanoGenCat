@@ -206,7 +206,7 @@ def main():
     #Discard the models that have false inside
     # print(evaluation)
     print('\nNumber of evaluated NP0s: ',len(evaluation))
-    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index,centrosymetric')
+    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
     print('Results:')
     print(*evaluation, sep='\n')
     print('testing Zone')
