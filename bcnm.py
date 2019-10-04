@@ -190,7 +190,6 @@ def main():
         # if size >8:
         for shift in shifts:
             temp=[size,shift]
-            # bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],float(size),'ext',center = shift, rounding='above',debug=0,np0=True)
             temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
             data['surfaceEnergy'],float(size),'ext',center = shift,
             rounding='above',debug=data['debug'],np0=True,

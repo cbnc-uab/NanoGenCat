@@ -25,6 +25,7 @@ from ase.visualize import view
 from ase.io import write,read
 from ase.data import chemical_symbols
 from ase.spacegroup import Spacegroup
+from ase.build import surface as slabBuild
 
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
@@ -155,7 +156,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         scale_f = np.array([0.5])
         distances = scale_f*size
         # print('distances from bcn_wulff_construction',distances)
-        layers = np.array([distances/dArray])
+        layers = np.array(distances/dArray)
     else:
         small = np.array(energies)/((max(energies)*2.))
         large = np.array(energies)/((min(energies)*2.))
@@ -251,7 +252,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         # if debug>0:
         #     print('areasIndex',areasIndex)
         #     print('--------------')
-        print('polar aqui',polar) 
+        # print('polar aqui',polar) 
         if np0==True:
             np0Properties=[atoms_midpoint.get_chemical_formula()]
             np0Properties.extend(minCoord)
@@ -262,7 +263,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
         elif polar==True:
-            print('enter in polar')
             distances=reduceDipole(symbol,surfaces,distances,dArray)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                 structure, center, latticeconstant)
@@ -1382,11 +1382,17 @@ def idealWulffFractions(atoms,surfaces,energies):
     """
    
     lattice=atoms.get_cell()
-    
     tupleMillerIndexes=[]
     for index in surfaces:
         tupleMillerIndexes.append(tuple(index))
-
+    # print(type(energies))
+    # print(len(energies))
+    # print(energies)
+    # print(energies[0])
+    
+    # if type(energies)==np.array:
+    #     print('holaaaaa')
+    # print('lattice,tupleMillerIndexes,energies',lattice,tupleMillerIndexes,energies)
     idealWulffShape = WulffShape(lattice,tupleMillerIndexes, energies)
     areas=idealWulffShape.area_fraction_dict
 
@@ -1423,21 +1429,21 @@ def coulombEnergy(symbol,atoms):
 
     return coulombLikeEnergy
 
-# def dipole(atoms):
-#     """
-#     Function that calculate the dipole moment
-#     E=sum(qi/ri))for np.
-#     Args:
-#         atoms(Atoms): Atoms object
-#     Return:
-#         dipole(float): dipole in atomic units
-#     """
-#     dipole=0
-#     for atom in atoms:
-#         dipoleTemp=np.sum(atom.charge*atom.position*1.88973/8.478353552e-30)
-#         dipole+=dipoleTemp
+def dipole_np(atoms):
+    """
+    Function that calculate the dipole moment
+    E=sum(qi/ri))for np.
+    Args:
+        atoms(Atoms): Atoms object
+    Return:
+        dipole(float): dipole in atomic units
+    """
+    dipole=0
+    for atom in atoms:
+        dipoleTemp=np.sum(atom.charge*atom.position*1.88973/8.478353552e-30)
+        dipole+=dipoleTemp
 
-#     return dipole
+    return dipole
 
 def specialCenterings(spaceGroupNumber):
     """
@@ -1720,8 +1726,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             direction = direction / np.linalg.norm(direction)
             for n,j in enumerate(outershell.get_positions()):
                 rlist.append(np.dot(j-centroid,direction))
-            # print('rlist',rlist)
-            # print('surface',i)
+            # print('surface,distance',i,np.max(rlist))
             # print('position',outershell.get_positions()[np.argmax(rlist)])
             # print('...........................')
             auxrs.append(np.max(rlist))
@@ -1738,8 +1743,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
         auxPercentage=[]
         for i in rs:
             areaPerPlane=hull.area*i[1]/totalD
-            percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
-            auxPercentage.append(np.round(areaPerPlane/hull.area,2))
+            percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,3)])
+            auxPercentage.append(np.round(areaPerPlane/hull.area,3))
         # print('auxPercentage',len(auxPercentage))
         ### evaluate if those are equal, limit to  0.1 of difference(10%)
         minArea=np.min(auxPercentage)
@@ -1749,8 +1754,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
         # print(avArea)
         symmetric=[]
         for i in percentages:
-            if (np.abs(i[1]-maxArea)/maxArea)<0.1:
-                # print('i',i)
+            # if(np.abs(i[1]-avArea))<0.001:
+            if (np.abs(i[1]-maxArea)/maxArea)<0.005:
                 symmetric.append(0)
             else:
                 symmetric.append(1)
@@ -1759,7 +1764,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             result.append(False)
         else:
             result.append(True)
-    ####
+        # print(result)
+    ##
     #Calculate the WLI
     ####
     #Ideal surface contribution percentage
@@ -2019,10 +2025,14 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     '''
     # Round the layers
     layersRound = [np.round(l).astype(int) for l in layers]
+
     # print('layers after rounding',layersRound)
     lenghtPerPlane=[]
     # Get the distances and use it to calculate the areas contribution per orientation
-    for layer,distanceValue in zip(layersRound,distances): 
+
+    for layer,distanceValue in zip(layersRound,distances):
+        # print(distanceValue*(layer[0]+0.5))
+        # print(layer) 
         lenghtPerPlane.append(distanceValue*(layer+0.5))
     # print('lenghtPerPlane',lenghtPerPlane)
     # get all the equivalent surface and the proper lenght 
@@ -2143,9 +2153,6 @@ def removeUnbounded(symbol,atoms):
     del atoms[notBonded]
 
     # return(atoms)
-
-
-
 
 def dipole(slab):
     """
