@@ -25,6 +25,7 @@ from ase.visualize import view
 from ase.io import write,read
 from ase.data import chemical_symbols
 from ase.spacegroup import Spacegroup
+from ase.build import surface as slabBuild
 
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
@@ -251,7 +252,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         # if debug>0:
         #     print('areasIndex',areasIndex)
         #     print('--------------')
-        print('polar aqui',polar) 
+        # print('polar aqui',polar) 
         if np0==True:
             np0Properties=[atoms_midpoint.get_chemical_formula()]
             np0Properties.extend(minCoord)
@@ -262,7 +263,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
         elif polar==True:
-            print('enter in polar')
             distances=reduceDipole(symbol,surfaces,distances,dArray)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                 structure, center, latticeconstant)
@@ -1382,11 +1382,17 @@ def idealWulffFractions(atoms,surfaces,energies):
     """
    
     lattice=atoms.get_cell()
-    
     tupleMillerIndexes=[]
     for index in surfaces:
         tupleMillerIndexes.append(tuple(index))
-
+    # print(type(energies))
+    # print(len(energies))
+    # print(energies)
+    # print(energies[0])
+    
+    # if type(energies)==np.array:
+    #     print('holaaaaa')
+    # print('lattice,tupleMillerIndexes,energies',lattice,tupleMillerIndexes,energies)
     idealWulffShape = WulffShape(lattice,tupleMillerIndexes, energies)
     areas=idealWulffShape.area_fraction_dict
 
@@ -2022,8 +2028,10 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     # print('layers after rounding',layersRound)
     lenghtPerPlane=[]
     # Get the distances and use it to calculate the areas contribution per orientation
-    for layer,distanceValue in zip(layersRound,distances): 
-        lenghtPerPlane.append(distanceValue*(layer+0.5))
+    for layer,distanceValue in zip(layersRound,distances):
+        # print(distanceValue*(layer[0]+0.5))
+        # print(layer) 
+        lenghtPerPlane.append(distanceValue*(layer[0]+0.5))
     # print('lenghtPerPlane',lenghtPerPlane)
     # get all the equivalent surface and the proper lenght 
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
