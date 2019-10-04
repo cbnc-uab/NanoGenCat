@@ -44,8 +44,8 @@ _debug = False
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     rounding='closest',latticeconstant=None, maxiter=100,
-    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',sampleSize=1000,
-    totalReduced=False,reductionLimit=None,debug=0):
+    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',
+    sampleSize=1000,totalReduced=False,reductionLimit=None,polar=False,debug=0):
     """Function that build a Wulff-like nanoparticle.
     That can be bulk-cut, stoichiometric and reduced
     
@@ -74,7 +74,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         debug (optional): If non-zero, information about the iteration towards
         the right cluster size is printed.
 
-        center[list]: The origin of coordinates
+        center([list]): The origin of coordinates
 
         stoichiometryMethod: Method to transform Np0 in Np stoichometric 0 Bruno, 1 Danilo
 
@@ -89,6 +89,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         totalReduced(bool): Removes all unbounded and singly coordinated atoms
 
         reductionLimit(int): fathers minimum coordination to remove dangling atoms
+
+        polar(bool): Reduce polarity of the Np0
 
     """
     global _debug
@@ -161,8 +163,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         distances = midpoint*size
         layers= distances/dArray
     if debug>0:
+        print('interplanarDistances\n',dArray)
         print('layers\n',layers)
-        print('size\n',size)
+        print('distances\n',distances)
         print('surfaces\n',surfaces)
 
     # Construct the np0
@@ -245,10 +248,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         # print('------------------------------------------------------')
         # exit(1)
         # plane_area=planeArea(symbol,areasIndex,surfaces)
-        if debug>0:
-            print('areasIndex',areasIndex)
-            print('--------------')
-    
+        # if debug>0:
+        #     print('areasIndex',areasIndex)
+        #     print('--------------')
+        print('polar aqui',polar) 
         if np0==True:
             np0Properties=[atoms_midpoint.get_chemical_formula()]
             np0Properties.extend(minCoord)
@@ -258,7 +261,18 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif totalReduced==True:
             # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
-        elif np0==False:
+        elif polar==True:
+            print('enter in polar')
+            distances=reduceDipole(symbol,surfaces,distances,dArray)
+            atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
+                                structure, center, latticeconstant)
+            # Remove uncordinated atoms
+            removeUnbounded(symbol,atoms_midpoint)
+            # Save Nano
+            name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_polar.xyz"
+            write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+
+        else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
             
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
@@ -1409,21 +1423,21 @@ def coulombEnergy(symbol,atoms):
 
     return coulombLikeEnergy
 
-def dipole(atoms):
-    """
-    Function that calculate the dipole moment
-    E=sum(qi/ri))for np.
-    Args:
-        atoms(Atoms): Atoms object
-    Return:
-        dipole(float): dipole in atomic units
-    """
-    dipole=0
-    for atom in atoms:
-        dipoleTemp=np.sum(atom.charge*atom.position*1.88973/8.478353552e-30)
-        dipole+=dipoleTemp
+# def dipole(atoms):
+#     """
+#     Function that calculate the dipole moment
+#     E=sum(qi/ri))for np.
+#     Args:
+#         atoms(Atoms): Atoms object
+#     Return:
+#         dipole(float): dipole in atomic units
+#     """
+#     dipole=0
+#     for atom in atoms:
+#         dipoleTemp=np.sum(atom.charge*atom.position*1.88973/8.478353552e-30)
+#         dipole+=dipoleTemp
 
-    return dipole
+#     return dipole
 
 def specialCenterings(spaceGroupNumber):
     """
@@ -1695,8 +1709,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             equivalentSurfacesStrings.append(ss)
         # break
         # Get the direction per each miller index
-    #Project the position to the direction of the miller index
-    # by calculating the dot produequivalentSurfacesStringsct
+        #Project the position to the direction of the miller index
+        # by calculating the dot produequivalentSurfacesStringsct
         rs=[]
         auxrs=[]
         # print('test distances based')
@@ -2133,7 +2147,75 @@ def removeUnbounded(symbol,atoms):
 
 
 
+def dipole(slab):
+    """
+    Function that calculates the dipole moment
+    of a slab model per area unit.
+    If that value are larger than threshold, the slab is
+    polar
+    Args:
+        slab(Atoms): slab
+    Return:
+        bool: normalized dipole per area unit
+    """
+    dipole=np.zeros(3)
+    # Get the midpoint
+    midPoint=np.sum(slab.get_positions(),axis=0)/len(slab.get_atomic_numbers())
+    for atom in slab:
+        dipole+=atom.charge*(atom.position - midPoint)
+    area=np.linalg.norm(np.cross(slab.get_cell()[0],slab.get_cell()[1]))
+    # print(area)
+    dipolePerArea=dipole/area
+    return np.linalg.norm(dipolePerArea)
 
+def reduceDipole(symbol,surfaces,distances,interplanarDistances):
+    """
+    Function that increase the cut-offdistance to get less 
+    polar nanoparticles. The surfaces,distances and
+    interPlanarDistances MUST have the same order
+    Args:
+        symbol(Atoms): crystal structure
+        surfaces([list]): surface miller indexes
+        distances([float]): cut-off distances
+        interplanarDistances([float]): interplanar distances
+    return:
+        finalDistances([float]): Distances that reduce the 
+        dipole.
+
+    """
+    #Rounded number of layers
+    roundedNumberOfLayers=np.floor(np.asarray(distances)/np.asarray(interplanarDistances))
+    # build slabs for each orientation and get the dipole
+    finalDistances=[]
+    for s,l,d,ild in zip(surfaces,roundedNumberOfLayers,distances,interplanarDistances):
+        l=int(l)
+        slab=slabBuild(symbol,tuple(s),l)
+        # remove those beyond the limit
+        beyondLimit=sorted([atom.index for atom in slab if atom.position[2]>d],reverse=True)
+        del slab[beyondLimit]
+        initialDipole=dipole(slab)
+        DistancesAndDipole=[]
+        DistancesAndDipole.append([d,initialDipole])
+        # Initialize the cycle, making increments and keeping the smallest one
+        cycle=0
+        slabModels=[]
+        slabModels.append(slab)    
+        while cycle <10:
+            cycle+=1
+            dprima=d+((0.1*ild)*cycle)
+            lprima=l+(1*cycle)
+            slab_prima=slabBuild(symbol,tuple(s),lprima)
+            beyondLimit=sorted([atom.index for atom in slab_prima if atom.position[2]>dprima],reverse=True)
+            del slab_prima[beyondLimit]
+            slabModels.append(slab_prima)
+            DistancesAndDipole.append([dprima,dipole(slab_prima)])
+        # print(s,DistancesAndDipole)
+        disAndDip=sorted(DistancesAndDipole,key=lambda x:x[1]) 
+        # print(disAndDip)
+        finalDistances.append(disAndDip[0][0])
+        # break
+        # view(slabModels)
+    return finalDistances
 
 
 

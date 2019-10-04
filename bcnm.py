@@ -54,13 +54,15 @@ def main():
     if not 'sizeRange' in data:
         data['sizeRange'] = 1
     if not 'wulff-like-method' in data:
-        data['wulff-like-method'] = 'surfaceBased'
+        data['wulff-like-method'] = 'hybridMethod'
     if not 'sampleSize' in data:
     	data['sampleSize']=1000
     if not 'reducedModel' in data:
         data['reducedModel']=False
     if not 'reductionLimit' in data:
         data['reductionLimit']=None
+    if not 'polar' in data:
+        data['polar']=False
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -248,7 +250,7 @@ def main():
 
     if data['onlyNp0']==True:
         exit(0)
-    if data['reducedModel']==True:
+    elif data['reducedModel']==True:
         print('\nGenerating reduced nanoparticles\n')
         for i in finalSorted:
             # print(i)
@@ -259,7 +261,17 @@ def main():
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)
-
+    elif data['polar']==True:
+        print('\nGenerating polar nanoparticles\n')
+        for i in finalSorted:
+            # print(i)
+            print('\n NP0: ',i,"\n")
+            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
+            	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
+            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],polar=True)
+        finalTime=time.time()
+        print("Total execution time:",round(finalTime-startTime),"s")
+        exit(0)
     else:
         ##Construction of stoichiometric nanoparticles
         print('\nGenerating stoichiometric nanoparticles\n')
