@@ -75,7 +75,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         debug (optional): If non-zero, information about the iteration towards
         the right cluster size is printed.
 
-        center([list]): The origin of coordinates
+        center((tuple)): The origin of coordinates
 
         stoichiometryMethod: Method to transform Np0 in Np stoichometric 0 Bruno, 1 Danilo
 
@@ -263,14 +263,18 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
         elif polar==True:
-            distances=reduceDipole(symbol,surfaces,distances,dArray)
+            distances=reduceDipole(symbol,surfaces,distances,dArray,center)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                 structure, center, latticeconstant)
             # Remove uncordinated atoms
             removeUnbounded(symbol,atoms_midpoint)
             # Save Nano
             name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_polar.xyz"
-            write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+            print(name)
+            if terminations(symbol,atoms_midpoint,surfaces) ==True:
+                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+            
+            
 
         else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
@@ -778,10 +782,10 @@ def singulizator(nanoList,debug):
             results.append(c)
 
     # print(results)
-    """
-    keeping in mind that a repeated structure can appear
-    on both columns, I just take the first
-    """
+    
+    # keeping in mind that a repeated structure can appear
+    # on both columns, I just take the first
+    
     if debug>0:
         for i in results:
             print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
@@ -806,7 +810,7 @@ def singulizator(nanoList,debug):
 
 def sprint(nano):
     """
-    Calculate the sprint coordinates matrix for a nanoparticle.
+    Function that calculates the sprint coordinates matrix for a nanoparticle.
 
     First calculate the coordination, then build the adjacency
     matrix. To calculate the coordination firstly generates a 
@@ -817,6 +821,10 @@ def sprint(nano):
     coordination list to adjacency matrix.
 
     Then, calculate the sprint coordinates
+    Args:
+        nano(file): xyz file
+    Return:
+        sFormated([float]): SPRINT coordinates
     """
     atoms=read(nano,format='xyz')
     atoms.center(vacuum=20)
@@ -920,7 +928,7 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
         return None
     if check_stoich_v2(symbol,atoms,debug) is 'stoichiometric':
         print("NP0 is stoichiometric")
-        name=atoms.get_chemical_formula()+'_NP0_f.xyz'
+        name=atoms.get_chemical_formula()+'stoich_f.xyz'
         write(name,atoms,format='xyz',columns=['symbols', 'positions'])
         return None
 
@@ -1079,8 +1087,9 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
 
     time_F1 = time.time()
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
-    #Calling the singulizator function 
-    singulizator(nanoList,debug)
+    #Calling the singulizator function
+    if len (nanoList) >1:
+        singulizator(nanoList,debug)
     
 def interplanarDistance(recCell,millerIndexes): 
     """Function that calculates the interplanar distances
@@ -1107,15 +1116,15 @@ def interplanarDistance(recCell,millerIndexes):
 
     return d
 
-def equivalentSurfaces(atoms,millerIndexes):
+def equivalentSurfaces(symbols,millerIndexes):
     """Function that get the equivalent surfaces for a set of  millerIndexes
     Args:
+        symbols(Atoms):Crystal structure
         millerIndexes(list([])): list of miller Indexes
     Return:
         equivalentSurfaces(list([])): list of all equivalent miller indexes
     """
-    surfaces = np.array(millerIndexes)
-    sg=Spacegroup((int(str(atoms.info['spacegroup'])[0:3])))
+    sg=Spacegroup((int(str(symbols.info['spacegroup'])[0:3])))
     equivalent_surfaces=[]
     for s in millerIndexes:
         equivalent_surfaces.extend(sg.equivalent_reflections(s))
@@ -1641,6 +1650,7 @@ def coordinationv2(crystal,atoms):
                 nearest_neighbour_by_element.append(np.min([x for x in distances[atom.index] if x>0]))
         # print(list(set(nearest_neighbour_by_element)))
         red_nearest_neighbour.append(np.max(nearest_neighbour_by_element))
+    # print('red_nearest')
     # print(red_nearest_neighbour)
 
     #construct the nearest_neighbour for the nano
@@ -1648,8 +1658,10 @@ def coordinationv2(crystal,atoms):
     for atom in atoms:
         for n,element in enumerate(elements):
             if atom.symbol==element:
+                # print('n',n)
                 nearest_neighbour.append(red_nearest_neighbour[n])
-
+    # print('nearest')
+    # print(nearest_neighbour) 
     C=[]
     half_nn = [x /2.5 for x in nearest_neighbour]
     nl = NeighborList(half_nn,self_interaction=False,bothways=True)
@@ -2175,7 +2187,7 @@ def dipole(slab):
     dipolePerArea=dipole/area
     return np.linalg.norm(dipolePerArea)
 
-def reduceDipole(symbol,surfaces,distances,interplanarDistances):
+def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
     """
     Function that increase the cut-offdistance to get less 
     polar nanoparticles. The surfaces,distances and
@@ -2185,34 +2197,52 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances):
         surfaces([list]): surface miller indexes
         distances([float]): cut-off distances
         interplanarDistances([float]): interplanar distances
+        center((float)): center
     return:
         finalDistances([float]): Distances that reduce the 
         dipole.
 
     """
+    # print('initial distances',distances)
+    # translate the crystal to center
+    crystal=copy.deepcopy(symbol)
+    crystal.wrap(center)
+    crystal.center()
+    # view(crystal)
     #Rounded number of layers
-    roundedNumberOfLayers=np.floor(np.asarray(distances)/np.asarray(interplanarDistances))
+    roundedNumberOfLayers=np.floor(np.asarray(distances)/
+    np.asarray(interplanarDistances))
     # build slabs for each orientation and get the dipole
+    # sg=Spacegroup((int(str(crystal.info['spacegroup'])[0:3])))
     finalDistances=[]
     for s,l,d,ild in zip(surfaces,roundedNumberOfLayers,distances,interplanarDistances):
+        #Equivalent surfaces
+        # equivalentSurfaces=(sg.equivalent_reflections(s))
+        # for equ in equivalentSurfaces:
+        #     print('equ',equ)
         l=int(l)
-        slab=slabBuild(symbol,tuple(s),l)
+        slab=slabBuild(crystal,tuple(s),l)
+        # slab=slabBuild(crystal,tuple(equ),l)
         # remove those beyond the limit
-        beyondLimit=sorted([atom.index for atom in slab if atom.position[2]>d],reverse=True)
+        beyondLimit=sorted([atom.index for atom in slab 
+        if atom.position[2]>d],reverse=True)
         del slab[beyondLimit]
         initialDipole=dipole(slab)
         DistancesAndDipole=[]
         DistancesAndDipole.append([d,initialDipole])
-        # Initialize the cycle, making increments and keeping the smallest one
+        # Initialize the cycle, making increments and 
+        # keeping the smallest one
         cycle=0
         slabModels=[]
-        slabModels.append(slab)    
+        # slabModels.append(crystal)
+        # slabModels.append(slab)    
         while cycle <10:
             cycle+=1
             dprima=d+((0.1*ild)*cycle)
             lprima=l+(1*cycle)
-            slab_prima=slabBuild(symbol,tuple(s),lprima)
-            beyondLimit=sorted([atom.index for atom in slab_prima if atom.position[2]>dprima],reverse=True)
+            slab_prima=slabBuild(crystal,tuple(s),lprima)
+            beyondLimit=sorted([atom.index for atom 
+            in slab_prima if atom.position[2]>dprima],reverse=True)
             del slab_prima[beyondLimit]
             slabModels.append(slab_prima)
             DistancesAndDipole.append([dprima,dipole(slab_prima)])
@@ -2222,11 +2252,68 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances):
         finalDistances.append(disAndDip[0][0])
         # break
         # view(slabModels)
+    # print('finalDistances',finalDistances)
     return finalDistances
 
+def terminations(symbol,atoms,surfaces):
+    """
+    Function that evaluates the termination.
+    Equivalent planes must have the same termination.
+    Args:
+        symbol(Atoms):crystal structure
+        atoms(Atoms):nanoparticle
+        surfaces([list]): surface miller indexes
+    Return:
+        True if all equivalent orientation have the same termination
+    """
+    # Get the equivalent surfaces and give them the distance
+    # Creating the spacegroup object
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
 
+    positions=np.array([atom.position[:] for atom in atoms])
+    centroid=positions.mean(axis=0)
 
+    #Create the ConvexHull  object
+    # hull=ConvexHull(positions)
+    # # print(hull.area)
+
+    # simplices=[]
+    # for simplex in hull.simplices:
+    #     simplices.extend(simplex)
+    # surfaceAtoms=sorted(list(set(simplices)))
+
+    #Save the atoms surface in a new atoms object
+    # outershell=copy.deepcopy(atoms)
+    # del outershell[[atom.index for atom in outershell if atom.index not in surfaceAtoms]]
+    # print(outershell.get_chemical_symbols())
+    for s in zip(surfaces):
+        equivalentSurfaces=sg.equivalent_reflections(s)
+        finalElements=[]
+        for equSurf in equivalentSurfaces:
+            rlist=[]
+            direction= np.dot(equSurf,symbol.get_reciprocal_cell())
+            direction = direction / np.linalg.norm(direction)
+            for j in atoms.get_positions():
+                rlist.append(np.dot(j-centroid,direction))
+            # print(rlist)
+            # finalElements.append(atoms[np.argmax(rlist)].symbol)
+            testArray=rlist-np.amax(rlist)
+            # print(testArray)
+            for n,val in enumerate(testArray):
+                if val==0.0:
+                    # print(val)
+                    finalElements.append(atoms[n].symbol)
     
+    # print(finalElements)
+    if len(list(set(finalElements)))==1:
+        return True
+    else:
+        return False
+            # get the outer layer
+
+
+
+
 
 
 
