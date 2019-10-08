@@ -23,9 +23,10 @@ from ase.utils import basestring
 from ase.cluster.factory import GCD
 from ase.visualize import view
 from ase.io import write,read
-from ase.data import chemical_symbols
+from ase.data import chemical_symbols,covalent_radii
 from ase.spacegroup import Spacegroup
 from ase.build import surface as slabBuild
+
 
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
@@ -269,13 +270,16 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # Remove uncordinated atoms
             removeUnbounded(symbol,atoms_midpoint)
             # Save Nano
-            name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_polar.xyz"
-            print(name)
-            if terminations(symbol,atoms_midpoint,surfaces) ==True:
-                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-            
-            
+            terminationElements=terminations(symbol,atoms_midpoint,surfaces)
+            # print(terminationElements)
+            if len(terminationElements) ==1:
+                if terminationElements[0] in nonMetals:
 
+                    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
+                else:
+                    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
+                    
+                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
         else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
             
@@ -2293,9 +2297,9 @@ def terminations(symbol,atoms,surfaces):
             rlist=[]
             direction= np.dot(equSurf,symbol.get_reciprocal_cell())
             direction = direction / np.linalg.norm(direction)
-            for j in atoms.get_positions():
-                rlist.append(np.dot(j-centroid,direction))
-            # print(rlist)
+            for pos,num in zip(atoms.get_positions(),atoms.get_atomic_numbers()):
+                rlist.append((np.dot(pos-centroid,direction)+covalent_radii[num]))
+            # exit(1)
             # finalElements.append(atoms[np.argmax(rlist)].symbol)
             testArray=rlist-np.amax(rlist)
             # print(testArray)
@@ -2303,17 +2307,8 @@ def terminations(symbol,atoms,surfaces):
                 if val==0.0:
                     # print(val)
                     finalElements.append(atoms[n].symbol)
-    
-    # print(finalElements)
-    if len(list(set(finalElements)))==1:
-        return True
-    else:
-        return False
-            # get the outer layer
-
-
-
-
+ 
+    return list(set(finalElements))
 
 
 
