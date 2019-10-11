@@ -65,6 +65,8 @@ def main():
         data['polar']=False
     if not 'termNature' in data:
         data['termNature']='non-metal'
+    if not 'neutralize' in data:
+        data['neutralize']=False
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -279,7 +281,7 @@ def main():
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
             	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],polar=True,
-                termNature=data['termNature'])
+                termNature=data['termNature'],neutralize=data['neutralize'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)

@@ -49,7 +49,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     rounding='closest',latticeconstant=None, maxiter=100,
     center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',
     sampleSize=1000,totalReduced=False,reductionLimit=None,polar=False,
-    termNature='non-metal',debug=0):
+    termNature='non-metal',neutralize=False,debug=0):
     """Function that build a Wulff-like nanoparticle.
     That can be bulk-cut, stoichiometric and reduced
     
@@ -96,7 +96,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
         polar(bool): Reduce polarity of the Np0
 
-        termNature(str): string terminations, could be 'metal' or 'non-metal'
+        termNature(str): Terminations, could be 'metal' or 'non-metal'
+
+        neutralize(bool): True if hydrogen or OH is added, else False
 
     """
     global _debug
@@ -279,9 +281,16 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             if len(terminationElements) ==1:
                 if terminationElements[0] in nonMetals and termNature=='non-metal':
                     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
+                    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                    if neutralize==True:
+                        adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                        write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
                 elif terminationElements[0] not in nonMetals and termNature=='metal':
                     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
-                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                    if neutralize==True:
+                        adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                        write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
         else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
             
@@ -2317,7 +2326,7 @@ def terminations(symbol,atoms,surfaces):
  
     return list(set(finalElements))
 
-def addSpecies(symbol,atoms,surfaces):
+def addSpecies(symbol,atoms,surfaces,termNature):
     """
     Function that add species on reduced polarity nps
     hydrogens in non metal and OH in metal
@@ -2325,18 +2334,22 @@ def addSpecies(symbol,atoms,surfaces):
         symbol(Atoms): crystal structure
         atoms(Atoms): polarity reduced nanoparticle
         surfaces([list]): miller indexes surfaces
+        termNature(str): termination nature, metal or non-metal
     Return: 
-        hydrogenatedNP(Atoms)
+        adsorbedNP(Atoms)
     """
-
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
 
     positions=np.array([atom.position[:] for atom in atoms])
     centroid=positions.mean(axis=0)
+    
+    adsorbedNP=copy.deepcopy(atoms)
 
     for s in zip(surfaces):
         equivalentSurfaces=sg.equivalent_reflections(s)
         for equSurf in equivalentSurfaces:
+            # print(equSurf)
+            surfaceAtomsIndexperEq=[]
             surfaceAtomsperEq=[]
             rlist=[]
             direction= np.dot(equSurf,symbol.get_reciprocal_cell())
@@ -2350,17 +2363,30 @@ def addSpecies(symbol,atoms,surfaces):
             for n,val in enumerate(testArray):
                 if val==0.0:
                     # print(val)
-                    surfaceAtomsperEq.append(n)
+                    surfaceAtomsIndexperEq.append(n)
+                    surfaceAtomsperEq.append(atoms[n].symbol)
+            # print(surfaceAtomsIndexperEq)
             # define the new positions of hydrogen atoms
             # scalling uniformly the position of father atom
-            # if list(set(surfaceAtomsperEq)) in nonMetals:
-            #     for atomIndex in surfaceAtomsperEq:
-            #         distance=(np.dot(atoms[atomIndex].position-centroid,direction))
-            #         newDistance=distance+1
-            #         scallingFactor=newDistance/distance
-            #         newPos=scallingFactor*atoms[atomIndex].position
-            #         hydrogen=Atom('H',)
-
+            if list(set(surfaceAtomsperEq))[0] in nonMetals and termNature=='non-metal':
+                for atomIndex in surfaceAtomsIndexperEq:
+                    displacement=0.979
+                    newPos=(displacement*direction)+atoms[atomIndex].position
+                    # print(atoms[atomIndex].position,newPos)
+                    hydrogen=Atom('H',newPos)
+                    adsorbedNP.extend(hydrogen)
+            if list(set(surfaceAtomsperEq))[0] not in nonMetals and termNature=='metal':
+                for atomIndex in surfaceAtomsIndexperEq:
+                    # add oxygen and then hydrogen
+                    oxygenDisp=2.0
+                    oxygenPos=(oxygenDisp*direction)+atoms[atomIndex].position
+                    oxygen=Atom('O',oxygenPos)
+                    adsorbedNP.extend(oxygen)
+                    hydrogenDisp=0.979+oxygenDisp
+                    hydrogenPos=(hydrogenDisp*direction)+atoms[atomIndex].position
+                    hydrogen=Atom('H',hydrogenPos)
+                    adsorbedNP.extend(hydrogen)
+    return adsorbedNP 
             # else:
             
 def evaluateSurfPol(symbol,surfaces,ions,charges):
