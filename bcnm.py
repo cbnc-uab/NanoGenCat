@@ -19,7 +19,7 @@ from ase.visualize import view
 from ase.build import cut, bulk
 from ase.io import  write, read
 
-from bcnm.bcn_wulff import bcn_wulff_construction, specialCenterings
+from bcnm.bcn_wulff import bcn_wulff_construction, specialCenterings,evaluateSurfPol
 
 
 def main():
@@ -63,6 +63,8 @@ def main():
         data['reductionLimit']=None
     if not 'polar' in data:
         data['polar']=False
+    if not 'termNature' in data:
+        data['termNature']='non-metal'
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -86,7 +88,16 @@ def main():
         for n,element in enumerate(data['chemicalSpecies']):
             if atom.symbol==element:
                 atom.charge=data['charges'][n]
-
+    ##  Polarity verification
+    if evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],
+                    data['charges']) == 'polar' and data['polar']==True:
+                    pass
+    else:
+        print('This input contains a polar surface and termination is not indicated,'
+        ,'\nverify and relaunch it')
+        finalTime=time.time()
+        print("Total execution time:",round(finalTime-startTime),"s")
+        exit(1)
     #####Centering
     if data['centering'] == 'none':
         shifts = [[0.0, 0.0, 0.0]]
@@ -267,7 +278,8 @@ def main():
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],polar=True)
+            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],polar=True,
+                termNature=data['termNature'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)

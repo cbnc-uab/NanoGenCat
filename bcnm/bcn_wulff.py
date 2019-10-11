@@ -16,7 +16,7 @@ import scipy.constants as constants
 from itertools import combinations
 from math import sqrt
 
-from ase import Atoms
+from ase import Atoms,Atom
 from ase.atoms import symbols2numbers
 from ase.neighborlist import NeighborList
 from ase.utils import basestring
@@ -32,6 +32,7 @@ from pymatgen.analysis.wulff import WulffShape
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.structure import IMolecule
+from pymatgen.core.surface import SlabGenerator,generate_all_slabs
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -47,7 +48,8 @@ _debug = False
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     rounding='closest',latticeconstant=None, maxiter=100,
     center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',
-    sampleSize=1000,totalReduced=False,reductionLimit=None,polar=False,debug=0):
+    sampleSize=1000,totalReduced=False,reductionLimit=None,polar=False,
+    termNature='non-metal',debug=0):
     """Function that build a Wulff-like nanoparticle.
     That can be bulk-cut, stoichiometric and reduced
     
@@ -93,6 +95,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         reductionLimit(int): fathers minimum coordination to remove dangling atoms
 
         polar(bool): Reduce polarity of the Np0
+
+        termNature(str): string terminations, could be 'metal' or 'non-metal'
 
     """
     global _debug
@@ -273,12 +277,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             terminationElements=terminations(symbol,atoms_midpoint,surfaces)
             # print(terminationElements)
             if len(terminationElements) ==1:
-                if terminationElements[0] in nonMetals:
-
+                if terminationElements[0] in nonMetals and termNature=='non-metal':
                     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
-                else:
+                elif terminationElements[0] not in nonMetals and termNature=='metal':
                     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
-                    
                 write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
         else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
@@ -2181,11 +2183,14 @@ def dipole(slab):
     Return:
         bool: normalized dipole per area unit
     """
+    normal=np.cross(slab.get_cell()[0],slab.get_cell()[1])
+    normal/=np.linalg.norm(normal)
+
     dipole=np.zeros(3)
     # Get the midpoint
     midPoint=np.sum(slab.get_positions(),axis=0)/len(slab.get_atomic_numbers())
     for atom in slab:
-        dipole+=atom.charge*(atom.position - midPoint)
+        dipole+=atom.charge*np.dot(atom.position - midPoint,normal)*normal
     area=np.linalg.norm(np.cross(slab.get_cell()[0],slab.get_cell()[1]))
     # print(area)
     dipolePerArea=dipole/area
@@ -2232,6 +2237,7 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
         if atom.position[2]>d],reverse=True)
         del slab[beyondLimit]
         initialDipole=dipole(slab)
+        # print(initialDipole)
         DistancesAndDipole=[]
         DistancesAndDipole.append([d,initialDipole])
         # Initialize the cycle, making increments and 
@@ -2239,8 +2245,8 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
         cycle=0
         slabModels=[]
         # slabModels.append(crystal)
-        # slabModels.append(slab)    
-        while cycle <10:
+        slabModels.append(slab)    
+        while cycle <20:
             cycle+=1
             dprima=d+((0.1*ild)*cycle)
             lprima=l+(1*cycle)
@@ -2267,6 +2273,7 @@ def terminations(symbol,atoms,surfaces):
         symbol(Atoms):crystal structure
         atoms(Atoms):nanoparticle
         surfaces([list]): surface miller indexes
+        
     Return:
         True if all equivalent orientation have the same termination
     """
@@ -2310,7 +2317,82 @@ def terminations(symbol,atoms,surfaces):
  
     return list(set(finalElements))
 
+def addSpecies(symbol,atoms,surfaces):
+    """
+    Function that add species on reduced polarity nps
+    hydrogens in non metal and OH in metal
+    Args:
+        symbol(Atoms): crystal structure
+        atoms(Atoms): polarity reduced nanoparticle
+        surfaces([list]): miller indexes surfaces
+    Return: 
+        hydrogenatedNP(Atoms)
+    """
 
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+
+    positions=np.array([atom.position[:] for atom in atoms])
+    centroid=positions.mean(axis=0)
+
+    for s in zip(surfaces):
+        equivalentSurfaces=sg.equivalent_reflections(s)
+        for equSurf in equivalentSurfaces:
+            surfaceAtomsperEq=[]
+            rlist=[]
+            direction= np.dot(equSurf,symbol.get_reciprocal_cell())
+            direction = direction / np.linalg.norm(direction)
+            for pos,num in zip(atoms.get_positions(),atoms.get_atomic_numbers()):
+                rlist.append((np.dot(pos-centroid,direction)+covalent_radii[num]))
+            # exit(1)
+            # finalElements.append(atoms[np.argmax(rlist)].symbol)
+            testArray=rlist-np.amax(rlist)
+            # print(testArray)
+            for n,val in enumerate(testArray):
+                if val==0.0:
+                    # print(val)
+                    surfaceAtomsperEq.append(n)
+            # define the new positions of hydrogen atoms
+            # scalling uniformly the position of father atom
+            # if list(set(surfaceAtomsperEq)) in nonMetals:
+            #     for atomIndex in surfaceAtomsperEq:
+            #         distance=(np.dot(atoms[atomIndex].position-centroid,direction))
+            #         newDistance=distance+1
+            #         scallingFactor=newDistance/distance
+            #         newPos=scallingFactor*atoms[atomIndex].position
+            #         hydrogen=Atom('H',)
+
+            # else:
+            
+def evaluateSurfPol(symbol,surfaces,ions,charges):
+    """
+    Function that identify if a surface is polar or not
+    Args:
+        symbol(Atoms): crystal structure
+        surfaces([list]): surfaces miller indexes
+        ions([]): ions
+        charges([]): ionic charges
+    """
+    # convert atoms into material
+    material=AseAtomsAdaptor.get_structure(symbol)
+    data=[]
+    for element in material.species:
+        for i,c in zip(ions,charges):
+            if element.name==i:
+                data.append(c) 
+    material.add_oxidation_state_by_site(data)
+    # print(material)
+    for s in surfaces:
+        slabgen=SlabGenerator(material,s,10,10)
+        all_slabs=slabgen.get_slabs()
+        for slab in all_slabs:
+            if slab.is_polar(tol_dipole_per_unit_area=1e-5)==False:
+                pass
+            else:
+                return 'polar'
+            break
+        break
+
+    
 
 
 
