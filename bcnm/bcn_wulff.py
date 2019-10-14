@@ -178,7 +178,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
     # Construct the np0
     atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                        structure, center, latticeconstant)
+                        structure, center, latticeconstant,debug)
     # Remove uncordinated atoms
     removeUnbounded(symbol,atoms_midpoint)
     # Check the minimum coordination on metallic centers
@@ -272,7 +272,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif polar==True:
             distances=reduceDipole(symbol,surfaces,distances,dArray,center)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                structure, center, latticeconstant)
+                                structure, center, latticeconstant,debug)
             # Remove uncordinated atoms
             removeUnbounded(symbol,atoms_midpoint)
             # Save Nano
@@ -294,7 +294,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
             
-def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
+def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant,debug):
     """
     Function that use the structure to get the nanoparticle.
     All surface related arguments has the same order
@@ -2221,54 +2221,59 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
         dipole.
 
     """
-    # print('initial distances',distances)
+    charges=[]
+    ions=[]
+    finalDistances=np.zeros(len(surfaces))
+    
     # translate the crystal to center
     crystal=copy.deepcopy(symbol)
     crystal.wrap(center)
     crystal.center()
-    # view(crystal)
+    
     #Rounded number of layers
     roundedNumberOfLayers=np.floor(np.asarray(distances)/
     np.asarray(interplanarDistances))
-    # build slabs for each orientation and get the dipole
-    # sg=Spacegroup((int(str(crystal.info['spacegroup'])[0:3])))
-    finalDistances=[]
-    for s,l,d,ild in zip(surfaces,roundedNumberOfLayers,distances,interplanarDistances):
-        #Equivalent surfaces
-        # equivalentSurfaces=(sg.equivalent_reflections(s))
-        # for equ in equivalentSurfaces:
-        #     print('equ',equ)
-        l=int(l)
-        slab=slabBuild(crystal,tuple(s),l)
-        # slab=slabBuild(crystal,tuple(equ),l)
-        # remove those beyond the limit
-        beyondLimit=sorted([atom.index for atom in slab 
-        if atom.position[2]>d],reverse=True)
+    
+    # build slabs for each polar surface and get the dipole
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+    # polarSurfaces=[surfaces[i] for i in polarSurfacesIndex]   
+    # Saving the surfaces distances for non-polar ones 
+    for index,s in enumerate(surfaces):
+        if index not in polarSurfacesIndex:
+            finalDistances[index]=distances[index]
+    
+    for index in polarSurfacesIndex:
+        l=int(roundedNumberOfLayers[index])
+        slab=slabBuild(crystal,tuple(surfaces[index]),l)
+        beyondLimit=sorted([atom.index for atom in slab
+        if atom.position[2]>distances[index]],reverse=True)
         del slab[beyondLimit]
         initialDipole=dipole(slab)
-        # print(initialDipole)
-        DistancesAndDipole=[]
-        DistancesAndDipole.append([d,initialDipole])
-        # Initialize the cycle, making increments and 
-        # keeping the smallest one
+        distancesAndDipole=[]
+        distancesAndDipole.append([distances[index],initialDipole])
         cycle=0
         slabModels=[]
-        # slabModels.append(crystal)
-        slabModels.append(slab)    
+        slabModels.append(slab)
         while cycle <20:
             cycle+=1
-            dprima=d+((0.1*ild)*cycle)
+            dprima=distances[index]+((0.1*interplanarDistances[index])*cycle)
             lprima=l+(1*cycle)
-            slab_prima=slabBuild(crystal,tuple(s),lprima)
+            slab_prima=slabBuild(crystal,tuple(surfaces[index]),lprima)
             beyondLimit=sorted([atom.index for atom 
             in slab_prima if atom.position[2]>dprima],reverse=True)
             del slab_prima[beyondLimit]
             slabModels.append(slab_prima)
-            DistancesAndDipole.append([dprima,dipole(slab_prima)])
+            distancesAndDipole.append([dprima,dipole(slab_prima)])
         # print(s,DistancesAndDipole)
-        disAndDip=sorted(DistancesAndDipole,key=lambda x:x[1]) 
+        disAndDip=sorted(distancesAndDipole,key=lambda x:x[1]) 
         # print(disAndDip)
-        finalDistances.append(disAndDip[0][0])
+        finalDistances[index]=(disAndDip[0][0])
         # break
         # view(slabModels)
     # print('finalDistances',finalDistances)
@@ -2286,6 +2291,18 @@ def terminations(symbol,atoms,surfaces):
     Return:
         True if all equivalent orientation have the same termination
     """
+    charges=[]
+    ions=[]
+    # Calculate the polarity  and get the polar surfaces
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+    polarSurfaces=[surfaces[i] for i in polarSurfacesIndex] 
+
     # Get the equivalent surfaces and give them the distance
     # Creating the spacegroup object
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
@@ -2293,20 +2310,7 @@ def terminations(symbol,atoms,surfaces):
     positions=np.array([atom.position[:] for atom in atoms])
     centroid=positions.mean(axis=0)
 
-    #Create the ConvexHull  object
-    # hull=ConvexHull(positions)
-    # # print(hull.area)
-
-    # simplices=[]
-    # for simplex in hull.simplices:
-    #     simplices.extend(simplex)
-    # surfaceAtoms=sorted(list(set(simplices)))
-
-    #Save the atoms surface in a new atoms object
-    # outershell=copy.deepcopy(atoms)
-    # del outershell[[atom.index for atom in outershell if atom.index not in surfaceAtoms]]
-    # print(outershell.get_chemical_symbols())
-    for s in zip(surfaces):
+    for s in polarSurfaces:
         equivalentSurfaces=sg.equivalent_reflections(s)
         finalElements=[]
         for equSurf in equivalentSurfaces:
@@ -2407,17 +2411,21 @@ def evaluateSurfPol(symbol,surfaces,ions,charges):
                 data.append(c) 
     material.add_oxidation_state_by_site(data)
     # print(material)
+    polarS=[]
     for s in surfaces:
         slabgen=SlabGenerator(material,s,10,10)
         all_slabs=slabgen.get_slabs()
+        slabsPolarity=[]
         for slab in all_slabs:
             if slab.is_polar(tol_dipole_per_unit_area=1e-5)==False:
-                pass
+                slabsPolarity.append('non Polar')
             else:
-                return 'polar'
-            break
-        break
-
+                slabsPolarity.append('polar')
+        if (slabsPolarity.count('polar')) >1:
+            polarS.append('polar')
+        else:
+            polarS.append('non_polar')
+    return(polarS)
     
 
 

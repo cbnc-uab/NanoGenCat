@@ -91,15 +91,24 @@ def main():
             if atom.symbol==element:
                 atom.charge=data['charges'][n]
     ##  Polarity verification
-    if evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],
-                    data['charges']) == 'polar' and data['polar']==True:
-                    pass
-    else:
+    print(evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],data['charges']))
+    if 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
+                        data['charges']) and data['polar']==True:
+        pass
+    elif not 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
+                        data['charges']) and data['polar']==True:
+        print('This input not contain any polar surface,','\nverify and relaunch it')
+        exit(1)
+    elif 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
+                        data['charges']) and data['polar']==False:
         print('This input contains a polar surface and termination is not indicated,'
         ,'\nverify and relaunch it')
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(1)
+    elif not 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
+                        data['charges']) and data['polar']==False:
+        pass
     #####Centering
     if data['centering'] == 'none':
         shifts = [[0.0, 0.0, 0.0]]
