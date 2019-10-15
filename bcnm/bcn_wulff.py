@@ -175,6 +175,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         print('layers\n',layers)
         print('distances\n',distances)
         print('surfaces\n',surfaces)
+    # print('interplanarDistances\n',dArray)
+    # print('layers\n',layers)
+    # print('distances\n',distances)
+    # print('surfaces\n',surfaces)
 
     # Construct the np0
     atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
@@ -1379,7 +1383,7 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     # print('idealAreasPerEquivalentSort',idealAreasPerEquivalentSort)
     # print('realAreasPerEquivalentSort',realAreasPerEquivalentSort)
 
-    for n,indexArea in enumerate(idealAreasPerEquivalent):
+    for n,indexArea in enumerate(idealAreasPerEquivalentSort):
         if indexArea[0]==realAreasPerEquivalentSort[n][0]:
             sameOrder=True
         else:
@@ -2231,8 +2235,10 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
     crystal.center()
     
     #Rounded number of layers
-    roundedNumberOfLayers=np.floor(np.asarray(distances)/
+    roundedNumberOfLayers=np.ceil(np.asarray(distances)/
     np.asarray(interplanarDistances))
+    roundedNumberOfLayers=roundedNumberOfLayers+np.array(np.ones(len(roundedNumberOfLayers)))
+    # print('roundedNumberOfLayers',roundedNumberOfLayers)
     
     # build slabs for each polar surface and get the dipole
     for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
@@ -2249,34 +2255,47 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
             finalDistances[index]=distances[index]
     
     for index in polarSurfacesIndex:
+        # print(distances[index])
+        direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
         l=int(roundedNumberOfLayers[index])
         slab=slabBuild(crystal,tuple(surfaces[index]),l)
-        beyondLimit=sorted([atom.index for atom in slab
-        if atom.position[2]>distances[index]],reverse=True)
+        # view(slab)
+        limit=np.dot(slab.get_positions(),direction)
+        # print(limit)
+        beyondLimit=sorted([atom.index for atom in slab if limit[atom.index]>distances[index]],reverse=True)
         del slab[beyondLimit]
+        # view(slab)
         initialDipole=dipole(slab)
         distancesAndDipole=[]
         distancesAndDipole.append([distances[index],initialDipole])
         cycle=0
         slabModels=[]
         slabModels.append(slab)
-        while cycle <20:
+        # print('distances',distances[index])
+        while cycle <10:
             cycle+=1
             dprima=distances[index]+((0.1*interplanarDistances[index])*cycle)
             lprima=l+(1*cycle)
             slab_prima=slabBuild(crystal,tuple(surfaces[index]),lprima)
-            beyondLimit=sorted([atom.index for atom 
-            in slab_prima if atom.position[2]>dprima],reverse=True)
+            # view(slab_prima)
+            limit=np.dot(slab_prima.get_positions(),direction)
+            # print('dprima',dprima)
+            # print(limit)
+            beyondLimit=sorted([atom.index for atom in slab_prima if limit[atom.index]>dprima],reverse=True)
             del slab_prima[beyondLimit]
+            # view(slab_prima)
             slabModels.append(slab_prima)
             distancesAndDipole.append([dprima,dipole(slab_prima)])
-        # print(s,DistancesAndDipole)
+            # exit(1)
+        # print(s,distancesAndDipole)
         disAndDip=sorted(distancesAndDipole,key=lambda x:x[1]) 
         # print(disAndDip)
         finalDistances[index]=(disAndDip[0][0])
         # break
         # view(slabModels)
     # print('finalDistances',finalDistances)
+    # exit(1)
     return finalDistances
 
 def terminations(symbol,atoms,surfaces):
