@@ -59,8 +59,8 @@ def main():
     	data['sampleSize']=1000
     if not 'reducedModel' in data:
         data['reducedModel']=False
-    if not 'reductionLimit' in data:
-        data['reductionLimit']=None
+    if not 'coordinationLimit' in data:
+        data['coordinationLimit']='minus2'
     if not 'polar' in data:
         data['polar']=False
     if not 'termNature' in data:
@@ -215,7 +215,7 @@ def main():
             temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
             data['surfaceEnergy'],float(size),'ext',center = shift,
             rounding='above',debug=data['debug'],np0=True,
-            wl_method=data['wulff-like-method'])]
+            wl_method=data['wulff-like-method'],coordinationLimit=data['coordinationLimit'])]
             print(size,shift,temp2[0])
             # print(temp2)
             temp.extend(temp2)
@@ -278,7 +278,8 @@ def main():
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],totalReduced=True)
+            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],totalReduced=True,
+                coordinationLimit=data['coordinationLimit'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)
@@ -290,7 +291,8 @@ def main():
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
             	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],polar=True,
-                termNature=data['termNature'],neutralize=data['neutralize'])
+                termNature=data['termNature'],neutralize=data['neutralize'],
+                coordinationLimit=data['coordinationLimit'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)
@@ -302,7 +304,7 @@ def main():
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],reductionLimit=data['reductionLimit'])
+            	sampleSize=data['sampleSize'],coordinationLimit=data['coordinationLimit'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)

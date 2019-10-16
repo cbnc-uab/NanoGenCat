@@ -48,7 +48,7 @@ _debug = False
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     rounding='closest',latticeconstant=None, maxiter=100,
     center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',
-    sampleSize=1000,totalReduced=False,reductionLimit=None,polar=False,
+    sampleSize=1000,totalReduced=False,coordinationLimit='half',polar=False,
     termNature='non-metal',neutralize=False,debug=0):
     """Function that build a Wulff-like nanoparticle.
     That can be bulk-cut, stoichiometric and reduced
@@ -92,7 +92,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
         totalReduced(bool): Removes all unbounded and singly coordinated atoms
 
-        reductionLimit(int): fathers minimum coordination to remove dangling atoms
+        coordinationLimit(int): fathers minimum coordination 
 
         polar(bool): Reduce polarity of the Np0
 
@@ -186,7 +186,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     # Remove uncordinated atoms
     removeUnbounded(symbol,atoms_midpoint)
     # Check the minimum coordination on metallic centers
-    minCoord=check_min_coord(symbol,atoms_midpoint)
+    minCoord=check_min_coord(symbol,atoms_midpoint,coordinationLimit)
     # Save midpoint
     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
     write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
@@ -212,7 +212,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             return np0Properties
         else:
 
-            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
             
         if debug>0:
             print('--------------')
@@ -296,7 +296,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                         adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
                         write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
         else:
-            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
             
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant,debug):
     """
@@ -714,13 +714,14 @@ def make_F(atoms,C,nearest_neighbour,debug):
         print("Total time to calculate combinations", round(time_F1-time_F0,5)," s")
     return K
 
-def check_min_coord(symbol,atoms):
+def check_min_coord(symbol,atoms,coordinationLimit):
     """Function that return information that allows to characterize the
     NP0 like undercoordinated metals, the number of metals, non metals
     and also calculates the global coordination.
     Args:
         symbol(Atoms): Crystal structure
         atoms(Atoms): Nanoparticle
+        coordinationLimit(str): half or minus2
     Return: 
         characterization([metals,nonmetals,undercoordinated,globalCoord])
             list of information of np0.
@@ -755,10 +756,17 @@ def check_min_coord(symbol,atoms):
     #the half of maximium coordination
     minCoord=np.min(metalsCoordinations)
     # print('minCoord',minCoord)
-    if minCoord>=maxCoord/2:
-        coordTest=True
-    else:
-        coordTest=False
+    if coordinationLimit=='half':
+        if minCoord>=maxCoord/2:
+            coordTest=True
+        else:
+            coordTest=False
+    elif coordinationLimit=='minus2':
+        if minCoord>=maxCoord-2:
+            coordTest=True
+        else:
+            coordTest=False
+
 
     # if maxCoord<=2:
     #     if minCoord>=maxCoord-1:
@@ -923,7 +931,7 @@ def compare(sprint0,sprint1):
         if len(diff)==0:
             return True
 
-def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
+def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
     """
     Function that make the nano stoichiometric
     by removing dangling atoms. It is element
@@ -933,7 +941,7 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
         atoms(Atoms): Atoms object of selected Np0
         size(float): size of nanoparticle
         sampleSize: number of replicas
-        reductionLimit(int): Lower dangling father coordination
+        coordinationLimit(str): half or minus2
         debug(int): for print stuff
 
     """
@@ -1023,18 +1031,18 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
     # else:
     # print ('maxCord',maxCord)
 
-    # reductionLimit Evaluation
+    # coordinationLimit Evaluation
     # Default value
-    if reductionLimit==None:
+    if coordinationLimit=='half':
         mid=int(maxCord/2)
-    else:
+    elif coordinationLimit=='minus2': 
         # User value
-        mid=int(reductionLimit-1)
-    # Control the value of reductionLimit
-        if mid > maxCord or mid<=0:
-            print('reduction limit must be lower than the maximum coordination,',
-            'positive, and larger than 0')
-            return None
+        mid=int(maxCord-3)
+    # Control the value of coordinationLimit
+    # if mid > maxCord or mid<=0:
+    #     print('reduction limit must be lower than the maximum coordination,',
+    #     'positive, and larger than 0')
+    #     return None
     # print('mid',mid)
     # exit(1)
 
@@ -2430,20 +2438,29 @@ def evaluateSurfPol(symbol,surfaces,ions,charges):
                 data.append(c) 
     material.add_oxidation_state_by_site(data)
     # print(material)
+    # slabs=[]
     polarS=[]
     for s in surfaces:
         slabgen=SlabGenerator(material,s,10,10)
         all_slabs=slabgen.get_slabs()
         slabsPolarity=[]
         for slab in all_slabs:
+            # slabs.append(AseAtomsAdaptor.get_atoms(slab))
             if slab.is_polar(tol_dipole_per_unit_area=1e-5)==False:
                 slabsPolarity.append('non Polar')
             else:
                 slabsPolarity.append('polar')
-        if (slabsPolarity.count('polar')) >1:
-            polarS.append('polar')
+        # print(len(slabsPolarity))
+        if len(slabsPolarity)>1:
+            if (slabsPolarity.count('polar')) >1:
+                polarS.append('polar')
+            else:
+                polarS.append('non_polar')
         else:
-            polarS.append('non_polar')
+            polarS.append(slabsPolarity[0])
+
+    # view(slabs)
+    # exit(1)
     return(polarS)
     
 
