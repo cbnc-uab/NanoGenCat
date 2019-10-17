@@ -274,27 +274,31 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
         elif polar==True:
-            distances=reduceDipole(symbol,surfaces,distances,dArray,center)
+            distances=forceTermination(symbol,surfaces,distances,dArray,center,termNature)
+            # distances=reduceDipole(symbol,surfaces,distances,dArray,center)
             atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
                                 structure, center, latticeconstant,debug)
             # Remove uncordinated atoms
             removeUnbounded(symbol,atoms_midpoint)
             # Save Nano
-            terminationElements=terminations(symbol,atoms_midpoint,surfaces)
-            # print(terminationElements)
-            if len(terminationElements) ==1:
-                if terminationElements[0] in nonMetals and termNature=='non-metal':
-                    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
-                    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-                    if neutralize==True:
-                        adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
-                        write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
-                elif terminationElements[0] not in nonMetals and termNature=='metal':
-                    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
-                    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-                    if neutralize==True:
-                        adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
-                        write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+            name = atoms_midpoint.get_chemical_formula()+str(center)+str(termNature)+".xyz"
+            write(name,atoms_midpoint,format='xyz',columns=['symbols','positions'])
+            # # terminationElements=terminations(symbol,atoms_midpoint,surfaces)
+            # # print(terminationElements)
+            # forceTermination(symbol,surfaces,distances,interplanarDistances)
+            # if len(terminationElements) ==1:
+            #     if terminationElements[0] in nonMetals and termNature=='non-metal':
+            #         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
+            #         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+            #         if neutralize==True:
+            #             adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+            #             write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+            #     elif terminationElements[0] not in nonMetals and termNature=='metal':
+            #         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
+            #         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+            #         if neutralize==True:
+            #             adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+            #             write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
         else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
             
@@ -2336,10 +2340,11 @@ def terminations(symbol,atoms,surfaces):
 
     positions=np.array([atom.position[:] for atom in atoms])
     centroid=positions.mean(axis=0)
-
+    
+    finalElements=[]
     for s in polarSurfaces:
         equivalentSurfaces=sg.equivalent_reflections(s)
-        finalElements=[]
+        print('surface and their equivalents ',s,equivalentSurfaces)
         for equSurf in equivalentSurfaces:
             rlist=[]
             direction= np.dot(equSurf,symbol.get_reciprocal_cell())
@@ -2354,7 +2359,7 @@ def terminations(symbol,atoms,surfaces):
                 if val==0.0:
                     # print(val)
                     finalElements.append(atoms[n].symbol)
- 
+    print(list(set(finalElements)))
     return list(set(finalElements))
 
 def addSpecies(symbol,atoms,surfaces,termNature):
@@ -2463,6 +2468,120 @@ def evaluateSurfPol(symbol,surfaces,ions,charges):
     # exit(1)
     return(polarS)
     
+def forceTermination(symbol,surfaces,distances,interplanarDistances,center,termNature):
+    """
+    Function that forces polar surfaces nanopartilcle
+    terminations:
+    Args: 
+        symbol(Atoms): crystal structure
+        surfaces([list]): miller indexes
+        distances([float]): distances
+        interplanarDistances([float])
+        center([float]): center
+        termNature(str): metal or non-metal
+    Return:
+        finalDistances([float]): final distances.
+    """
+    # translate the crystal to center
+    crystal=copy.deepcopy(symbol)
+    crystal.wrap(center)
+    crystal.center()
+    # round the numer of Layers
+    roundedNumberOfLayers=np.ceil(np.asarray(distances)/
+    np.asarray(interplanarDistances))
+    roundedNumberOfLayers=roundedNumberOfLayers+np.array(np.ones(len(roundedNumberOfLayers)))
+    
+    # Transforming termNature in ions
+    for element in symbol.get_chemical_symbols():
+        if termNature=='metal' and element not in nonMetals:
+                termIon=element
+                break
+        elif termNature=='non-metal' and element in nonMetals:
+                termIon=element
+                break
+    
+    # build slabs for each polar surface and get the dipole
+    ions=[]
+    charges=[]
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+
+    # Saving the surfaces distances for non-polar ones 
+    finalDistances=np.zeros(len(distances))
+    for index,s in enumerate(surfaces):
+        if index not in polarSurfacesIndex:
+            finalDistances[index]=distances[index]
+    slabs=[]
+    for index in polarSurfacesIndex:
+        print(surfaces[index])
+        # Get the termination 
+        topSpecie=[]
+        direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
+        l=int(roundedNumberOfLayers[index])
+
+        slab=slabBuild(symbol,tuple(surfaces[index]),l)
+        limit=np.dot(slab.get_positions(),direction)
+        beyondLimit=sorted([atom.index for atom in slab if limit[atom.index]>distances[index]],reverse=True)
+        del slab[beyondLimit]
+        slabs.append(slab)
+        rlist=[] 
+        for pos,num in zip(slab.get_positions(),slab.get_atomic_numbers()):
+            rlist.append((np.dot(pos,direction)+covalent_radii[num]))
+        rlist-=np.amax(rlist)
+
+        for n,val in enumerate(rlist):
+            if val==0.0:
+                topSpecie.append(slab[n].symbol)
+        topIonsType=list(set(topSpecie))
+
+        #cycle to get only one specie 
+        # while len(topIonsType)>1:
+        distance=distances[index]
+        cycleCounter=0
+        while topIonsType[0]!=termIon:
+            cycleCounter+=1
+            dprima=distance+((0.10*interplanarDistances[index]))
+            lprima =l+1
+            print(termIon,topIonsType,dprima,lprima)
+            topSpecie=[]
+            slab=slabBuild(symbol,tuple(surfaces[index]),lprima)
+            slabs.append(slab)
+            limit=np.dot(slab.get_positions(),direction)
+            beyondLimit=sorted([atom.index for atom in slab if limit[atom.index]>dprima],reverse=True)
+            del slab[beyondLimit]
+            slabs.append(slab)
+            rlist=[]
+            for pos,num in zip(slab.get_positions(),slab.get_atomic_numbers()):
+                rlist.append((np.dot(pos,direction)+covalent_radii[num]))
+            rlist-=np.amax(rlist)
+            for n,val in enumerate(rlist):
+                if val==0.0:
+                    topSpecie.append(slab[n].symbol)
+            # updating the values
+            topIonsType=list(set(topSpecie))
+            distance=dprima
+            l=lprima
+            print(termIon,topIonsType,dprima,lprima,'\n--------------------------------')
+
+
+            if cycleCounter==10:
+                break
+        
+        view(slabs)
+        finalDistances[index]=distance
+    exit(1)
+
+    return(finalDistances)
+
+
+
+
 
 
 
