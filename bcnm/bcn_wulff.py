@@ -13,7 +13,7 @@ from scipy.sparse.linalg import eigsh
 from scipy.spatial.distance import euclidean
 from scipy.spatial import ConvexHull
 import scipy.constants as constants
-from itertools import combinations
+from itertools import combinations,product
 from math import sqrt
 
 from ase import Atoms,Atom
@@ -271,34 +271,27 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # np0Properties.append(centrosym)
             return np0Properties
         elif totalReduced==True:
-            # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
         elif polar==True:
-            distances=forceTermination(symbol,surfaces,distances,dArray,center,termNature)
-            # distances=reduceDipole(symbol,surfaces,distances,dArray,center)
-            atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                                structure, center, latticeconstant,debug)
-            # Remove uncordinated atoms
-            removeUnbounded(symbol,atoms_midpoint)
-            # Save Nano
-            name = atoms_midpoint.get_chemical_formula()+str(center)+str(termNature)+".xyz"
-            write(name,atoms_midpoint,format='xyz',columns=['symbols','positions'])
-            # # terminationElements=terminations(symbol,atoms_midpoint,surfaces)
-            # # print(terminationElements)
-            # forceTermination(symbol,surfaces,distances,interplanarDistances)
-            # if len(terminationElements) ==1:
-            #     if terminationElements[0] in nonMetals and termNature=='non-metal':
-            #         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
-            #         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-            #         if neutralize==True:
-            #             adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
-            #             write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
-            #     elif terminationElements[0] not in nonMetals and termNature=='metal':
-            #         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
-            #         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
-            #         if neutralize==True:
-            #             adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
-            #             write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+            cutoffSets=forceTermination2(symbol,surfaces,distances,dArray)
+            for bunch in cutoffSets:
+                atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
+                                    structure, center, latticeconstant,debug)
+                removeUnbounded(symbol,atoms_midpoint)
+                terminationElements=terminations(symbol,atoms_midpoint,surfaces)
+                if len(terminationElements) ==1:
+                    if terminationElements[0] in nonMetals and termNature=='non-metal':
+                        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
+                        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                        if neutralize==True:
+                            adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                            write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+                    elif terminationElements[0] not in nonMetals and termNature=='metal':
+                        name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
+                        write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                        if neutralize==True:
+                            adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                            write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
         else:
             reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
             
@@ -2579,9 +2572,73 @@ def forceTermination(symbol,surfaces,distances,interplanarDistances,center,termN
 
     return(finalDistances)
 
+def forceTermination2(symbol,surfaces,distances,interplanarDistances):
+    """
+    Function that gives a set of distances to
+    forces the termination for polar surfaces
+    by increasing the distance
+    Args:
+        symbol(Atoms): crystal structure
+        surfaces([list]): miller indexes
+        distances([float]): distances
+        interplanarDistances([float])
+    Return:
+        newDistances([list]):set of cutoff distances 
+    """
+    cutoffDistancesSets=[]
+    
+    # build slabs for each polar surface and get the dipole
+    ions=[]
+    charges=[]
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
 
+    # Saving the surfaces distances for non-polar ones 
+    newDistances=np.zeros(len(distances))
+    for index,s in enumerate(surfaces):
+        if index not in polarSurfacesIndex:
+            newDistances[index]=distances[index]
+    
+    # geting sets of polar distances         
+    polarDistancesSets=[]
+    for index in polarSurfacesIndex:
+        distancesSet=[]
 
+        direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
 
+        # unit cell distances 
+        distancesUC=np.dot(symbol.get_positions(),direction)
+        elements=symbol.get_chemical_symbols()
+
+        diferences=[]
+        for a in zip(elements,distancesUC):
+            for b in zip(elements,distancesUC):
+                if a[0]!=b[0]:
+                    diferences.append(np.round(np.abs(b[1]-a[1]),2))
+        
+        for step in np.linspace(np.amin(diferences),interplanarDistances[index],4):
+            distancesSet.append(interplanarDistances[index]+step)
+        polarDistancesSets.append(distancesSet)
+    
+    # Getting the final set of distances
+    for p in product(*polarDistancesSets):
+        cutoffD=copy.deepcopy(newDistances)
+        for n,d in enumerate(p):
+            if cutoffD[n]==0:
+                cutoffD[n]=d
+        cutoffDistancesSets.append(cutoffD)
+        
+    return(cutoffDistancesSets)
+
+        
+
+    
 
 
 
