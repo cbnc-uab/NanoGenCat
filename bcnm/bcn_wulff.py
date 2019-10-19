@@ -170,6 +170,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         midpoint = (large+small)/2.
         distances = midpoint*size
         layers= distances/dArray
+        # print(layers)
     if debug>0:
         print('interplanarDistances\n',dArray)
         print('layers\n',layers)
@@ -275,6 +276,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif polar==True:
             cutoffSets=forceTermination2(symbol,surfaces,distances,dArray)
             for bunch in cutoffSets:
+                print(bunch)
+                layers=bunch/dArray
                 atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
                                     structure, center, latticeconstant,debug)
                 removeUnbounded(symbol,atoms_midpoint)
@@ -283,12 +286,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                     if terminationElements[0] in nonMetals and termNature=='non-metal':
                         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
                         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                        break
                         if neutralize==True:
                             adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
                             write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
                     elif terminationElements[0] not in nonMetals and termNature=='metal':
                         name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
                         write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                        break
                         if neutralize==True:
                             adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
                             write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
@@ -2629,9 +2634,11 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
     # Getting the final set of distances
     for p in product(*polarDistancesSets):
         cutoffD=copy.deepcopy(newDistances)
-        for n,d in enumerate(p):
+        i=0
+        for n,d in enumerate(cutoffD):
             if cutoffD[n]==0:
-                cutoffD[n]=d
+                cutoffD[n]=p[i]
+                i=i+1
         cutoffDistancesSets.append(cutoffD)
         
     return(cutoffDistancesSets)
