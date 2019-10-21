@@ -91,7 +91,7 @@ def main():
             if atom.symbol==element:
                 atom.charge=data['charges'][n]
     ##  Polarity verification
-    print(evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],data['charges']))
+    # print(evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],data['charges']))
     if 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
                         data['charges']) and data['polar']==True:
         pass
