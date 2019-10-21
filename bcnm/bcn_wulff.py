@@ -13,23 +13,26 @@ from scipy.sparse.linalg import eigsh
 from scipy.spatial.distance import euclidean
 from scipy.spatial import ConvexHull
 import scipy.constants as constants
-from itertools import combinations
+from itertools import combinations,product
 from math import sqrt
 
-from ase import Atoms
+from ase import Atoms,Atom
 from ase.atoms import symbols2numbers
 from ase.neighborlist import NeighborList
 from ase.utils import basestring
 from ase.cluster.factory import GCD
 from ase.visualize import view
 from ase.io import write,read
-from ase.data import chemical_symbols
+from ase.data import chemical_symbols,covalent_radii
 from ase.spacegroup import Spacegroup
+from ase.build import surface as slabBuild
+
 
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.structure import IMolecule
+from pymatgen.core.surface import SlabGenerator,generate_all_slabs
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -44,8 +47,9 @@ _debug = False
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     rounding='closest',latticeconstant=None, maxiter=100,
-    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',sampleSize=1000,
-    totalReduced=False,reductionLimit=None,debug=0):
+    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',
+    sampleSize=1000,totalReduced=False,coordinationLimit='half',polar=False,
+    termNature='non-metal',neutralize=False,debug=0):
     """Function that build a Wulff-like nanoparticle.
     That can be bulk-cut, stoichiometric and reduced
     
@@ -74,7 +78,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         debug (optional): If non-zero, information about the iteration towards
         the right cluster size is printed.
 
-        center[list]: The origin of coordinates
+        center((tuple)): The origin of coordinates
 
         stoichiometryMethod: Method to transform Np0 in Np stoichometric 0 Bruno, 1 Danilo
 
@@ -88,7 +92,13 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
         totalReduced(bool): Removes all unbounded and singly coordinated atoms
 
-        reductionLimit(int): fathers minimum coordination to remove dangling atoms
+        coordinationLimit(int): fathers minimum coordination 
+
+        polar(bool): Reduce polarity of the Np0
+
+        termNature(str): Terminations, could be 'metal' or 'non-metal'
+
+        neutralize(bool): True if hydrogen or OH is added, else False
 
     """
     global _debug
@@ -153,25 +163,31 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         scale_f = np.array([0.5])
         distances = scale_f*size
         # print('distances from bcn_wulff_construction',distances)
-        layers = np.array([distances/dArray])
+        layers = np.array(distances/dArray)
     else:
         small = np.array(energies)/((max(energies)*2.))
         large = np.array(energies)/((min(energies)*2.))
         midpoint = (large+small)/2.
         distances = midpoint*size
         layers= distances/dArray
+        # print(layers)
     if debug>0:
+        print('interplanarDistances\n',dArray)
         print('layers\n',layers)
-        print('size\n',size)
+        print('distances\n',distances)
         print('surfaces\n',surfaces)
+    # print('interplanarDistances\n',dArray)
+    # print('layers\n',layers)
+    # print('distances\n',distances)
+    # print('surfaces\n',surfaces)
 
     # Construct the np0
     atoms_midpoint = make_atoms_dist(symbol, surfaces, layers, distances, 
-                        structure, center, latticeconstant)
+                        structure, center, latticeconstant,debug)
     # Remove uncordinated atoms
     removeUnbounded(symbol,atoms_midpoint)
     # Check the minimum coordination on metallic centers
-    minCoord=check_min_coord(symbol,atoms_midpoint)
+    minCoord=check_min_coord(symbol,atoms_midpoint,coordinationLimit)
     # Save midpoint
     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP0.xyz"
     write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
@@ -197,7 +213,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             return np0Properties
         else:
 
-            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
             
         if debug>0:
             print('--------------')
@@ -245,10 +261,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         # print('------------------------------------------------------')
         # exit(1)
         # plane_area=planeArea(symbol,areasIndex,surfaces)
-        if debug>0:
-            print('areasIndex',areasIndex)
-            print('--------------')
-    
+        # if debug>0:
+        #     print('areasIndex',areasIndex)
+        #     print('--------------')
+        # print('polar aqui',polar) 
         if np0==True:
             np0Properties=[atoms_midpoint.get_chemical_formula()]
             np0Properties.extend(minCoord)
@@ -256,12 +272,65 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # np0Properties.append(centrosym)
             return np0Properties
         elif totalReduced==True:
-            # print('holaaaa')
             totalReduce(symbol,atoms_midpoint)
-        elif np0==False:
-            reduceNano(symbol,atoms_midpoint,size,sampleSize,reductionLimit,debug)
+        elif polar==True:
+            # print('initial distances and layers')
+            # print(distances,layers)
+            cutoffSets=forceTermination2(symbol,surfaces,distances,dArray)
+            # print(*cutoffSets,sep='\n')
+            finalSize=[]
+            for bunch in cutoffSets:
+                # print(bunch)
+                layers=bunch/dArray
+                atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
+                                    structure, center, latticeconstant,debug)
+                removeUnbounded(symbol,atoms_midpoint)
+                terminationElements=terminations(symbol,atoms_midpoint,surfaces)
+                if len(terminationElements) ==1:
+                    if terminationElements[0] in nonMetals and termNature=='non-metal':
+                        finalSize.append([layers,bunch,len(atoms_midpoint)])
+                    elif terminationElements[0] not in nonMetals and termNature=='metal':
+                        finalSize.append([layers,bunch,len(atoms_midpoint)])
+            if len(finalSize)==0:
+                print('Not possible to get the desired termination for this centering')
+            else:
+                # print('finalSize')
+                # print(len(finalSize))
+                # print(*finalSize,sep='\n')
+                # print('.....................')
+                orderedSizes=sorted(finalSize,key=lambda x:x[2])
+                # print(*orderedSizes,sep='\n')
+                # print(orderedSizes[0)
+                # print(orderedSizes[0][0])
+                # print(len(orderedSizes[0]))
+                # layers=orderedSizes[0][0]
+                # distances=orderedSizes[0][1]
+                # print(layers,distances)
+                atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
+                                structure,center,latticeconstant,debug)
+                # print('hereeeee')
+                name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
+                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                if neutralize==True:
+                    adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                    write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+
+
+                    #     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
+                    #     write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                    #     if neutralize==True:
+                    #         adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                    #         write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+                    # elif terminationElements[0] not in nonMetals and termNature=='metal':
+                    #     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_metal_ter.xyz"
+                    #     write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                    #     if neutralize==True:
+                    #         adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                    #         write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+        else:
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
             
-def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant):
+def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant,debug):
     """
     Function that use the structure to get the nanoparticle.
     All surface related arguments has the same order
@@ -677,13 +746,14 @@ def make_F(atoms,C,nearest_neighbour,debug):
         print("Total time to calculate combinations", round(time_F1-time_F0,5)," s")
     return K
 
-def check_min_coord(symbol,atoms):
+def check_min_coord(symbol,atoms,coordinationLimit):
     """Function that return information that allows to characterize the
     NP0 like undercoordinated metals, the number of metals, non metals
     and also calculates the global coordination.
     Args:
         symbol(Atoms): Crystal structure
         atoms(Atoms): Nanoparticle
+        coordinationLimit(str): half or minus2
     Return: 
         characterization([metals,nonmetals,undercoordinated,globalCoord])
             list of information of np0.
@@ -718,10 +788,17 @@ def check_min_coord(symbol,atoms):
     #the half of maximium coordination
     minCoord=np.min(metalsCoordinations)
     # print('minCoord',minCoord)
-    if minCoord>=maxCoord/2:
-        coordTest=True
-    else:
-        coordTest=False
+    if coordinationLimit=='half':
+        if minCoord>=maxCoord/2:
+            coordTest=True
+        else:
+            coordTest=False
+    elif coordinationLimit=='minus2':
+        if minCoord>=maxCoord-2:
+            coordTest=True
+        else:
+            coordTest=False
+
 
     # if maxCoord<=2:
     #     if minCoord>=maxCoord-1:
@@ -764,10 +841,10 @@ def singulizator(nanoList,debug):
             results.append(c)
 
     # print(results)
-    """
-    keeping in mind that a repeated structure can appear
-    on both columns, I just take the first
-    """
+    
+    # keeping in mind that a repeated structure can appear
+    # on both columns, I just take the first
+    
     if debug>0:
         for i in results:
             print('NP '+nanoList[i[0]]+' and '+nanoList[i[1]]+ ' are equal')
@@ -792,7 +869,7 @@ def singulizator(nanoList,debug):
 
 def sprint(nano):
     """
-    Calculate the sprint coordinates matrix for a nanoparticle.
+    Function that calculates the sprint coordinates matrix for a nanoparticle.
 
     First calculate the coordination, then build the adjacency
     matrix. To calculate the coordination firstly generates a 
@@ -803,6 +880,10 @@ def sprint(nano):
     coordination list to adjacency matrix.
 
     Then, calculate the sprint coordinates
+    Args:
+        nano(file): xyz file
+    Return:
+        sFormated([float]): SPRINT coordinates
     """
     atoms=read(nano,format='xyz')
     atoms.center(vacuum=20)
@@ -882,7 +963,7 @@ def compare(sprint0,sprint1):
         if len(diff)==0:
             return True
 
-def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
+def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
     """
     Function that make the nano stoichiometric
     by removing dangling atoms. It is element
@@ -892,7 +973,7 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
         atoms(Atoms): Atoms object of selected Np0
         size(float): size of nanoparticle
         sampleSize: number of replicas
-        reductionLimit(int): Lower dangling father coordination
+        coordinationLimit(str): half or minus2
         debug(int): for print stuff
 
     """
@@ -906,7 +987,7 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
         return None
     if check_stoich_v2(symbol,atoms,debug) is 'stoichiometric':
         print("NP0 is stoichiometric")
-        name=atoms.get_chemical_formula()+'_NP0_f.xyz'
+        name=atoms.get_chemical_formula()+'stoich_f.xyz'
         write(name,atoms,format='xyz',columns=['symbols', 'positions'])
         return None
 
@@ -982,18 +1063,18 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
     # else:
     # print ('maxCord',maxCord)
 
-    # reductionLimit Evaluation
+    # coordinationLimit Evaluation
     # Default value
-    if reductionLimit==None:
+    if coordinationLimit=='half':
         mid=int(maxCord/2)
-    else:
+    elif coordinationLimit=='minus2': 
         # User value
-        mid=int(reductionLimit-1)
-    # Control the value of reductionLimit
-        if mid > maxCord or mid<=0:
-            print('reduction limit must be lower than the maximum coordination,',
-            'positive, and larger than 0')
-            return None
+        mid=int(maxCord-3)
+    # Control the value of coordinationLimit
+    # if mid > maxCord or mid<=0:
+    #     print('reduction limit must be lower than the maximum coordination,',
+    #     'positive, and larger than 0')
+    #     return None
     # print('mid',mid)
     # exit(1)
 
@@ -1065,8 +1146,9 @@ def reduceNano(symbol,atoms,size,sampleSize,reductionLimit,debug=0):
 
     time_F1 = time.time()
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
-    #Calling the singulizator function 
-    singulizator(nanoList,debug)
+    #Calling the singulizator function
+    if len (nanoList) >1:
+        singulizator(nanoList,debug)
     
 def interplanarDistance(recCell,millerIndexes): 
     """Function that calculates the interplanar distances
@@ -1093,15 +1175,15 @@ def interplanarDistance(recCell,millerIndexes):
 
     return d
 
-def equivalentSurfaces(atoms,millerIndexes):
+def equivalentSurfaces(symbols,millerIndexes):
     """Function that get the equivalent surfaces for a set of  millerIndexes
     Args:
+        symbols(Atoms):Crystal structure
         millerIndexes(list([])): list of miller Indexes
     Return:
         equivalentSurfaces(list([])): list of all equivalent miller indexes
     """
-    surfaces = np.array(millerIndexes)
-    sg=Spacegroup((int(str(atoms.info['spacegroup'])[0:3])))
+    sg=Spacegroup((int(str(symbols.info['spacegroup'])[0:3])))
     equivalent_surfaces=[]
     for s in millerIndexes:
         equivalent_surfaces.extend(sg.equivalent_reflections(s))
@@ -1341,7 +1423,7 @@ def wulffLike(atoms,idealWulffAreasFraction,areasPerInitialIndex):
     # print('idealAreasPerEquivalentSort',idealAreasPerEquivalentSort)
     # print('realAreasPerEquivalentSort',realAreasPerEquivalentSort)
 
-    for n,indexArea in enumerate(idealAreasPerEquivalent):
+    for n,indexArea in enumerate(idealAreasPerEquivalentSort):
         if indexArea[0]==realAreasPerEquivalentSort[n][0]:
             sameOrder=True
         else:
@@ -1368,11 +1450,17 @@ def idealWulffFractions(atoms,surfaces,energies):
     """
    
     lattice=atoms.get_cell()
-    
     tupleMillerIndexes=[]
     for index in surfaces:
         tupleMillerIndexes.append(tuple(index))
-
+    # print(type(energies))
+    # print(len(energies))
+    # print(energies)
+    # print(energies[0])
+    
+    # if type(energies)==np.array:
+    #     print('holaaaaa')
+    # print('lattice,tupleMillerIndexes,energies',lattice,tupleMillerIndexes,energies)
     idealWulffShape = WulffShape(lattice,tupleMillerIndexes, energies)
     areas=idealWulffShape.area_fraction_dict
 
@@ -1409,7 +1497,7 @@ def coulombEnergy(symbol,atoms):
 
     return coulombLikeEnergy
 
-def dipole(atoms):
+def dipole_np(atoms):
     """
     Function that calculate the dipole moment
     E=sum(qi/ri))for np.
@@ -1621,6 +1709,7 @@ def coordinationv2(crystal,atoms):
                 nearest_neighbour_by_element.append(np.min([x for x in distances[atom.index] if x>0]))
         # print(list(set(nearest_neighbour_by_element)))
         red_nearest_neighbour.append(np.max(nearest_neighbour_by_element))
+    # print('red_nearest')
     # print(red_nearest_neighbour)
 
     #construct the nearest_neighbour for the nano
@@ -1628,8 +1717,10 @@ def coordinationv2(crystal,atoms):
     for atom in atoms:
         for n,element in enumerate(elements):
             if atom.symbol==element:
+                # print('n',n)
                 nearest_neighbour.append(red_nearest_neighbour[n])
-
+    # print('nearest')
+    # print(nearest_neighbour) 
     C=[]
     half_nn = [x /2.5 for x in nearest_neighbour]
     nl = NeighborList(half_nn,self_interaction=False,bothways=True)
@@ -1695,8 +1786,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             equivalentSurfacesStrings.append(ss)
         # break
         # Get the direction per each miller index
-    #Project the position to the direction of the miller index
-    # by calculating the dot produequivalentSurfacesStringsct
+        #Project the position to the direction of the miller index
+        # by calculating the dot produequivalentSurfacesStringsct
         rs=[]
         auxrs=[]
         # print('test distances based')
@@ -1706,8 +1797,7 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             direction = direction / np.linalg.norm(direction)
             for n,j in enumerate(outershell.get_positions()):
                 rlist.append(np.dot(j-centroid,direction))
-            # print('rlist',rlist)
-            # print('surface',i)
+            # print('surface,distance',i,np.max(rlist))
             # print('position',outershell.get_positions()[np.argmax(rlist)])
             # print('...........................')
             auxrs.append(np.max(rlist))
@@ -1724,8 +1814,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
         auxPercentage=[]
         for i in rs:
             areaPerPlane=hull.area*i[1]/totalD
-            percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,2)])
-            auxPercentage.append(np.round(areaPerPlane/hull.area,2))
+            percentages.append([''.join(map(str,i[0])),np.round(areaPerPlane/hull.area,3)])
+            auxPercentage.append(np.round(areaPerPlane/hull.area,3))
         # print('auxPercentage',len(auxPercentage))
         ### evaluate if those are equal, limit to  0.1 of difference(10%)
         minArea=np.min(auxPercentage)
@@ -1735,8 +1825,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
         # print(avArea)
         symmetric=[]
         for i in percentages:
-            if (np.abs(i[1]-maxArea)/maxArea)<0.1:
-                # print('i',i)
+            # if(np.abs(i[1]-avArea))<0.001:
+            if (np.abs(i[1]-maxArea)/maxArea)<0.005:
                 symmetric.append(0)
             else:
                 symmetric.append(1)
@@ -1745,7 +1835,8 @@ def wulffDistanceBased(symbol,atoms,surfaces,distance):
             result.append(False)
         else:
             result.append(True)
-    ####
+        # print(result)
+    ##
     #Calculate the WLI
     ####
     #Ideal surface contribution percentage
@@ -2005,10 +2096,14 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     '''
     # Round the layers
     layersRound = [np.round(l).astype(int) for l in layers]
+
     # print('layers after rounding',layersRound)
     lenghtPerPlane=[]
     # Get the distances and use it to calculate the areas contribution per orientation
-    for layer,distanceValue in zip(layersRound,distances): 
+
+    for layer,distanceValue in zip(layersRound,distances):
+        # print(distanceValue*(layer[0]+0.5))
+        # print(layer) 
         lenghtPerPlane.append(distanceValue*(layer+0.5))
     # print('lenghtPerPlane',lenghtPerPlane)
     # get all the equivalent surface and the proper lenght 
@@ -2130,16 +2225,459 @@ def removeUnbounded(symbol,atoms):
 
     # return(atoms)
 
+def dipole(slab):
+    """
+    Function that calculates the dipole moment
+    of a slab model per area unit.
+    If that value are larger than threshold, the slab is
+    polar
+    Args:
+        slab(Atoms): slab
+    Return:
+        bool: normalized dipole per area unit
+    """
+    normal=np.cross(slab.get_cell()[0],slab.get_cell()[1])
+    normal/=np.linalg.norm(normal)
+
+    dipole=np.zeros(3)
+    # Get the midpoint
+    midPoint=np.sum(slab.get_positions(),axis=0)/len(slab.get_atomic_numbers())
+    for atom in slab:
+        dipole+=atom.charge*np.dot(atom.position - midPoint,normal)*normal
+    area=np.linalg.norm(np.cross(slab.get_cell()[0],slab.get_cell()[1]))
+    # print(area)
+    dipolePerArea=dipole/area
+    return np.linalg.norm(dipolePerArea)
+
+def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
+    """
+    Function that increase the cut-offdistance to get less 
+    polar nanoparticles. The surfaces,distances and
+    interPlanarDistances MUST have the same order
+    Args:
+        symbol(Atoms): crystal structure
+        surfaces([list]): surface miller indexes
+        distances([float]): cut-off distances
+        interplanarDistances([float]): interplanar distances
+        center((float)): center
+    return:
+        finalDistances([float]): Distances that reduce the 
+        dipole.
+
+    """
+    charges=[]
+    ions=[]
+    finalDistances=np.zeros(len(surfaces))
+    
+    # translate the crystal to center
+    crystal=copy.deepcopy(symbol)
+    crystal.wrap(center)
+    crystal.center()
+    
+    #Rounded number of layers
+    roundedNumberOfLayers=np.ceil(np.asarray(distances)/
+    np.asarray(interplanarDistances))
+    roundedNumberOfLayers=roundedNumberOfLayers+np.array(np.ones(len(roundedNumberOfLayers)))
+    # print('roundedNumberOfLayers',roundedNumberOfLayers)
+    
+    # build slabs for each polar surface and get the dipole
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+    # polarSurfaces=[surfaces[i] for i in polarSurfacesIndex]   
+    # Saving the surfaces distances for non-polar ones 
+    for index,s in enumerate(surfaces):
+        if index not in polarSurfacesIndex:
+            finalDistances[index]=distances[index]
+    
+    for index in polarSurfacesIndex:
+        # print(distances[index])
+        direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
+        l=int(roundedNumberOfLayers[index])
+        slab=slabBuild(crystal,tuple(surfaces[index]),l)
+        # view(slab)
+        limit=np.dot(slab.get_positions(),direction)
+        # print(limit)
+        beyondLimit=sorted([atom.index for atom in slab if limit[atom.index]>distances[index]],reverse=True)
+        del slab[beyondLimit]
+        # view(slab)
+        initialDipole=dipole(slab)
+        distancesAndDipole=[]
+        distancesAndDipole.append([distances[index],initialDipole])
+        cycle=0
+        slabModels=[]
+        slabModels.append(slab)
+        # print('distances',distances[index])
+        while cycle <10:
+            cycle+=1
+            dprima=distances[index]+((0.1*interplanarDistances[index])*cycle)
+            lprima=l+(1*cycle)
+            slab_prima=slabBuild(crystal,tuple(surfaces[index]),lprima)
+            # view(slab_prima)
+            limit=np.dot(slab_prima.get_positions(),direction)
+            # print('dprima',dprima)
+            # print(limit)
+            beyondLimit=sorted([atom.index for atom in slab_prima if limit[atom.index]>dprima],reverse=True)
+            del slab_prima[beyondLimit]
+            # view(slab_prima)
+            slabModels.append(slab_prima)
+            distancesAndDipole.append([dprima,dipole(slab_prima)])
+            # exit(1)
+        # print(s,distancesAndDipole)
+        disAndDip=sorted(distancesAndDipole,key=lambda x:x[1]) 
+        # print(disAndDip)
+        finalDistances[index]=(disAndDip[0][0])
+        # break
+        # view(slabModels)
+    # print('finalDistances',finalDistances)
+    # exit(1)
+    return finalDistances
+
+def terminations(symbol,atoms,surfaces):
+    """
+    Function that evaluates the termination.
+    Equivalent planes must have the same termination.
+    Args:
+        symbol(Atoms):crystal structure
+        atoms(Atoms):nanoparticle
+        surfaces([list]): surface miller indexes
+        
+    Return:
+        True if all equivalent orientation have the same termination
+    """
+    charges=[]
+    ions=[]
+    # Calculate the polarity  and get the polar surfaces
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+    polarSurfaces=[surfaces[i] for i in polarSurfacesIndex] 
+
+    # Get the equivalent surfaces and give them the distance
+    # Creating the spacegroup object
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+
+    positions=np.array([atom.position[:] for atom in atoms])
+    centroid=positions.mean(axis=0)
+    
+    finalElements=[]
+    for s in polarSurfaces:
+        equivalentSurfaces=sg.equivalent_reflections(s)
+        # print('surface and their equivalents ',s,equivalentSurfaces)
+        for equSurf in equivalentSurfaces:
+            rlist=[]
+            direction= np.dot(equSurf,symbol.get_reciprocal_cell())
+            direction = direction / np.linalg.norm(direction)
+            for pos,num in zip(atoms.get_positions(),atoms.get_atomic_numbers()):
+                rlist.append((np.dot(pos-centroid,direction)+covalent_radii[num]))
+            # exit(1)
+            # finalElements.append(atoms[np.argmax(rlist)].symbol)
+            testArray=rlist-np.amax(rlist)
+            # print(testArray)
+            for n,val in enumerate(testArray):
+                if val==0.0:
+                    # print(val)
+                    finalElements.append(atoms[n].symbol)
+    # print(list(set(finalElements)))
+    return list(set(finalElements))
+
+def addSpecies(symbol,atoms,surfaces,termNature):
+    """
+    Function that add species on reduced polarity nps
+    hydrogens in non metal and OH in metal
+    Args:
+        symbol(Atoms): crystal structure
+        atoms(Atoms): polarity reduced nanoparticle
+        surfaces([list]): miller indexes surfaces
+        termNature(str): termination nature, metal or non-metal
+    Return: 
+        adsorbedNP(Atoms)
+    """
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+
+    positions=np.array([atom.position[:] for atom in atoms])
+    centroid=positions.mean(axis=0)
+    
+    adsorbedNP=copy.deepcopy(atoms)
+
+    for s in zip(surfaces):
+        equivalentSurfaces=sg.equivalent_reflections(s)
+        for equSurf in equivalentSurfaces:
+            # print(equSurf)
+            surfaceAtomsIndexperEq=[]
+            surfaceAtomsperEq=[]
+            rlist=[]
+            direction= np.dot(equSurf,symbol.get_reciprocal_cell())
+            direction = direction / np.linalg.norm(direction)
+            for pos,num in zip(atoms.get_positions(),atoms.get_atomic_numbers()):
+                rlist.append((np.dot(pos-centroid,direction)+covalent_radii[num]))
+            # exit(1)
+            # finalElements.append(atoms[np.argmax(rlist)].symbol)
+            testArray=rlist-np.amax(rlist)
+            # print(testArray)
+            for n,val in enumerate(testArray):
+                if val==0.0:
+                    # print(val)
+                    surfaceAtomsIndexperEq.append(n)
+                    surfaceAtomsperEq.append(atoms[n].symbol)
+            # print(surfaceAtomsIndexperEq)
+            # define the new positions of hydrogen atoms
+            # scalling uniformly the position of father atom
+            if list(set(surfaceAtomsperEq))[0] in nonMetals and termNature=='non-metal':
+                for atomIndex in surfaceAtomsIndexperEq:
+                    displacement=0.979
+                    newPos=(displacement*direction)+atoms[atomIndex].position
+                    # print(atoms[atomIndex].position,newPos)
+                    hydrogen=Atom('H',newPos)
+                    adsorbedNP.extend(hydrogen)
+            if list(set(surfaceAtomsperEq))[0] not in nonMetals and termNature=='metal':
+                for atomIndex in surfaceAtomsIndexperEq:
+                    # add oxygen and then hydrogen
+                    oxygenDisp=2.0
+                    oxygenPos=(oxygenDisp*direction)+atoms[atomIndex].position
+                    oxygen=Atom('O',oxygenPos)
+                    adsorbedNP.extend(oxygen)
+                    hydrogenDisp=0.979+oxygenDisp
+                    hydrogenPos=(hydrogenDisp*direction)+atoms[atomIndex].position
+                    hydrogen=Atom('H',hydrogenPos)
+                    adsorbedNP.extend(hydrogen)
+    return adsorbedNP 
+            # else:
+            
+def evaluateSurfPol(symbol,surfaces,ions,charges):
+    """
+    Function that identify if a surface is polar or not
+    Args:
+        symbol(Atoms): crystal structure
+        surfaces([list]): surfaces miller indexes
+        ions([]): ions
+        charges([]): ionic charges
+    """
+    # convert atoms into material
+    material=AseAtomsAdaptor.get_structure(symbol)
+    data=[]
+    for element in material.species:
+        for i,c in zip(ions,charges):
+            if element.name==i:
+                data.append(c) 
+    material.add_oxidation_state_by_site(data)
+    # print(material)
+    # slabs=[]
+    polarS=[]
+    for s in surfaces:
+        slabgen=SlabGenerator(material,s,10,10)
+        all_slabs=slabgen.get_slabs()
+        slabsPolarity=[]
+        for slab in all_slabs:
+            # slabs.append(AseAtomsAdaptor.get_atoms(slab))
+            if slab.is_polar(tol_dipole_per_unit_area=1e-5)==False:
+                slabsPolarity.append('non Polar')
+            else:
+                slabsPolarity.append('polar')
+        # print(len(slabsPolarity))
+        if len(slabsPolarity)>1:
+            if (slabsPolarity.count('polar')) >1:
+                polarS.append('polar')
+            else:
+                polarS.append('non_polar')
+        else:
+            polarS.append(slabsPolarity[0])
+
+    # view(slabs)
+    # exit(1)
+    return(polarS)
+    
+def forceTermination(symbol,surfaces,distances,interplanarDistances,center,termNature):
+    """
+    Function that forces polar surfaces nanopartilcle
+    terminations:
+    Args: 
+        symbol(Atoms): crystal structure
+        surfaces([list]): miller indexes
+        distances([float]): distances
+        interplanarDistances([float])
+        center([float]): center
+        termNature(str): metal or non-metal
+    Return:
+        finalDistances([float]): final distances.
+    """
+    # translate the crystal to center
+    crystal=copy.deepcopy(symbol)
+    crystal.wrap(center)
+    crystal.center()
+    # round the numer of Layers
+    roundedNumberOfLayers=np.ceil(np.asarray(distances)/
+    np.asarray(interplanarDistances))
+    roundedNumberOfLayers=roundedNumberOfLayers+np.array(np.ones(len(roundedNumberOfLayers)))
+    
+    # Transforming termNature in ions
+    for element in symbol.get_chemical_symbols():
+        if termNature=='metal' and element not in nonMetals:
+                termIon=element
+                break
+        elif termNature=='non-metal' and element in nonMetals:
+                termIon=element
+                break
+    
+    # build slabs for each polar surface and get the dipole
+    ions=[]
+    charges=[]
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+
+    # Saving the surfaces distances for non-polar ones 
+    finalDistances=np.zeros(len(distances))
+    for index,s in enumerate(surfaces):
+        if index not in polarSurfacesIndex:
+            finalDistances[index]=distances[index]
+    slabs=[]
+    for index in polarSurfacesIndex:
+        print(surfaces[index])
+        # Get the termination 
+        topSpecie=[]
+        direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
+        l=int(roundedNumberOfLayers[index])
+
+        slab=slabBuild(symbol,tuple(surfaces[index]),l)
+        limit=np.dot(slab.get_positions(),direction)
+        beyondLimit=sorted([atom.index for atom in slab if limit[atom.index]>distances[index]],reverse=True)
+        del slab[beyondLimit]
+        slabs.append(slab)
+        rlist=[] 
+        for pos,num in zip(slab.get_positions(),slab.get_atomic_numbers()):
+            rlist.append((np.dot(pos,direction)+covalent_radii[num]))
+        rlist-=np.amax(rlist)
+
+        for n,val in enumerate(rlist):
+            if val==0.0:
+                topSpecie.append(slab[n].symbol)
+        topIonsType=list(set(topSpecie))
+
+        #cycle to get only one specie 
+        # while len(topIonsType)>1:
+        distance=distances[index]
+        cycleCounter=0
+        while topIonsType[0]!=termIon:
+            cycleCounter+=1
+            dprima=distance+((0.10*interplanarDistances[index]))
+            lprima =l+1
+            print(termIon,topIonsType,dprima,lprima)
+            topSpecie=[]
+            slab=slabBuild(symbol,tuple(surfaces[index]),lprima)
+            slabs.append(slab)
+            limit=np.dot(slab.get_positions(),direction)
+            beyondLimit=sorted([atom.index for atom in slab if limit[atom.index]>dprima],reverse=True)
+            del slab[beyondLimit]
+            slabs.append(slab)
+            rlist=[]
+            for pos,num in zip(slab.get_positions(),slab.get_atomic_numbers()):
+                rlist.append((np.dot(pos,direction)+covalent_radii[num]))
+            rlist-=np.amax(rlist)
+            for n,val in enumerate(rlist):
+                if val==0.0:
+                    topSpecie.append(slab[n].symbol)
+            # updating the values
+            topIonsType=list(set(topSpecie))
+            distance=dprima
+            l=lprima
+            print(termIon,topIonsType,dprima,lprima,'\n--------------------------------')
 
 
+            if cycleCounter==10:
+                break
+        
+        view(slabs)
+        finalDistances[index]=distance
+    exit(1)
 
+    return(finalDistances)
 
+def forceTermination2(symbol,surfaces,distances,interplanarDistances):
+    """
+    Function that gives a set of distances to
+    forces the termination for polar surfaces
+    by increasing the distance
+    Args:
+        symbol(Atoms): crystal structure
+        surfaces([list]): miller indexes
+        distances([float]): distances
+        interplanarDistances([float])
+    Return:
+        newDistances([list]):set of cutoff distances 
+    """
+    cutoffDistancesSets=[]
+    
+    # build slabs for each polar surface and get the dipole
+    ions=[]
+    charges=[]
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
 
+    # Saving the surfaces distances for non-polar ones 
+    newDistances=np.zeros(len(distances))
+    for index,s in enumerate(surfaces):
+        if index not in polarSurfacesIndex:
+            newDistances[index]=distances[index]
+    
+    # geting sets of polar distances         
+    polarDistancesSets=[]
+    for index in polarSurfacesIndex:
+        distancesSet=[]
+        # include default distance
+        distancesSet.append(distances[index])
 
+        direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
+        direction = direction / np.linalg.norm(direction)
+
+        # unit cell distances 
+        distancesUC=np.dot(symbol.get_positions(),direction)
+        elements=symbol.get_chemical_symbols()
+
+        diferences=[]
+        for a in zip(elements,distancesUC):
+            for b in zip(elements,distancesUC):
+                if a[0]!=b[0]:
+                    diferences.append(np.round(np.abs(b[1]-a[1]),2))
+        
+        for step in np.linspace(np.amin(diferences),interplanarDistances[index],10):
+            distancesSet.append(distances[index]+step)
+        polarDistancesSets.append(distancesSet)
+    # print(polarDistancesSets) 
+    # Getting the final set of distances
+    for p in product(*polarDistancesSets):
+        cutoffD=copy.deepcopy(newDistances)
+        i=0
+        for n,d in enumerate(cutoffD):
+            if cutoffD[n]==0:
+                cutoffD[n]=p[i]
+                i=i+1
+        cutoffDistancesSets.append(cutoffD)
+        
+    return(cutoffDistancesSets)
+
+        
 
     
-
-
 
 
 

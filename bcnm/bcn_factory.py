@@ -94,24 +94,29 @@ class ClusterFactory(ClusterFactory):
         # print(size.prod())
         #Construct a list of empty translations
         translations = np.zeros((size.prod(), 3))
-        # print(len(translations))
+        # print(translations,len(translations))
+
 
         #Get a set of points in the range of the size
 
-        #Weird way to iterate 
+        # Build a  set of points using the number of cells
         for h in range(size[0]):
             for k in range(size[1]):
                 for l in range(size[2]):
-                    # print('h,k,l',h,k,l,)
+                    # print('h,k,l',h,k,l)
                     i = h * (size[1] * size[2]) + k * size[2] + l
                     # print('index',i)
-                    translations[i] = np.dot([h, k, l], self.lattice_basis)
                     # keep in mind that size is the number of cells that has to be
                     # replied, when we multiply by lattice_basis(unit cell), we get
                     # the translation in cartesian units
+                    translations[i] = np.dot([h, k, l], self.lattice_basis)
+                    
+                    
         # print('self.atomic_basis,self.lattice_basis',self.atomic_basis,'\n',self.lattice_basis)
         # print('lenselfatomicbasis\n',len(self.atomic_basis))
-        #dot product between lattice and atomic positions
+
+        # Transform the atomic positions in cartesian ones by multiplying it for the cell parameters
+        # print(self.atomic_basis)
         atomic_basis = np.dot(self.atomic_basis, self.lattice_basis)
         # print('atomic_basis\n',atomic_basis)
         #positions is an empty array the product between transitions and atomic basis
@@ -261,6 +266,8 @@ class ClusterFactory(ClusterFactory):
                 print('max ',max)
                 print('min ',min)
             #I think that is not necesary
+            # print('max ',max)
+            # print('min ',min)
             if l % 2 != 0:
                 self.center = np.dot(offset - min, self.lattice_basis)
             else:
@@ -269,7 +276,8 @@ class ClusterFactory(ClusterFactory):
                 print('self.center set lattice size',self.center)
                 print('............................................')
         self.size = (max - min + np.ones(3)).astype(int)
-
+        # print('self.size')
+        # print(self.size)
     def set_surfaces_distances(self, surfaces, distances):
         """
         Function that add all the distances to all
