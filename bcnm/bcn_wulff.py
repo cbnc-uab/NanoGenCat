@@ -2163,7 +2163,9 @@ def hybridMethod(symbol,atoms,surfaces,layers,distances,interplanarDistances,ide
     results=[]
 
     # Execute the Distancesbased method to get the equivalent grow
-    results.append(wulffDistanceBased(symbol,atoms,surfaces,distances)[0])
+    # results.append(wulffDistanceBased(symbol,atoms,surfaces,distances)[0])
+    # Testing the new distanceBased
+    results.append(wulffDistanceBasedVer2(symbol,atoms,surfaces,distances))
     # Execute the layerbased to get the order and wulff-like index
     results.extend(wulfflikeLayerBased(symbol,surfaces,layers,interplanarDistances,ideal_wulff_fractions)[:])
 
@@ -2687,11 +2689,9 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
         surface(list): surface miller index
         distance(float): distance from the center to the wall
     Return:
-        results(list): List that contains:
-                        Symmetric growing(Bool): True if symmetric
+        results(bool): symmetric growing, True if symmetric
 
     """
-    result=[]
     # Get the equivalent surfaces and give them the distance
     # Creating the spacegroup object
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
@@ -2735,23 +2735,42 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
         allMaxDistances.append(maxDistances)
     # Phase 1: get the contribution per initial surface by relationships
     # aka likePercentage
-    likePercentage=[np.sum(i)/np.sum(maxDistances) for i in maxDistances]
-
+    likePercentage=[np.sum(i)/np.sum(np.sum(allMaxDistances)) for i in allMaxDistances]
+    # print('likePercentage',likePercentage)
     # Phase 2: get the contribution for each equivalent surface
-    normalizedDistances=[np.asarray(dmax) - np.amax(dmax) for dmax in maxDistances]
-    ratios=[np.asarray(i)/np.amax(i) for i in normalizedDistances]
+    normalizedDistances=[np.asarray(dmax) /np.amax(dmax) for dmax in allMaxDistances]
+    # print(*allMaxDistances,sep='\n')
+    # print('----------------------')
+    # print(normalizedDistances)
+    ratios=[np.asarray(i)/np.sum(i) for i in normalizedDistances]
+    # print('ratios',ratios)
 
     areaContributionperEq=[]
     for percent,iniPlane in zip(likePercentage,ratios):
         areaContributionperEq.append(np.dot(percent,iniPlane))
+    # print('areaContperEq',areaContributionperEq)
     
     # Phase 3: use the absolute deviation respect to max
     deviations=[]
     for iniPlane in areaContributionperEq:
-        deviations.append([i-np.max(iniPlane) for i in iniPlane])
+        deviations.append([np.abs(i-np.max(iniPlane)) for i in iniPlane])
+    # print('deviations')
+    # print(*deviations,sep='\n') 
+    # Phase 4: If deviation is smaller than 0.1 (10%) the NP grow is
+    # symmetric
+
+    symmetric=[]
+    for iniPlane in deviations:
+        if np.max(iniPlane) >0.1:
+            symmetric.append(1)
+        else:
+            symmetric.append(0)
+    # print('symmetric',symmetric)
+    if 1 in symmetric:
+        return False
+    else: 
+        return True
     
-    # Phase 4: If deviation larger than 0.1 (10%) the planes are
-    # equivalent
 
 
 
