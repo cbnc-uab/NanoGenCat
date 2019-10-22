@@ -2673,9 +2673,86 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
         
     return(cutoffDistancesSets)
 
-        
+def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
+    """
+    Function that evaluates if equivalent
+    faces has the same lenght from the center of the material
+    or not. Also calculates the WLI
 
+    Warning: Written for only one surface energy.
+
+    Args:
+        symbol(Atoms): bulk atom object
+        atoms(Atoms): nanoparticle atoms type
+        surface(list): surface miller index
+        distance(float): distance from the center to the wall
+    Return:
+        results(list): List that contains:
+                        Symmetric growing(Bool): True if symmetric
+
+    """
+    result=[]
+    # Get the equivalent surfaces and give them the distance
+    # Creating the spacegroup object
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+
+    positions=np.array([atom.position[:] for atom in atoms])
+    centroid=positions.mean(axis=0)
+
+    #Create the ConvexHull  object
+    hull=ConvexHull(positions)
+    # print(hull.area)
+
+    simplices=[]
+    for simplex in hull.simplices:
+        simplices.extend(simplex)
+    surfaceAtoms=sorted(list(set(simplices)))
+
+    #Save the atoms surface in a new atoms object
+    outershell=copy.deepcopy(atoms)
+    del outershell[[atom.index for atom in outershell if atom.index not in surfaceAtoms]]
     
+    #All distances Maximum
+    allMaxDistances=[]
+
+    #Get the equivalent surfaces
+    for s in surfaces:
+        equivalentSurfaces=sg.equivalent_reflections(s)
+        equivalentSurfacesStrings=[]
+        for ss in equivalentSurfaces:
+            equivalentSurfacesStrings.append(ss)
+        # Get the direction per each miller index
+        #Project the position to the direction of the miller index
+        # by calculating the dot produequivalentSurfacesStringsct
+        maxDistances=[]
+        for i in equivalentSurfacesStrings:
+            rlist=[]
+            direction= np.dot(i,symbol.get_reciprocal_cell())
+            direction/= np.linalg.norm(direction)
+            for n,j in enumerate(outershell.get_positions()):
+                rlist.append(np.dot(j-centroid,direction))
+            maxDistances.append(np.amax(rlist))
+        allMaxDistances.append(maxDistances)
+    # Phase 1: get the contribution per initial surface by relationships
+    # aka likePercentage
+    likePercentage=[np.sum(i)/np.sum(maxDistances) for i in maxDistances]
+
+    # Phase 2: get the contribution for each equivalent surface
+    normalizedDistances=[np.asarray(dmax) - np.amax(dmax) for dmax in maxDistances]
+    ratios=[np.asarray(i)/np.amax(i) for i in normalizedDistances]
+
+    areaContributionperEq=[]
+    for percent,iniPlane in zip(likePercentage,ratios):
+        areaContributionperEq.append(np.dot(percent,iniPlane))
+    
+    # Phase 3: use the absolute deviation respect to max
+    deviations=[]
+    for iniPlane in areaContributionperEq:
+        deviations.append([i-np.max(iniPlane) for i in iniPlane])
+    
+    # Phase 4: If deviation larger than 0.1 (10%) the planes are
+    # equivalent
+
 
 
 
