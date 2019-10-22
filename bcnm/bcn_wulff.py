@@ -2484,13 +2484,11 @@ def evaluateSurfPol(symbol,surfaces,ions,charges):
             else:
                 slabsPolarity.append('polar')
         # print(len(slabsPolarity))
-        if len(slabsPolarity)>1:
-            if (slabsPolarity.count('polar')) >1:
-                polarS.append('polar')
-            else:
-                polarS.append('non_polar')
+        polarities=list(set(slabsPolarity))
+        if len(polarities)>1:
+            print(s,' orientation can have polar and non-polar termination. Verify that\nthe given surface energies are in agreement with the termination')
         else:
-            polarS.append(slabsPolarity[0])
+            polarS.append(polarities[:])
 
     # view(slabs)
     # exit(1)

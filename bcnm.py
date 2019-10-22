@@ -92,22 +92,16 @@ def main():
                 atom.charge=data['charges'][n]
     ##  Polarity verification
     # print(evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],data['charges']))
-    if 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==True:
+    polarityEvaluation=evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
+                        data['charges'])
+    if len(polarityEvaluation)>1:
         pass
-    elif not 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==True:
-        print('This input not contain any polar surface,','\nverify and relaunch it')
+    if 'polar' in polarityEvaluation and data['polar']==True:
+        pass
+    elif not 'polar' in polarityEvaluation and data['polar']==True:
+        print('This input not contain a polar surface,','\nverify and relaunch it')
         exit(1)
-    elif 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==False:
-        print('This input contains a polar surface and termination is not indicated,'
-        ,'\nverify and relaunch it')
-        finalTime=time.time()
-        print("Total execution time:",round(finalTime-startTime),"s")
-        exit(1)
-    elif not 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==False:
+    elif not 'polar' in polarityEvaluation and data['polar']==False:
         pass
     #####Centering
     if data['centering'] == 'none':
