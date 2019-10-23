@@ -2717,19 +2717,15 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
 
     #Get the equivalent surfaces
     for s in surfaces:
-        equivalentSurfaces=sg.equivalent_reflections(s)
-        equivalentSurfacesStrings=[]
-        for ss in equivalentSurfaces:
-            equivalentSurfacesStrings.append(ss)
         # Get the direction per each miller index
         #Project the position to the direction of the miller index
         # by calculating the dot produequivalentSurfacesStringsct
         maxDistances=[]
-        for i in equivalentSurfacesStrings:
+        for i in sg.equivalent_reflections(s):
             rlist=[]
             direction= np.dot(i,symbol.get_reciprocal_cell())
             direction/= np.linalg.norm(direction)
-            for n,j in enumerate(outershell.get_positions()):
+            for j in outershell.get_positions():
                 rlist.append(np.dot(j-centroid,direction))
             maxDistances.append(np.amax(rlist))
         allMaxDistances.append(maxDistances)
@@ -2737,18 +2733,36 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
     # aka likePercentage
     likePercentage=[np.sum(i)/np.sum(np.sum(allMaxDistances)) for i in allMaxDistances]
     # print('likePercentage',likePercentage)
+
+    ####################### aka inverse method    ##########################################
+    # likePercentage2=[np.sum(1/np.asarray(i))/np.sum(1/np.asarray(np.sum(allMaxDistances))) for i in allMaxDistances]
+    # normalizedDistances2=[np.asarray(1/np.asarray(dmax)) /np.amax(1/np.asarray(dmax)) for dmax in allMaxDistances]
+    # ratios2=[np.asarray(i)/np.sum(i) for i in normalizedDistances2]
+    # areaContributionperEq2=[]
+    # for percent,iniPlane in zip(likePercentage2,ratios2):
+    #     areaContributionperEq2.append(np.dot(percent,iniPlane))
+    # deviations2=[]
+    # for iniPlane in areaContributionperEq2:
+    #     deviations2.append([np.abs(i-np.max(iniPlane)) for i in iniPlane])
+    # print('deviations2')
+    # print(*deviations2,sep='\n') 
+    #########################################################################################
+    
     # Phase 2: get the contribution for each equivalent surface
     normalizedDistances=[np.asarray(dmax) /np.amax(dmax) for dmax in allMaxDistances]
     # print(*allMaxDistances,sep='\n')
     # print('----------------------')
-    # print(normalizedDistances)
+    # print('normalizedDistances',normalizedDistances)
+    # print('normalizedDistances2',normalizedDistances2)
+    
     ratios=[np.asarray(i)/np.sum(i) for i in normalizedDistances]
     # print('ratios',ratios)
+    # print('ratios2',ratios2)
 
     areaContributionperEq=[]
     for percent,iniPlane in zip(likePercentage,ratios):
         areaContributionperEq.append(np.dot(percent,iniPlane))
-    # print('areaContperEq',areaContributionperEq)
+    # print('areaContributionperEq',areaContributionperEq) 
     
     # Phase 3: use the absolute deviation respect to max
     deviations=[]
@@ -2758,7 +2772,7 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
     # print(*deviations,sep='\n') 
     # Phase 4: If deviation is smaller than 0.1 (10%) the NP grow is
     # symmetric
-
+    # exit(1)
     symmetric=[]
     for iniPlane in deviations:
         if np.max(iniPlane) >0.1:
