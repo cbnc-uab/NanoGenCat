@@ -91,18 +91,23 @@ def main():
             if atom.symbol==element:
                 atom.charge=data['charges'][n]
     ##  Polarity verification
-    # print(evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],data['charges']))
+    
     polarityEvaluation=evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
                         data['charges'])
+    
+    print(polarityEvaluation)
     if len(polarityEvaluation)>1:
         pass
-    if 'polar' in polarityEvaluation and data['polar']==True:
+    elif 'polar' in polarityEvaluation and data['polar']==True:
         pass
     elif not 'polar' in polarityEvaluation and data['polar']==True:
-        print('This input not contain a polar surface,','\nverify and relaunch it')
-        exit(1)
+        print('This input not contain a polar surface')
+        # exit(1)
     elif not 'polar' in polarityEvaluation and data['polar']==False:
         pass
+    elif 'polar' in polarityEvaluation and data['polar']==False:
+        print('This input contain a polar surface')
+    
     #####Centering
     if data['centering'] == 'none':
         shifts = [[0.0, 0.0, 0.0]]
@@ -245,8 +250,8 @@ def main():
     # chemFormList=[i[2] for i in aprovedNp0Models]
     chemicalFormulas=list(set(i[2] for i in aprovedNp0Models))
 
-    #Iterate to get only the one that have the maximum total coordination
-    finalModels=[]
+    #First filter, get the ones that have the maximum coordination per center 
+    firstFilteredModels=[]
     for i in chemicalFormulas:
         np0PerFormula=[]
         for j in aprovedNp0Models:
@@ -254,11 +259,23 @@ def main():
                 np0PerFormula.append(j)
         tempNp0PerFormula=sorted(np0PerFormula,key=lambda x:x[6],reverse=True)
         # print(tempNp0PerFormula)
-        finalModels.append(tempNp0PerFormula[0])
+        firstFilteredModels.append(tempNp0PerFormula[0])
+    # Second filter, keep the ones that have the largest amount of less abundant atoms
+    # per size without considering center or size
+    elementList=[sorted(i[3:5]) for i in firstFilteredModels]
+    uniqueLessAb=list(set([i[0] for i in elementList]))
+    finalPositions=[]
+    for i in uniqueLessAb:
+        temp=[]
+        for n,j in enumerate(firstFilteredModels):
+            if i in j:
+                j.append(n)
+                temp.append(j)
+        finalPositions.append(sorted(temp,key=lambda x: x[1])[0][2])
+    finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
 
     print('\nFinal NP0s models:',len(finalModels))
-    finalSorted=sorted(finalModels,key=lambda x:x[0])
-    print(*finalSorted, sep='\n')
+    print(*finalModels, sep='\n')
     finalScreeningTime = time.time()
 
     print("Total time evaluation", round(finalScreeningTime-startingScreeningTime)," s")
@@ -267,7 +284,7 @@ def main():
         exit(0)
     elif data['reducedModel']==True:
         print('\nGenerating reduced nanoparticles\n')
-        for i in finalSorted:
+        for i in finalModels:
             # print(i)
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
@@ -279,7 +296,7 @@ def main():
         exit(0)
     elif data['polar']==True:
         print('\nGenerating polar nanoparticles\n')
-        for i in finalSorted:
+        for i in finalModels:
             # print(i)
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
@@ -293,7 +310,7 @@ def main():
     else:
         ##Construction of stoichiometric nanoparticles
         print('\nGenerating stoichiometric nanoparticles\n')
-        for i in finalSorted:
+        for i in finalModels:
             # print(i)
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],

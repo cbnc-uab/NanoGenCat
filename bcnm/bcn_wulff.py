@@ -285,12 +285,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
                                     structure, center, latticeconstant,debug)
                 removeUnbounded(symbol,atoms_midpoint)
+                view(atoms_midpoint)
                 terminationElements=terminations(symbol,atoms_midpoint,surfaces)
                 if len(terminationElements) ==1:
                     if terminationElements[0] in nonMetals and termNature=='non-metal':
                         finalSize.append([layers,bunch,len(atoms_midpoint)])
                     elif terminationElements[0] not in nonMetals and termNature=='metal':
                         finalSize.append([layers,bunch,len(atoms_midpoint)])
+            exit(1)
             if len(finalSize)==0:
                 print('Not possible to get the desired termination for this centering')
             else:
@@ -1148,7 +1150,12 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
     #Calling the singulizator function
     if len (nanoList) >1:
-        singulizator(nanoList,debug)
+        if np.amax(NP.get_all_distances(),axis=0)>20.0:
+            pass
+        else:
+            singulizator(nanoList,debug)
+    else:
+        pass
     
 def interplanarDistance(recCell,millerIndexes): 
     """Function that calculates the interplanar distances
@@ -2473,13 +2480,15 @@ def evaluateSurfPol(symbol,surfaces,ions,charges):
                 data.append(c) 
     material.add_oxidation_state_by_site(data)
     # print(material)
-    # slabs=[]
+    allSlabs=[]
     polarS=[]
     for s in surfaces:
         slabgen=SlabGenerator(material,s,10,10)
         all_slabs=slabgen.get_slabs()
         slabsPolarity=[]
+        # print(s,len(all_slabs))
         for slab in all_slabs:
+            allSlabs.append(slab)    
             # slabs.append(AseAtomsAdaptor.get_atoms(slab))
             if slab.is_polar(tol_dipole_per_unit_area=1e-5)==False:
                 slabsPolarity.append('non Polar')
@@ -2487,12 +2496,13 @@ def evaluateSurfPol(symbol,surfaces,ions,charges):
                 slabsPolarity.append('polar')
         # print(len(slabsPolarity))
         polarities=list(set(slabsPolarity))
-        if len(polarities)>1:
-            print(s,' orientation can have polar and non-polar termination. Verify that\nthe given surface energies are in agreement with the termination')
-        else:
-            polarS.append(polarities[:])
+        polarS.append(polarities[:])
 
-    # view(slabs)
+    # atomsObjects=[]
+    # for slab in allSlabs:
+    #     atoms=AseAtomsAdaptor.get_atoms(slab)
+    #     atomsObjects.append(atoms)
+    # view(atomsObjects)
     # exit(1)
     return(polarS)
     
@@ -2631,7 +2641,7 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
             if charge not in charges:
                 charges.append(charge)
     polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
-    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if not 'non Polar' in pol]
 
     # Saving the surfaces distances for non-polar ones 
     newDistances=np.zeros(len(distances))
@@ -2672,7 +2682,8 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
                 cutoffD[n]=p[i]
                 i=i+1
         cutoffDistancesSets.append(cutoffD)
-        
+    print(cutoffDistancesSets)
+    # exit(1)  
     return(cutoffDistancesSets)
 
 def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
