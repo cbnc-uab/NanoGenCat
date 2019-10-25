@@ -33,6 +33,7 @@ from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.core.structure import IMolecule
 from pymatgen.core.surface import SlabGenerator,generate_all_slabs
+from pymatgen import Molecule
 
 nonMetals = ['H', 'He', 'B', 'C', 'N', 'O', 'F', 'Ne',
                   'Si', 'P', 'S', 'Cl', 'Ar',
@@ -276,6 +277,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif polar==True:
             # print('initial distances and layers')
             # print(distances,layers)
+            midpoints=[]
             cutoffSets=forceTermination2(symbol,surfaces,distances,dArray)
             # print(*cutoffSets,sep='\n')
             finalSize=[]
@@ -285,16 +287,19 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
                                     structure, center, latticeconstant,debug)
                 removeUnbounded(symbol,atoms_midpoint)
-                view(atoms_midpoint)
+                # view(atoms_midpoint)
+                midpoints.append(atoms_midpoint)
                 terminationElements=terminations(symbol,atoms_midpoint,surfaces)
+                # print(terminationElements)
                 if len(terminationElements) ==1:
                     if terminationElements[0] in nonMetals and termNature=='non-metal':
                         finalSize.append([layers,bunch,len(atoms_midpoint)])
                     elif terminationElements[0] not in nonMetals and termNature=='metal':
                         finalSize.append([layers,bunch,len(atoms_midpoint)])
-            exit(1)
+            # view(midpoints)
+            # exit(1)
             if len(finalSize)==0:
-                print('Not possible to get the desired termination for this centering')
+                print('Not possible to get the desired termination for this size and centering')
             else:
                 # print('finalSize')
                 # print(len(finalSize))
@@ -308,15 +313,16 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 # layers=orderedSizes[0][0]
                 # distances=orderedSizes[0][1]
                 # print(layers,distances)
+                # keep the smallest nanoparticle
                 atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
                                 structure,center,latticeconstant,debug)
+                atoms=orientedReduction(symbol,atoms_midpoint,surfaces) 
                 # print('hereeeee')
-                name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
-                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
+                write(name,atoms,format='xyz',columns=['symbols', 'positions'])
                 if neutralize==True:
                     adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
                     write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
-
 
                     #     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
                     #     write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
@@ -330,6 +336,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                     #         adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
                     #         write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
         else:
+            #Stoichiometric NPS
             reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
             
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant,debug):
@@ -833,14 +840,18 @@ def singulizator(nanoList,debug):
 
     sprintCoordinates=[]
     results=[]
+    sprintTime=time.time()
     for i in nanoList:
         # print (i)
         sprintCoordinates.append(sprint(i))
         # break
+    print('end sprints',np.round((time.time()-sprintTime),2), 's')
+    convStart=time.time()
     for c in combinations(range(len(sprintCoordinates)),2):
     #     # print (c[0],c[1],'c')
         if compare(sprintCoordinates[c[0]],sprintCoordinates[c[1]]) ==True:
             results.append(c)
+    print('end conv',np.round((time.time()-convStart),2), 's')
 
     # print(results)
     
@@ -1108,7 +1119,7 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
     # print('centerOfMetal',centerOfMetal)
 
     #Calculate the size as the maximum distance between cations
-    npFinalSize=np.amax(atomsOnlyMetal.get_all_distances())
+    # npFinalSize=np.amax(atomsOnlyMetal.get_all_distances())
     #Calculate the size as the maximum distance between atoms
     npFinalSize=np.amax(atoms.get_all_distances())
 
@@ -1150,7 +1161,9 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
     #Calling the singulizator function
     if len (nanoList) >1:
-        if np.amax(NP.get_all_distances(),axis=0)>20.0:
+        # SPRINT calculations are to much cost for this models
+        if npFinalSize>20.0:
+            intertiaTensorSing(atoms,S,C,nanoList) 
             pass
         else:
             singulizator(nanoList,debug)
@@ -2368,7 +2381,10 @@ def terminations(symbol,atoms,surfaces):
             if charge not in charges:
                 charges.append(charge)
     polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
-    polarSurfacesIndex=[i for i,pol in enumerate(polarity) if pol=='polar']
+    # print('polarity',polarity)
+    polarSurfacesIndex=[n for n,p in enumerate(polarity) if not 'non Polar' in p]
+    # print('polarSurfaceIndex',polarSurfacesIndex)
+    # exit(1)
     polarSurfaces=[surfaces[i] for i in polarSurfacesIndex] 
 
     # Get the equivalent surfaces and give them the distance
@@ -2641,8 +2657,14 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
             if charge not in charges:
                 charges.append(charge)
     polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    # print(polarity)
+    # exit(1)
     polarSurfacesIndex=[i for i,pol in enumerate(polarity) if not 'non Polar' in pol]
-
+    # print('polarSurfacesIndex',polarSurfacesIndex)
+    # exit(1)
+    # print('polar surface')
+    # print(surfaces[polarSurfacesIndex[0]])
+    # exit(1)
     # Saving the surfaces distances for non-polar ones 
     newDistances=np.zeros(len(distances))
     for index,s in enumerate(surfaces):
@@ -2669,7 +2691,7 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
                 if a[0]!=b[0]:
                     diferences.append(np.round(np.abs(b[1]-a[1]),2))
         
-        for step in np.linspace(np.amin(diferences),interplanarDistances[index],10):
+        for step in np.linspace(np.amin(diferences),interplanarDistances[index],4):
             distancesSet.append(distances[index]+step)
         polarDistancesSets.append(distancesSet)
     # print(polarDistancesSets) 
@@ -2682,7 +2704,7 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
                 cutoffD[n]=p[i]
                 i=i+1
         cutoffDistancesSets.append(cutoffD)
-    print(cutoffDistancesSets)
+    # print(*cutoffDistancesSets,sep='\n')
     # exit(1)  
     return(cutoffDistancesSets)
 
@@ -2796,8 +2818,125 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
     else: 
         return True
     
+def intertiaTensorSing(atoms,S,C,nanoList):
+    """
+    Function that uses intertia tensor to 
+    compare equivalent structures
+    Args: 
+        atoms(Atoms): NP0 Nanoparticle
+        S([]): lists of atoms to remove to achieve stoichiometry
+        C([]): Coordination 
+    Return:
+        finalNanos([]): unique list of atoms to remove by rotational
+    """
+    # Get the fathers index and the eigenvalues of the inertia tensor
+    start=time.time()
+    # fathers=[coord[1][0] for coord in C if len(coord[1])==1]
+    eigenVals=[]
+    for s in S:
+        danglingAtom=copy.deepcopy(atoms)
+        toRemove=sorted([atom.index for atom in danglingAtom if atom.index not in s],reverse=True)
+        del danglingAtom[toRemove]
+        write('tmp.xyz',danglingAtom,format='xyz')
+        molecule=Molecule.from_file('tmp.xyz')
+        sym=PointGroupAnalyzer(molecule)
+        eigenVals.append(np.round(sym.eigvals,decimals=3))
+    
+    dataFrame=pd.DataFrame(np.array(eigenVals).reshape(len(eigenVals),3),columns=['0','1','2'])
+    # print(dataFrame)
+    sindu=dataFrame.drop_duplicates(keep='first')
 
+    uniqueModelsIndex=list(sindu.index)
+    sample=range(len(S))
+    deletedNanosIndex=[i for i in sample if i not in uniqueModelsIndex]
+    end=time.time() 
+    
+    deleteNanos=[nanoList[i] for i in deletedNanosIndex]
+    for i in deleteNanos:
+        remove(i) 
+    finalModels=len(S)-len(uniqueModelsIndex)
 
+    print('Removed NPs:',len(deletedNanosIndex))
+    print('Final models:',finalModels)
+    
+    print('Total time inertia tensor singulizator',np.round((end-start),2), 'sec')
+        
+def orientedReduction(symbol,atoms,surfaces):
+    """
+    Function that removes dangling atoms on specific orientation
+    Args:
+        symbol(Atoms): Crystal structure
+        atoms(Atoms): nanoparticle
+        surfaces([list]): surfaces miller index
+    Return:
+        atoms(Atoms): nanoparticle orientedly reducted
+    """
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+    
+    # Get the positions of singly coordinated atoms
+    removeUnbounded(symbol,atoms)
+    C=coordinationv2(symbol,atoms)
+    singlyCoordinatedAtomsIndex=[coord[0] for coord in C if len(coord[1])==1]
+    positions=[atom.position for atom in atoms if atom.index in singlyCoordinatedAtomsIndex]
+
+    # asuming that only one specie is singlycoordinated
+    singlySpecie=atoms[singlyCoordinatedAtomsIndex[0]].symbol
+    # get the polarity per surface
+
+    ions=[]
+    charges=[]
+    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+        if element not in ions:
+            ions.append(element)
+            if charge not in charges:
+                charges.append(charge)
+    
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+
+    noPolarIndex=[n for n,p in enumerate(polarity) if 'non Polar' in p]
+    polarIndex=[n for n,p in enumerate(polarity) if not 'non Polar' in p]
+    
+    print(len(positions))
+    for index in noPolarIndex:
+        if len(positions)<1:
+            break
+        else:
+        # get the equivalent planes
+            equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
+            for eq in equivalentSurfaces:
+                # get the direction and make the dot product magic
+                direction= np.dot(eq,symbol.get_reciprocal_cell())
+                direction/=np.linalg.norm(direction)
+                
+                # Get the distance limit as the shortest distance
+                # in each direction ... of singly coordinated specie
+
+                distancesUC=np.dot(symbol.get_positions(),direction)
+                elements=symbol.get_chemical_symbols()
+
+                variance=[]
+                for a in zip(elements,distancesUC):
+                    for b in zip(elements,distancesUC):
+                        if a[0]==singlySpecie and b[0]==singlySpecie:
+                            if np.abs(a[1]-b[1])>0.0:
+                                variance.append(np.round(np.abs(a[1]-b[1]),2))
+                
+                minVar=np.amin(variance)
+                distances=np.dot(positions,direction)
+                maxDistance=np.amax(distances)
+                lowerLimit=[maxDistance-minVar]
+                # Get the indexes of atoms to remove in that direction
+                atomIndexToRemove=sorted([n for n,d in enumerate(distances) if d>lowerLimit],reverse=True)
+
+                print(len(atomIndexToRemove))
+                del atoms[atomIndexToRemove] 
+                view(atoms)
+                # exit(1)
+                for i in atomIndexToRemove:
+                    del positions[i] 
+                # del positions[atomIndexToRemove]
+
+    return (atoms)
 
 
 

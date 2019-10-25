@@ -95,7 +95,7 @@ def main():
     polarityEvaluation=evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
                         data['charges'])
     
-    print(polarityEvaluation)
+    # print(polarityEvaluation)
     if len(polarityEvaluation)>1:
         pass
     elif 'polar' in polarityEvaluation and data['polar']==True:
@@ -159,7 +159,7 @@ def main():
     elif data ['centering'] == 'automatic':
         shifts = []
         #Coordinate origin
-        shifts.append([0.,0.,0.])
+        shifts.append([0.0,0.0,0.0])
 
         # Only the less abundant atom
         listOfChemicalSymbols=crystalObject.get_chemical_symbols()
@@ -181,7 +181,8 @@ def main():
                     shifts.append(coordinate)
         # all atom center
         for basis in data['basis']:
-            shifts.append(basis)
+            if basis not in shifts:
+                shifts.append(basis)
 
         #Xavi proposed positions
         shiftsCenters=specialCenterings(data['spaceGroupNumber'])
@@ -190,6 +191,7 @@ def main():
             shifts.append(list(shift))
         # Center of mass
         # shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
+        print('shifts\n',*shifts,sep='\n')
     else:
         print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
         exit(1)
@@ -231,7 +233,7 @@ def main():
     print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
     print('Results:')
     print(*evaluation, sep='\n')
-    print('testing Zone')
+    # print('testing Zone')
 
     #  getting the booleans as strings, this is done because
     # 0 values are considered as False in the boolean way
@@ -249,7 +251,7 @@ def main():
     # print(aprovedNp0Models[0][2])
     # chemFormList=[i[2] for i in aprovedNp0Models]
     chemicalFormulas=list(set(i[2] for i in aprovedNp0Models))
-
+    # print('chemicalFormulas',chemicalFormulas)
     #First filter, get the ones that have the maximum coordination per center 
     firstFilteredModels=[]
     for i in chemicalFormulas:
@@ -260,25 +262,39 @@ def main():
         tempNp0PerFormula=sorted(np0PerFormula,key=lambda x:x[6],reverse=True)
         # print(tempNp0PerFormula)
         firstFilteredModels.append(tempNp0PerFormula[0])
+    
     # Second filter, keep the ones that have the largest amount of less abundant atoms
     # per size without considering center or size
+    # print('firstFiltered',*firstFilteredModels,sep='\n')
     elementList=[sorted(i[3:5]) for i in firstFilteredModels]
+    defaultOrder=[i[3:5] for i in firstFilteredModels]
+    lessAbundPosition=np.argmin(defaultOrder[0])
+    # print(elementList)
     uniqueLessAb=list(set([i[0] for i in elementList]))
+    # print('uniqueLessAb',uniqueLessAb)
+    # print('\n\n')
     finalPositions=[]
+
     for i in uniqueLessAb:
+        # print(i)
         temp=[]
-        for n,j in enumerate(firstFilteredModels):
+        for n,j in enumerate(defaultOrder):
             if i in j:
+                # print(j)
                 j.append(n)
                 temp.append(j)
-        finalPositions.append(sorted(temp,key=lambda x: x[1])[0][2])
+                # print(j)
+        # print('temp',temp,'\n')
+    # exit(1)
+        finalPositions.append(sorted(temp,key=lambda x: x[lessAbundPosition],reverse=True)[0][-1])
     finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
-
+    finalModels.sort(key=lambda x: x[3])
     print('\nFinal NP0s models:',len(finalModels))
     print(*finalModels, sep='\n')
     finalScreeningTime = time.time()
 
     print("Total time evaluation", round(finalScreeningTime-startingScreeningTime)," s")
+    # exit(1)
 
     if data['onlyNp0']==True:
         exit(0)
