@@ -275,54 +275,75 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
         elif totalReduced==True:
             totalReduce(symbol,atoms_midpoint)
         elif polar==True:
+            models=[]
+            finalSize=[]
+            # Add the NP0
+            # models.append(atoms_midpoint)
             # print('initial distances and layers')
             # print(distances,layers)
             midpoints=[]
-            cutoffSets=forceTermination2(symbol,surfaces,distances,dArray)
-            # print(*cutoffSets,sep='\n')
-            finalSize=[]
-            for bunch in cutoffSets:
-                # print(bunch)
-                layers=bunch/dArray
-                atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
-                                    structure, center, latticeconstant,debug)
-                removeUnbounded(symbol,atoms_midpoint)
-                # view(atoms_midpoint)
-                midpoints.append(atoms_midpoint)
-                terminationElements=terminations(symbol,atoms_midpoint,surfaces)
-                # print(terminationElements)
-                if len(terminationElements) ==1:
-                    if terminationElements[0] in nonMetals and termNature=='non-metal':
-                        finalSize.append([layers,bunch,len(atoms_midpoint)])
-                    elif terminationElements[0] not in nonMetals and termNature=='metal':
-                        finalSize.append([layers,bunch,len(atoms_midpoint)])
-            # view(midpoints)
-            # exit(1)
-            if len(finalSize)==0:
-                print('Not possible to get the desired termination for this size and centering')
+            # midpoints.append(atoms_midpoint)
+            terminationElements=terminations(symbol,atoms_midpoint,surfaces)
+            print('terminationElements father',terminationElements)
+            if list(set(terminationElements))==1:
+                if terminationElements[0] in nonMetals and termNature=='non-metal':
+                    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
+                    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                elif terminationElements[0] not in nonMetals and termNature=='metal':
+                    # print(terminationElements)
+                    name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
+                    write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
             else:
-                # print('finalSize')
-                # print(len(finalSize))
-                # print(*finalSize,sep='\n')
-                # print('.....................')
-                orderedSizes=sorted(finalSize,key=lambda x:x[2])
-                # print(*orderedSizes,sep='\n')
-                # print(orderedSizes[0)
-                # print(orderedSizes[0][0])
-                # print(len(orderedSizes[0]))
-                # layers=orderedSizes[0][0]
-                # distances=orderedSizes[0][1]
-                # print(layers,distances)
-                # keep the smallest nanoparticle
-                atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
-                                structure,center,latticeconstant,debug)
-                atoms=orientedReduction(symbol,atoms_midpoint,surfaces) 
-                # print('hereeeee')
-                name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
-                write(name,atoms,format='xyz',columns=['symbols', 'positions'])
-                if neutralize==True:
-                    adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
-                    write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+                cutoffSets=forceTermination2(symbol,atoms_midpoint,surfaces,distances,dArray,termNature)
+                finalSize=[]
+                for bunch in cutoffSets:
+                    # print(bunch)
+                    layers=np.ceil(bunch/dArray).astype(int)
+                    atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
+                                        structure, center, latticeconstant,debug)
+                    # removeUnbounded(symbol,atoms_midpoint)
+                    # view(atoms_midpoint)
+                    midpoints.append(atoms_midpoint)
+                    terminationElements=terminations(symbol,atoms_midpoint,surfaces)
+                    termEva=len(list(set(terminationElements)))
+                    # print('terminationElements sons',list(set(terminationElements)),len(list(set(terminationElements))))
+                    if termEva==1:
+                        if terminationElements[0] in nonMetals and termNature=='non-metal':
+                            finalSize.append([layers,bunch,len(atoms_midpoint)])
+                        elif terminationElements[0] not in nonMetals and termNature=='metal':
+                            finalSize.append([layers,bunch,len(atoms_midpoint)])
+                # view(midpoints)
+                # exit(1)
+                if len(finalSize)==0:
+                    print('Not possible to get the desired termination for this size and centering')
+                else:
+                    print('finalSize')
+                    # print(len(finalSize))
+                    # print(*finalSize,sep='\n')
+                    # print('.....................')
+                    orderedSizes=sorted(finalSize,key=lambda x:x[2])
+                    # print(*orderedSizes,sep='\n')
+                    # exit(1)
+                    # print(orderedSizes[0)
+                    # print(orderedSizes[0][0])
+                    # print(len(orderedSizes[0]))
+                    # layers=orderedSizes[0][0]
+                    # distances=orderedSizes[0][1]
+                    # print(layers,distances)
+                    # keep the smallest nanoparticle
+                    atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
+                                    structure,center,latticeconstant,debug)
+                    models.append(atoms_midpoint)
+                    atoms=orientedReduction(symbol,atoms_midpoint,surfaces,orderedSizes[0][1])
+                    # models.append(atoms) 
+                    # print('hereeeee')
+                    name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
+                    write(name,atoms,format='xyz',columns=['symbols', 'positions'])
+                    # view(models)
+                    # exit(1)
+                    if neutralize==True:
+                        adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                        write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
 
                     #     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_non_metal_ter.xyz"
                     #     write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
@@ -356,11 +377,17 @@ def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latt
         atoms(Atoms): Nanoparticle cut
     """
     # print("here")
-    layers = np.round(layers).astype(int)
+    # print(layers)
+    layers = np.ceil(layers).astype(int)
+    # print(layers)
+    # exit(1)
     # print("1layers",layers)
     cluster = structure(symbol, surfaces, layers, distances, center= center,                   
                       latticeconstant=latticeconstant,debug=1)
+    
     atoms=Atoms(symbols=cluster.symbols,positions=cluster.positions,cell=cluster.cell)
+    # view(atoms)
+    atoms.cut_origin=cluster.cut_origin
     return (atoms)
 
 def coordination(atoms,debug,size,n_neighbour):
@@ -2363,14 +2390,14 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
 def terminations(symbol,atoms,surfaces):
     """
     Function that evaluates the termination.
-    Equivalent planes must have the same termination.
+    Equivalent orientation of polar surfaces must have the same termination
     Args:
         symbol(Atoms):crystal structure
         atoms(Atoms):nanoparticle
         surfaces([list]): surface miller indexes
         
     Return:
-        True if all equivalent orientation have the same termination
+        finalElements: set of atomic symbols
     """
     charges=[]
     ions=[]
@@ -2413,7 +2440,7 @@ def terminations(symbol,atoms,surfaces):
                     # print(val)
                     finalElements.append(atoms[n].symbol)
     # print(list(set(finalElements)))
-    return list(set(finalElements))
+    return finalElements
 
 def addSpecies(symbol,atoms,surfaces,termNature):
     """
@@ -2627,27 +2654,31 @@ def forceTermination(symbol,surfaces,distances,interplanarDistances,center,termN
             if cycleCounter==10:
                 break
         
-        view(slabs)
+        # view(slabs)
         finalDistances[index]=distance
-    exit(1)
+    # exit(1)
 
     return(finalDistances)
 
-def forceTermination2(symbol,surfaces,distances,interplanarDistances):
+def forceTermination2(symbol,atoms,surfaces,distances,interplanarDistances,termNature):
     """
     Function that gives a set of distances to
     forces the termination for polar surfaces
     by increasing the distance
     Args:
+        atoms(Atoms): NP0
         symbol(Atoms): crystal structure
         surfaces([list]): miller indexes
         distances([float]): distances
         interplanarDistances([float])
+        termNature(str): termination element
     Return:
         newDistances([list]):set of cutoff distances 
     """
     cutoffDistancesSets=[]
-    
+    print('initialDistances',distances)
+    # print(dir(atoms))
+    # exit(1) 
     # build slabs for each polar surface and get the dipole
     ions=[]
     charges=[]
@@ -2665,18 +2696,30 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
     # print('polar surface')
     # print(surfaces[polarSurfacesIndex[0]])
     # exit(1)
+
     # Saving the surfaces distances for non-polar ones 
     newDistances=np.zeros(len(distances))
     for index,s in enumerate(surfaces):
         if index not in polarSurfacesIndex:
             newDistances[index]=distances[index]
     
+    # If the orientation has the desired termination preserve the distance
+    for index in polarSurfacesIndex:
+        # get the termination per orientation
+        terminationElements=terminations(symbol,atoms,[surfaces[index]]) 
+        if list(set(terminationElements))==1:
+            if terminationElements[0] in nonMetals and termNature=='non-metal':
+                newDistances[index]=distances[index]
+                polarSurfacesIndex.remove(index)
+            elif terminationElements[0] not in nonMetals and termNature=='metal':
+                newDistances[index]=distances[index]
+                polarSurfacesIndex.remove(index)
+
     # geting sets of polar distances         
     polarDistancesSets=[]
     for index in polarSurfacesIndex:
         distancesSet=[]
         # include default distance
-        distancesSet.append(distances[index])
 
         direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
         direction = direction / np.linalg.norm(direction)
@@ -2690,11 +2733,32 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
             for b in zip(elements,distancesUC):
                 if a[0]!=b[0]:
                     diferences.append(np.round(np.abs(b[1]-a[1]),2))
+        # uniqueDiferences=list(set(diferences))
         
-        for step in np.linspace(np.amin(diferences),interplanarDistances[index],4):
+        # pos=[atom.position-atoms.cut_origin for atom in atoms]
+        # # print(pos)
+        # realSurfaceDistance=np.amax(np.dot(pos,direction))
+        # print('surfaces and real distance',surfaces[index],realSurfaceDistance)
+        # exit(1)
+
+        # for i in uniqueDiferences:
+        #     distancesSet.append(realSurfaceDistance+i+0.01)        
+        for step in np.linspace(np.amin(diferences),np.amax(diferences),5):
             distancesSet.append(distances[index]+step)
         polarDistancesSets.append(distancesSet)
-    # print(polarDistancesSets) 
+    # print(polarDistancesSets,'\n-----------------------') 
+    # exit(1)
+
+    # for p in polarDistancesSets[0]:
+    #     # print(p)
+    #     cutoffD=copy.deepcopy(newDistances)
+    #     for n,d in enumerate(cutoffD):
+    #         if cutoffD[n]==0:
+    #             cutoffD[n]=p
+    #     #         i+=1
+    #     cutoffDistancesSets.append(cutoffD)
+
+
     # Getting the final set of distances
     for p in product(*polarDistancesSets):
         cutoffD=copy.deepcopy(newDistances)
@@ -2704,6 +2768,7 @@ def forceTermination2(symbol,surfaces,distances,interplanarDistances):
                 cutoffD[n]=p[i]
                 i=i+1
         cutoffDistancesSets.append(cutoffD)
+    cutoffDistancesSets.sort(key=lambda x: x[2])
     # print(*cutoffDistancesSets,sep='\n')
     # exit(1)  
     return(cutoffDistancesSets)
@@ -2861,7 +2926,7 @@ def intertiaTensorSing(atoms,S,C,nanoList):
     
     print('Total time inertia tensor singulizator',np.round((end-start),2), 'sec')
         
-def orientedReduction(symbol,atoms,surfaces):
+def orientedReduction(symbol,atoms,surfaces,distances):
     """
     Function that removes dangling atoms on specific orientation
     Args:
@@ -2871,6 +2936,9 @@ def orientedReduction(symbol,atoms,surfaces):
     Return:
         atoms(Atoms): nanoparticle orientedly reducted
     """
+    # print('distances',distances)
+    # print('surfaces',surfaces)
+
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
     
     # Get the positions of singly coordinated atoms
@@ -2895,47 +2963,95 @@ def orientedReduction(symbol,atoms,surfaces):
 
     noPolarIndex=[n for n,p in enumerate(polarity) if 'non Polar' in p]
     polarIndex=[n for n,p in enumerate(polarity) if not 'non Polar' in p]
-    
-    print(len(positions))
-    for index in noPolarIndex:
+    # print('nopolar',noPolarIndex)
+    # print('polar',polarIndex)
+    # exit(1) 
+    # First screening, remove the positions that belong to atoms in the 
+    # polar direction
+    for i in polarIndex:
         if len(positions)<1:
             break
-        else:
-        # get the equivalent planes
-            equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
-            for eq in equivalentSurfaces:
-                # get the direction and make the dot product magic
-                direction= np.dot(eq,symbol.get_reciprocal_cell())
-                direction/=np.linalg.norm(direction)
-                
-                # Get the distance limit as the shortest distance
-                # in each direction ... of singly coordinated specie
+        equivalentSurfaces=sg.equivalent_reflections(surfaces[i])
+        for eq in equivalentSurfaces:
+            # print('eq,distances')
+            if len(positions)<1:
+                break
+            direction= np.dot(eq,symbol.get_reciprocal_cell())
+            direction/=np.linalg.norm(direction)
+            
+            # Get the distance limit as the shortest distance
+            # in each direction ... of singly coordinated specie
 
-                distancesUC=np.dot(symbol.get_positions(),direction)
-                elements=symbol.get_chemical_symbols()
+            distancesUC=np.dot(symbol.get_positions(),direction)
+            elements=symbol.get_chemical_symbols()
 
-                variance=[]
-                for a in zip(elements,distancesUC):
-                    for b in zip(elements,distancesUC):
-                        if a[0]==singlySpecie and b[0]==singlySpecie:
-                            if np.abs(a[1]-b[1])>0.0:
-                                variance.append(np.round(np.abs(a[1]-b[1]),2))
-                
-                minVar=np.amin(variance)
-                distances=np.dot(positions,direction)
-                maxDistance=np.amax(distances)
-                lowerLimit=[maxDistance-minVar]
-                # Get the indexes of atoms to remove in that direction
-                atomIndexToRemove=sorted([n for n,d in enumerate(distances) if d>lowerLimit],reverse=True)
-
-                print(len(atomIndexToRemove))
-                del atoms[atomIndexToRemove] 
-                view(atoms)
-                # exit(1)
+            variance=[]
+            for a in zip(elements,distancesUC):
+                for b in zip(elements,distancesUC):
+                    if a[0]==singlySpecie and b[0]==singlySpecie:
+                        if np.abs(a[1]-b[1])>0.0:
+                            variance.append(np.round(np.abs(a[1]-b[1]),2))
+            
+            minVar=np.amin(variance)
+            distancesAtom=np.dot(positions,direction)
+            lowerLimit=distances[i]-minVar
+            # Get the indexes of atoms to remove in that direction
+            # print(*distances,sep='\n')
+            # print('lower limit',lowerLimit)
+            atomIndexToRemove=sorted([n for n,d in enumerate(distancesAtom) if d>lowerLimit],reverse=True)
+            # print('atomIndexToRemove and plane')
+            # print(atomIndexToRemove)
+            if len(atomIndexToRemove) >1:
                 for i in atomIndexToRemove:
-                    del positions[i] 
-                # del positions[atomIndexToRemove]
+                    del positions[i]
+            else:
+                pass 
+            # del positions[atomIndexToRemove]
+    #Second screening: non polar indexes
+    if len(positions)<1:
+        pass
+    else:
+        for index in noPolarIndex:
+            if len(positions)<1:
+                break
+            else:
+            # get the equivalent planes
+                equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
+                for eq in equivalentSurfaces:
+                    if len(positions)<1:
+                        break
+                    # get the direction and make the dot product magic
+                    direction= np.dot(eq,symbol.get_reciprocal_cell())
+                    direction/=np.linalg.norm(direction)
+                    
+                    # Get the distance limit as the shortest distance
+                    # in each direction ... of singly coordinated specie
 
+                    distancesUC=np.dot(symbol.get_positions(),direction)
+                    elements=symbol.get_chemical_symbols()
+
+                    variance=[]
+                    for a in zip(elements,distancesUC):
+                        for b in zip(elements,distancesUC):
+                            if a[0]==singlySpecie and b[0]==singlySpecie:
+                                if np.abs(a[1]-b[1])>0.0:
+                                    variance.append(np.round(np.abs(a[1]-b[1]),2))
+                    
+                    minVar=np.amin(variance)
+                    distancesAtom=np.dot(positions,direction)
+                    lowerLimit=distances[i]-minVar
+                    # Get the indexes of atoms to remove in that direction
+                    atomIndexToRemove=sorted([n for n,d in enumerate(distancesAtom) if d>lowerLimit],reverse=True)
+
+                    # print(len(atomIndexToRemove))
+                    del atoms[atomIndexToRemove] 
+                    # view(atoms)
+                    # exit(1)
+                    for i in atomIndexToRemove:
+                        del positions[i] 
+                    # del positions[atomIndexToRemove]
+    # view(atoms)
+    # exit(1)
     return (atoms)
 
 
