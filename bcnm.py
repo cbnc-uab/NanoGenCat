@@ -268,13 +268,15 @@ def main():
     # print('firstFiltered',*firstFilteredModels,sep='\n')
     elementList=[sorted(i[3:5]) for i in firstFilteredModels]
     defaultOrder=[i[3:5] for i in firstFilteredModels]
-    lessAbundPosition=np.argmin(defaultOrder[0])
+    # print('defaultOrder',defaultOrder)
+    mostAbundPosition=np.argmax(defaultOrder[0])
+    # print('mostAbundPosition',mostAbundPosition)
     # print(elementList)
     uniqueLessAb=list(set([i[0] for i in elementList]))
     # print('uniqueLessAb',uniqueLessAb)
     # print('\n\n')
-    finalPositions=[]
 
+    finalPositions=[]
     for i in uniqueLessAb:
         # print(i)
         temp=[]
@@ -286,7 +288,8 @@ def main():
                 # print(j)
         # print('temp',temp,'\n')
     # exit(1)
-        finalPositions.append(sorted(temp,key=lambda x: x[lessAbundPosition],reverse=True)[0][-1])
+        # print(sorted(temp,key=lambda x: x[mostAbundPosition]))
+        finalPositions.append(sorted(temp,key=lambda x: x[mostAbundPosition])[-1][-1])
     finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
     finalModels.sort(key=lambda x: x[3])
     print('\nFinal NP0s models:',len(finalModels))
