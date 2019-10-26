@@ -298,7 +298,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 finalSize=[]
                 for bunch in cutoffSets:
                     # print(bunch)
-                    layers=np.ceil(bunch/dArray).astype(int)
+                    layers=bunch/dArray
                     atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
                                         structure, center, latticeconstant,debug)
                     # removeUnbounded(symbol,atoms_midpoint)
