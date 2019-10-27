@@ -1174,15 +1174,15 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
         write(name,NP,format='xyz')
         #calculating coulomb energy
         #calculating real dipole moment
-        coulomb_energy=coulombEnergy(symbol,NP)
-        # print('coulomb_energy',coulomb_energy)
-        dipole_moment=dipole(NP)
+        # coulomb_energy=coulombEnergy(symbol,NP)
+        # # print('coulomb_energy',coulomb_energy)
+        # dipole_moment=dipole(NP)
         # size as the maximum distance between cations
-        comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)+'size:'+str(npFinalSize)
+        # comment='E:'+str(coulomb_energy)+',mu:'+str(dipole_moment)+'size:'+str(npFinalSize)
         #replace the ase standard comment by our comment
-        command='sed -i \'2s/.*/'+comment+'/\' '+name
+        # command='sed -i \'2s/.*/'+comment+'/\' '+name
         # print(command)
-        subprocess.run(command,shell=True)
+        # subprocess.run(command,shell=True)
         # view(NP)
         # break
 
@@ -1191,7 +1191,7 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
     #Calling the singulizator function
     if len (nanoList) >1:
         # SPRINT calculations are to much cost for this models
-        if npFinalSize>20.0:
+        if len(atoms)>200.0:
             intertiaTensorSing(atoms,S,C,nanoList) 
             pass
         else:
@@ -2901,6 +2901,7 @@ def intertiaTensorSing(atoms,S,C,nanoList):
     # fathers=[coord[1][0] for coord in C if len(coord[1])==1]
     eigenVals=[]
     for s in S:
+        # itime=time.time()
         danglingAtom=copy.deepcopy(atoms)
         toRemove=sorted([atom.index for atom in danglingAtom if atom.index not in s],reverse=True)
         del danglingAtom[toRemove]
@@ -2908,7 +2909,7 @@ def intertiaTensorSing(atoms,S,C,nanoList):
         molecule=Molecule.from_file('tmp.xyz')
         sym=PointGroupAnalyzer(molecule)
         eigenVals.append(np.round(sym.eigvals,decimals=3))
-    
+        # print('intertia tensor calcs one',time.time()-itime,' s')    
     dataFrame=pd.DataFrame(np.array(eigenVals).reshape(len(eigenVals),3),columns=['0','1','2'])
     # print(dataFrame)
     sindu=dataFrame.drop_duplicates(keep='first')
@@ -2921,10 +2922,11 @@ def intertiaTensorSing(atoms,S,C,nanoList):
     deleteNanos=[nanoList[i] for i in deletedNanosIndex]
     for i in deleteNanos:
         remove(i) 
-    finalModels=len(S)-len(uniqueModelsIndex)
+    # finalModels=len(S)-len(deletedNanosIndex)
 
     print('Removed NPs:',len(deletedNanosIndex))
-    print('Final models:',finalModels)
+    # print('uniqueIndex',len(uniqueModelsIndex))
+    print('Final models:',len(uniqueModelsIndex))
     
     print('Total time inertia tensor singulizator',np.round((end-start),2), 'sec')
         
