@@ -284,8 +284,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             midpoints=[]
             # midpoints.append(atoms_midpoint)
             terminationElements=terminations(symbol,atoms_midpoint,surfaces)
-            print('terminationElements father',terminationElements)
-            if list(set(terminationElements))==1:
+            termEva=len(list(set(terminationElements)))
+            # print('terminationElements father',terminationElements)
+            if termEva==1:
                 if terminationElements[0] in nonMetals and termNature=='non-metal':
                     name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
                     write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
@@ -303,7 +304,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                                         structure, center, latticeconstant,debug)
                     # removeUnbounded(symbol,atoms_midpoint)
                     # view(atoms_midpoint)
-                    midpoints.append(atoms_midpoint)
+                    # atoms_midpoint.append(Atom('Cs',position=atoms_midpoint.cut_origin))
+                    # midpoints.append(atoms_midpoint)
                     terminationElements=terminations(symbol,atoms_midpoint,surfaces)
                     termEva=len(list(set(terminationElements)))
                     # print('terminationElements sons',list(set(terminationElements)),len(list(set(terminationElements))))

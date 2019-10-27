@@ -209,9 +209,9 @@ class ClusterFactory(ClusterFactory):
 
         cell = max - min + vacuum
         # print(np.mean(cell,axis=0))
-        self.Cluster.cut_origin=self.center
         positions = positions - min + vacuum / 2.0
         self.center = self.center - min + vacuum / 2.0
+        self.Cluster.cut_origin=self.center
         self.Cluster.unit_cell_formula = self.chemical_formula
         # exit(1)
         # cuted=Cluster(positions=positions,numbers=numbers) 
