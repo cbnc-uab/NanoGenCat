@@ -1,18 +1,19 @@
 from __future__ import print_function
 import numpy as np
+import matplotlib.pyplot as plt
+from re import findall
 
 from ase.data import atomic_numbers as ref_atomic_numbers
 from ase.spacegroup import Spacegroup
 from ase.cluster.factory import ClusterFactory, reduce_miller
-from bcnm.bcn_wulff import interplanarDistance
 from ase.utils import basestring
-from re import findall
 from ase.io import write
+from ase.visualize import view
+from ase import Atom
+from bcnm.bcn_wulff import interplanarDistance
 from bcnm.cluster import Cluster
 
-import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from ase.visualize import view
 
 class ClusterFactory(ClusterFactory):
     directions = [[1, 0, 0],
@@ -66,7 +67,6 @@ class ClusterFactory(ClusterFactory):
             else:
                 cluster.distances = None
             # print(cluster.get_layers())
-            
         return cluster
 
     def make_cluster(self, vacuum,debug=0):
@@ -141,9 +141,13 @@ class ClusterFactory(ClusterFactory):
             # break
 
         #Up to here we have the positions of the replied cell by translations
-
+        # replicatedBulk=Cluster(positions=positions,numbers=numbers) 
+        # replicatedBulk.append(Atom('Cs',position=self.center))
+        # view(replicatedBulk)
+        # exit(1)
         # For each suface get the interlayer distances
         # to get the final size
+
 
         realSize=[]
 
@@ -194,12 +198,7 @@ class ClusterFactory(ClusterFactory):
             numbers = numbers[mask]
             # break
         # print('..............')
-        #################################Killing the code
-        # if len(size)==3:
-        #     exit(1)
-        ############################
         # Fit the cell, so it only just consist the atoms
-       
         min = np.zeros(3)
         max = np.zeros(3)
         for i in range(3):
@@ -209,10 +208,17 @@ class ClusterFactory(ClusterFactory):
             max[i] = r.max()
 
         cell = max - min + vacuum
+        # print(np.mean(cell,axis=0))
         positions = positions - min + vacuum / 2.0
         self.center = self.center - min + vacuum / 2.0
+        self.Cluster.cut_origin=self.center
         self.Cluster.unit_cell_formula = self.chemical_formula
-        return self.Cluster(symbols=numbers, positions=positions, cell=cell)                
+        # exit(1)
+        # cuted=Cluster(positions=positions,numbers=numbers) 
+        # cuted.append(Atom('Cs',position=self.center))
+        # view(cuted) 
+        # exit(1) 
+        return self.Cluster(symbols=numbers, positions=positions, cell=cell)
     def set_lattice_size(self, center):
         """
         Routine that change the center 
@@ -276,8 +282,9 @@ class ClusterFactory(ClusterFactory):
                 print('self.center set lattice size',self.center)
                 print('............................................')
         self.size = (max - min + np.ones(3)).astype(int)
-        # print('self.size')
-        # print(self.size)
+        # print('self.center')
+        # # print(self.size)
+        # print(self.center)
     def set_surfaces_distances(self, surfaces, distances):
         """
         Function that add all the distances to all

@@ -1,6 +1,7 @@
 import numpy as np
 
 class ClusterBase:
+
     def bcn_get_layer_distance(self, miller, layers=1, tol=1e-9, new=True):
         """Returns the distance between planes defined by the given miller
         index.

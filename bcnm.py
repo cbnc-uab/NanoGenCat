@@ -91,24 +91,23 @@ def main():
             if atom.symbol==element:
                 atom.charge=data['charges'][n]
     ##  Polarity verification
-    # print(evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'],data['charges']))
-    if 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==True:
+    
+    polarityEvaluation=evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
+                        data['charges'])
+    
+    # print(polarityEvaluation)
+    if len(polarityEvaluation)>1:
         pass
-    elif not 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==True:
-        print('This input not contain any polar surface,','\nverify and relaunch it')
-        exit(1)
-    elif 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==False:
-        print('This input contains a polar surface and termination is not indicated,'
-        ,'\nverify and relaunch it')
-        finalTime=time.time()
-        print("Total execution time:",round(finalTime-startTime),"s")
-        exit(1)
-    elif not 'polar' in evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
-                        data['charges']) and data['polar']==False:
+    elif 'polar' in polarityEvaluation and data['polar']==True:
         pass
+    elif not 'polar' in polarityEvaluation and data['polar']==True:
+        print('This input not contain a polar surface')
+        # exit(1)
+    elif not 'polar' in polarityEvaluation and data['polar']==False:
+        pass
+    elif 'polar' in polarityEvaluation and data['polar']==False:
+        print('This input contain a polar surface')
+    
     #####Centering
     if data['centering'] == 'none':
         shifts = [[0.0, 0.0, 0.0]]
@@ -160,7 +159,7 @@ def main():
     elif data ['centering'] == 'automatic':
         shifts = []
         #Coordinate origin
-        shifts.append([0.,0.,0.])
+        shifts.append([0.0,0.0,0.0])
 
         # Only the less abundant atom
         listOfChemicalSymbols=crystalObject.get_chemical_symbols()
@@ -182,7 +181,8 @@ def main():
                     shifts.append(coordinate)
         # all atom center
         for basis in data['basis']:
-            shifts.append(basis)
+            if basis not in shifts:
+                shifts.append(basis)
 
         #Xavi proposed positions
         shiftsCenters=specialCenterings(data['spaceGroupNumber'])
@@ -191,6 +191,7 @@ def main():
             shifts.append(list(shift))
         # Center of mass
         # shifts.append(list(crystalObject.get_center_of_mass(scaled=True)))
+        print('shifts\n',*shifts,sep='\n')
     else:
         print('Error: Invalid centering value. Valid options are:\n centering:none\ncentering:onlyCenter\ncentering:centerOfMass\ncentering:manualShift\ncentering:nShift')
         exit(1)
@@ -232,7 +233,7 @@ def main():
     print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
     print('Results:')
     print(*evaluation, sep='\n')
-    print('testing Zone')
+    # print('testing Zone')
 
     #  getting the booleans as strings, this is done because
     # 0 values are considered as False in the boolean way
@@ -250,9 +251,9 @@ def main():
     # print(aprovedNp0Models[0][2])
     # chemFormList=[i[2] for i in aprovedNp0Models]
     chemicalFormulas=list(set(i[2] for i in aprovedNp0Models))
-
-    #Iterate to get only the one that have the maximum total coordination
-    finalModels=[]
+    # print('chemicalFormulas',chemicalFormulas)
+    #First filter, get the ones that have the maximum coordination per center 
+    firstFilteredModels=[]
     for i in chemicalFormulas:
         np0PerFormula=[]
         for j in aprovedNp0Models:
@@ -260,20 +261,49 @@ def main():
                 np0PerFormula.append(j)
         tempNp0PerFormula=sorted(np0PerFormula,key=lambda x:x[6],reverse=True)
         # print(tempNp0PerFormula)
-        finalModels.append(tempNp0PerFormula[0])
+        firstFilteredModels.append(tempNp0PerFormula[0])
+    
+    # Second filter, keep the ones that have the largest amount of less abundant atoms
+    # per size without considering center or size
+    # print('firstFiltered',*firstFilteredModels,sep='\n')
+    elementList=[sorted(i[3:5]) for i in firstFilteredModels]
+    defaultOrder=[i[3:5] for i in firstFilteredModels]
+    # print('defaultOrder',defaultOrder)
+    mostAbundPosition=np.argmax(defaultOrder[0])
+    # print('mostAbundPosition',mostAbundPosition)
+    # print(elementList)
+    uniqueLessAb=list(set([i[0] for i in elementList]))
+    # print('uniqueLessAb',uniqueLessAb)
+    # print('\n\n')
 
+    finalPositions=[]
+    for i in uniqueLessAb:
+        # print(i)
+        temp=[]
+        for n,j in enumerate(defaultOrder):
+            if i in j:
+                # print(j)
+                j.append(n)
+                temp.append(j)
+                # print(j)
+        # print('temp',temp,'\n')
+    # exit(1)
+        # print(sorted(temp,key=lambda x: x[mostAbundPosition]))
+        finalPositions.append(sorted(temp,key=lambda x: x[mostAbundPosition])[-1][-1])
+    finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
+    finalModels.sort(key=lambda x: x[3])
     print('\nFinal NP0s models:',len(finalModels))
-    finalSorted=sorted(finalModels,key=lambda x:x[0])
-    print(*finalSorted, sep='\n')
+    print(*finalModels, sep='\n')
     finalScreeningTime = time.time()
 
     print("Total time evaluation", round(finalScreeningTime-startingScreeningTime)," s")
+    # exit(1)
 
     if data['onlyNp0']==True:
         exit(0)
     elif data['reducedModel']==True:
         print('\nGenerating reduced nanoparticles\n')
-        for i in finalSorted:
+        for i in finalModels:
             # print(i)
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
@@ -285,7 +315,7 @@ def main():
         exit(0)
     elif data['polar']==True:
         print('\nGenerating polar nanoparticles\n')
-        for i in finalSorted:
+        for i in finalModels:
             # print(i)
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
@@ -299,7 +329,7 @@ def main():
     else:
         ##Construction of stoichiometric nanoparticles
         print('\nGenerating stoichiometric nanoparticles\n')
-        for i in finalSorted:
+        for i in finalModels:
             # print(i)
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
