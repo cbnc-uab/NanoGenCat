@@ -3095,6 +3095,88 @@ def orientedReduction(symbol,atoms,surfaces,distances):
         del atoms[singlyCoordinatedAtomsIndex.sort(reverse=True)]
         return (atoms)
 
+def forceTermination3(symbol,atoms,surfaces,distances,termNature):
+    """
+    Function that forces termination by adding atoms 
+    paralell to the plane directions
+    Args:
+    Return:
+        decoratedAtoms(Atoms): nanoparticle forced
+    """
+    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+    # Calculate the coodination and remove dangling atoms
+    C=coordinationv2(symbol,atoms)
+    singly=[c[0] for c in C if len(c[1])==1].sort(reverse=True)
+    del atoms[singly]
+
+    # Get the positions of the remain atoms respect to the cut center
+    positions=[atom.position-atoms.cut_origin for atom in atoms if atom.index in singlyCoordinatedAtomsIndex]
+    
+    # Get the atoms nature in a specific directions 
+    # and only use the polars
+    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    polarIndex=[n for n,p in enumerate(polarity) if not 'non Polar' in p]
+
+    decoratedAtoms=copy.deepcopy(atoms)
+
+    for index in polarIndex:
+        for eq in sg.equivalent_reflections(surfaces[index]):
+            
+            direction= np.dot(eq,symbol.get_reciprocal_cell())
+            direction/=np.linalg.norm(direction)
+            #Crystal distances and range
+            distancesUC=np.dot(symbol.get_positions(),direction)
+            elements=symbol.get_chemical_symbols()
+
+            # surface atoms in that direction
+            rlist=[]
+            for pos,num in zip(positions,atoms.get_atomic_numbers()):
+                rlist.append((np.dot(pos,direction)+covalent_radii[num]))
+            
+            testArray=rlist-np.amax(rlist)
+            # print(testArray)
+            surfaceAtomsIndexperEq=[]
+            surfaceAtomsperEq=[]
+            for n,val in enumerate(testArray):
+                if val==0.0:
+                    # print(val)
+                    surfaceAtomsIndexperEq.append(n)
+                    surfaceAtomsperEq.append(atoms[n].symbol)
+            # Just work for one termination element
+            if len(list(set(surfaceAtomsperEq)))==1:
+                metalSymbol=[ele for ele in elements if ele not in nonMetals]
+                nonMetalSymbol=[ele for ele in elements if ele in nonMetals]
+                
+                shortestDistance=[]
+                for a in zip(elements,distancesUC):
+                    for b in zip(elements,distancesUC):
+                        if a[0]!= b[0]:
+                            if np.abs(a[1]-b[1])>0.0:
+                                shortestDistance.append(np.round(np.abs(a[1]-b[1]),2))
+                displacement=np.argmin(shortestDistance)
+                
+                if list(set(surfaceAtomsperEq))[0] in nonMetals and termNature=='metal':
+                    #Add metal
+                    for atomIndex in surfaceAtomsIndexperEq:
+                        newPos=(displacement*direction)+atoms[atomIndex].position
+                        nonMetalAdd=Atom(str(nonMetalSymbol[0]),newPos)
+                        decoratedAtoms.extend(nonMetalAdd)
+
+
+                elif list(set(surfaceAtomsperEq))[0] not in nonMetals and termNature=='non-metal':
+                    # Add non metal
+                    for atomIndex in surfaceAtomsIndexperEq:
+                        newPos=(displacement*direction)+atoms[atomIndex].position
+                        metalAdd=Atom(str(metalSymbol[0]),newPos)
+                        decoratedAtoms.extend(nonMetalAdd)
+    
+    return decoratedAtoms
+
+
+
+
+    # add inverse specie, ie, non metals if its metal
+    # terminated or metals if its non metal.
 
 
 
