@@ -8,7 +8,7 @@ import glob
 
 from os import remove
 from re import findall
-from random import shuffle,choice
+from random import seed,shuffle,choice
 from scipy.sparse.linalg import eigsh
 from scipy.spatial.distance import euclidean
 from scipy.spatial import ConvexHull
@@ -27,7 +27,6 @@ from ase.data import chemical_symbols,covalent_radii
 from ase.spacegroup import Spacegroup
 from ase.build import surface as slabBuild
 
-
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from pymatgen.io.ase import AseAtomsAdaptor
@@ -44,13 +43,13 @@ nonMetalsNumbers=symbols2numbers(nonMetals)
 
 delta = 1e-10
 _debug = False
-
+seed(42)
 
 def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     rounding='closest',latticeconstant=None, maxiter=100,
-    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='surfaceBased',
+    center=[0.,0.,0.],stoichiometryMethod=1,np0=False,wl_method='hybridMethod',
     sampleSize=1000,totalReduced=False,coordinationLimit='half',polar=False,
-    termNature='non-metal',neutralize=False,debug=0):
+    termNature='non-metal',neutralize=False,inertiaMoment=False,debug=0):
     """Function that build a Wulff-like nanoparticle.
     That can be bulk-cut, stoichiometric and reduced
     
@@ -115,7 +114,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
         if rounding not in ['above', 'below', 'closest']:
             raise ValueError('Invalid rounding: %s' % rounding)
-
     # Interpret structure, if it is a string.
     if isinstance(structure, basestring):
         if structure == 'fcc':
@@ -278,7 +276,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             models=[]
             finalSize=[]
             # Add the NP0
-            # models.append(atoms_midpoint)
+            models.append(atoms_midpoint)
             # print('initial distances and layers')
             # print(distances,layers)
             midpoints=[]
@@ -305,7 +303,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                     # removeUnbounded(symbol,atoms_midpoint)
                     # view(atoms_midpoint)
                     # atoms_midpoint.append(Atom('Cs',position=atoms_midpoint.cut_origin))
-                    # midpoints.append(atoms_midpoint)
+                    midpoints.append(atoms_midpoint)
                     terminationElements=terminations(symbol,atoms_midpoint,surfaces)
                     termEva=len(list(set(terminationElements)))
                     # print('terminationElements sons',list(set(terminationElements)),len(list(set(terminationElements))))
@@ -319,7 +317,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 if len(finalSize)==0:
                     print('Not possible to get the desired termination for this size and centering')
                 else:
-                    print('finalSize')
+                    # print('finalSize')
                     # print(len(finalSize))
                     # print(*finalSize,sep='\n')
                     # print('.....................')
@@ -335,9 +333,11 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                     # keep the smallest nanoparticle
                     atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
                                     structure,center,latticeconstant,debug)
+                    # view(atoms_midpoint)
+                    # exit(1)
                     models.append(atoms_midpoint)
                     atoms=orientedReduction(symbol,atoms_midpoint,surfaces,orderedSizes[0][1])
-                    # models.append(atoms) 
+                    models.append(atoms) 
                     # print('hereeeee')
                     name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
                     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
@@ -360,7 +360,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                     #         write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
         else:
             #Stoichiometric NPS
-            reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,debug)
+            reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,inertiaMoment,debug)
             
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant,debug):
     """
@@ -1005,7 +1005,7 @@ def compare(sprint0,sprint1):
         if len(diff)==0:
             return True
 
-def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
+def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,inertiaMoment,debug=0):
     """
     Function that make the nano stoichiometric
     by removing dangling atoms. It is element
@@ -1190,12 +1190,13 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,debug=0):
     print("Total time reduceNano", round(time_F1-time_F0,5)," s\n")
     #Calling the singulizator function
     if len (nanoList) >1:
-        # SPRINT calculations are to much cost for this models
-        if len(atoms)>200.0:
+        if inertiaMoment==True:
             intertiaTensorSing(atoms,S,C,nanoList) 
-            pass
         else:
-            singulizator(nanoList,debug)
+            if npFinalSize<20.0:
+                singulizator(nanoList,debug)
+            else:
+                pass
     else:
         pass
     
@@ -2678,7 +2679,7 @@ def forceTermination2(symbol,atoms,surfaces,distances,interplanarDistances,termN
         newDistances([list]):set of cutoff distances 
     """
     cutoffDistancesSets=[]
-    print('initialDistances',distances)
+    # print('initialDistances',distances)
     # print(dir(atoms))
     # exit(1) 
     # build slabs for each polar surface and get the dipole
@@ -2722,7 +2723,7 @@ def forceTermination2(symbol,atoms,surfaces,distances,interplanarDistances,termN
     for index in polarSurfacesIndex:
         distancesSet=[]
         # include default distance
-
+        distancesSet.append(distances[index])
         direction= np.dot(surfaces[index],symbol.get_reciprocal_cell())
         direction = direction / np.linalg.norm(direction)
 
@@ -2905,12 +2906,19 @@ def intertiaTensorSing(atoms,S,C,nanoList):
         danglingAtom=copy.deepcopy(atoms)
         toRemove=sorted([atom.index for atom in danglingAtom if atom.index not in s],reverse=True)
         del danglingAtom[toRemove]
-        write('tmp.xyz',danglingAtom,format='xyz')
-        molecule=Molecule.from_file('tmp.xyz')
+        # write('tmp.xyz',danglingAtom,format='xyz')
+        molecule=Molecule(danglingAtom.get_chemical_symbols(),danglingAtom.get_positions())
+        # molecule=Molecule.from_file('tmp.xyz')
         sym=PointGroupAnalyzer(molecule)
-        eigenVals.append(np.round(sym.eigvals,decimals=3))
+        eigenVals.append(np.round(sym.eigvals,decimals=5))
         # print('intertia tensor calcs one',time.time()-itime,' s')    
     dataFrame=pd.DataFrame(np.array(eigenVals).reshape(len(eigenVals),3),columns=['0','1','2'])
+    # duplicates=dataFrame[dataFrame.duplicated(keep=False)].sort_values(by='0')
+    # print(type(duplicates))
+    # duplicatesNames=[nanoList[i] for i in list(duplicates.index)] 
+    # print(duplicates)
+    # print(*duplicatesNames,sep='\n')
+    # exit(1)
     # print(dataFrame)
     sindu=dataFrame.drop_duplicates(keep='first')
 
@@ -2920,9 +2928,9 @@ def intertiaTensorSing(atoms,S,C,nanoList):
     end=time.time() 
     
     deleteNanos=[nanoList[i] for i in deletedNanosIndex]
+    # print(*deleteNanos,sep='\n')
     for i in deleteNanos:
         remove(i) 
-    # finalModels=len(S)-len(deletedNanosIndex)
 
     print('Removed NPs:',len(deletedNanosIndex))
     # print('uniqueIndex',len(uniqueModelsIndex))
@@ -2942,15 +2950,16 @@ def orientedReduction(symbol,atoms,surfaces,distances):
     """
     # print('distances',distances)
     # print('surfaces',surfaces)
-
+    # view(atoms)
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
     
     # Get the positions of singly coordinated atoms
     removeUnbounded(symbol,atoms)
     C=coordinationv2(symbol,atoms)
-    singlyCoordinatedAtomsIndex=[coord[0] for coord in C if len(coord[1])==1]
-    positions=[atom.position for atom in atoms if atom.index in singlyCoordinatedAtomsIndex]
-
+    singlyCoordinatedAtomsIndex=sorted([coord[0] for coord in C if len(coord[1])==1],reverse=True)
+    # print('singlyCoordinatedAtomsIndex 1st')
+    # print(singlyCoordinatedAtomsIndex)
+    positions=[atom.position-atoms.cut_origin for atom in atoms if atom.index in singlyCoordinatedAtomsIndex]
     # asuming that only one specie is singlycoordinated
     singlySpecie=atoms[singlyCoordinatedAtomsIndex[0]].symbol
     # get the polarity per surface
@@ -2967,21 +2976,23 @@ def orientedReduction(symbol,atoms,surfaces,distances):
 
     noPolarIndex=[n for n,p in enumerate(polarity) if 'non Polar' in p]
     polarIndex=[n for n,p in enumerate(polarity) if not 'non Polar' in p]
-    # print('nopolar',noPolarIndex)
-    # print('polar',polarIndex)
-    # exit(1) 
+    # print('polarIndex',polarIndex)
+    # exit(1)
+    #  
     # First screening, remove the positions that belong to atoms in the 
     # polar direction
-    for i in polarIndex:
+    # print('enter screening polar loop')
+    for indexP in polarIndex:
         if len(positions)<1:
             break
-        equivalentSurfaces=sg.equivalent_reflections(surfaces[i])
+        equivalentSurfaces=sg.equivalent_reflections(surfaces[indexP])
         for eq in equivalentSurfaces:
             # print('eq,distances')
             if len(positions)<1:
                 break
             direction= np.dot(eq,symbol.get_reciprocal_cell())
             direction/=np.linalg.norm(direction)
+            # print(direction)
             
             # Get the distance limit as the shortest distance
             # in each direction ... of singly coordinated specie
@@ -2998,20 +3009,36 @@ def orientedReduction(symbol,atoms,surfaces,distances):
             
             minVar=np.amin(variance)
             distancesAtom=np.dot(positions,direction)
-            lowerLimit=distances[i]-minVar
+
+            lowerLimit=distances[indexP]-minVar
             # Get the indexes of atoms to remove in that direction
             # print(*distances,sep='\n')
             # print('lower limit',lowerLimit)
-            atomIndexToRemove=sorted([n for n,d in enumerate(distancesAtom) if d>lowerLimit],reverse=True)
-            # print('atomIndexToRemove and plane')
+            atomIndexToRemove=[n for n,d in zip(singlyCoordinatedAtomsIndex,distancesAtom) if d>lowerLimit]
+        
+            # print('atomIndexToRemove',surfaces[indexP])
             # print(atomIndexToRemove)
+            indexToRemove=[]
+            for i in atomIndexToRemove:
+                indexToRemove.append(singlyCoordinatedAtomsIndex.index(i))
+            
+            indexToRemove.sort(reverse=True)
+            # exit(1)
+            # print(*atomIndexToRemove,sep='\n')
             if len(atomIndexToRemove) >1:
-                for i in atomIndexToRemove:
+                for i in indexToRemove:
                     del positions[i]
+                    del singlyCoordinatedAtomsIndex[i]
+                # print(*singlyCoordinatedAtomsIndex,sep='\n')
+                # print(*positions,sep='\n')
             else:
-                pass 
+                pass
+    # exit(1) 
             # del positions[atomIndexToRemove]
     #Second screening: non polar indexes
+        # print('singlyCoordinatedAtomsIndex cycle',surfaces[i])
+        # print(singlyCoordinatedAtomsIndex)
+    
     if len(positions)<1:
         pass
     else:
@@ -3043,20 +3070,27 @@ def orientedReduction(symbol,atoms,surfaces,distances):
                     
                     minVar=np.amin(variance)
                     distancesAtom=np.dot(positions,direction)
-                    lowerLimit=distances[i]-minVar
+                    lowerLimit=distances[index]-minVar
                     # Get the indexes of atoms to remove in that direction
-                    atomIndexToRemove=sorted([n for n,d in enumerate(distancesAtom) if d>lowerLimit],reverse=True)
-
+                    atomIndexToRemove=sorted([n for n,d in zip(singlyCoordinatedAtomsIndex,distancesAtom) if d>lowerLimit],reverse=True)
                     # print(len(atomIndexToRemove))
-                    del atoms[atomIndexToRemove] 
+                    # del atoms[atomIndexToRemove] 
                     # view(atoms)
                     # exit(1)
                     for i in atomIndexToRemove:
+                        indexToRemove.append(singlyCoordinatedAtomsIndex.index(i))
+                    indexToRemove.sort(reverse=True)
+                    for i in indexToRemove:
                         del positions[i] 
-                    # del positions[atomIndexToRemove]
-    # view(atoms)
+                        del singlyCoordinatedAtomsIndex[i]
+                    # print(*singlyCoordinatedAtomsIndex,sep='\n')
+                    # print(*positions,sep='\n')
     # exit(1)
-    return (atoms)
+    if len(singlyCoordinatedAtomsIndex) ==0:
+        return (atoms)
+    else:
+        del atoms[singlyCoordinatedAtomsIndex.sort(reverse=True)]
+        return (atoms)
 
 
 

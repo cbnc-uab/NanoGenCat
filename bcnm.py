@@ -24,7 +24,7 @@ from bcnm.bcn_wulff import bcn_wulff_construction, specialCenterings,evaluateSur
 
 def main():
     startTime = time.time()
-
+    
     print('''
     BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
     This program comes with ABSOLUTELY NO WARRANTY; for details type 'python bcnm.py --help'. 
@@ -67,6 +67,8 @@ def main():
         data['termNature']='non-metal'
     if not 'neutralize' in data:
         data['neutralize']=False
+    if not 'inertiaMoment' in data:
+        data['inertiaMoment']=False
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -308,7 +310,7 @@ def main():
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],totalReduced=True,
+            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],totalReduced=data['reducedModel'],
                 coordinationLimit=data['coordinationLimit'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
@@ -334,7 +336,8 @@ def main():
             print('\n NP0: ',i,"\n")
             bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
             	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],coordinationLimit=data['coordinationLimit'])
+            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],
+                coordinationLimit=data['coordinationLimit'],inertiaMoment=data['inertiaMoment'])
         finalTime=time.time()
         print("Total execution time:",round(finalTime-startTime),"s")
         exit(0)
