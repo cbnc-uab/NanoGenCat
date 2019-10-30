@@ -242,6 +242,7 @@ class ClusterFactory(ClusterFactory):
         min = -np.ones(3)
         #Calculate the reciprocal latice, why?
         v = self.resiproc_basis
+        # self.layers=self.layers+np.ones(len(self.layers))
 
         #For surface and layers
         for s, l in zip(self.surfaces, self.layers):

@@ -292,7 +292,8 @@ def main():
     # exit(1)
         # print(sorted(temp,key=lambda x: x[mostAbundPosition]))
         finalPositions.append(sorted(temp,key=lambda x: x[mostAbundPosition])[-1][-1])
-    finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
+    # finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
+    finalModels=firstFilteredModels
     finalModels.sort(key=lambda x: x[3])
     print('\nFinal NP0s models:',len(finalModels))
     print(*finalModels, sep='\n')
