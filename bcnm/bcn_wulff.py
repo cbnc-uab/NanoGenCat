@@ -2931,12 +2931,17 @@ def orientedReduction(symbol,atoms,surfaces,distances):
     C=coordinationv2(symbol,atoms)
     # print(*C,sep='\n')
     singlyCoordinatedAtomsIndex=[c[0] for c in C if len(c[1])==1]
-    print(singlyCoordinatedAtomsIndex)
+    fatherSinglyIndex=[c[1][0] for c in C if len(c[1])==1]
+    # print(len(fatherSinglyIndex))
+    # print(fatherSinglyIndex)
+    # exit(1)
     if singlyCoordinatedAtomsIndex==None:
         return atoms
     else:
-        # print(singlyCoordinatedAtomsIndex)
-        positions=[atom.position-atoms.cut_origin for atom in atoms if atom.index in singlyCoordinatedAtomsIndex]
+        # Father based algorithm
+        positions=[atom.position-atoms.cut_origin for atom in atoms if atom.index in fatherSinglyIndex]
+        # print(positions)
+        # exit(1)
         # asuming that only one specie is singlycoordinated
         singlySpecie=atoms[singlyCoordinatedAtomsIndex[0]].symbol
         # get the polarity per surface
@@ -2960,7 +2965,7 @@ def orientedReduction(symbol,atoms,surfaces,distances):
         # polar direction
         # print('enter screening polar loop')
 
-        danglingsBelongPolar=[]
+        fathersBelongPolar=[]
         for indexP in polarIndex:
             print(surfaces[indexP])
             # if len(positions)<1:
@@ -2978,7 +2983,7 @@ def orientedReduction(symbol,atoms,surfaces,distances):
 
                 distancesUC=np.dot(symbol.get_positions(),direction)
                 elements=symbol.get_chemical_symbols()
-                # print(distancesUC) 
+                print(distancesUC) 
                 # print(np.nonzero(distancesUC))
                 # print(distancesUC[np.nonzero(distancesUC)])
                 # exit(1)
@@ -2987,110 +2992,114 @@ def orientedReduction(symbol,atoms,surfaces,distances):
                     for a in zip(elements,distancesUC):
                         for b in zip(elements,distancesUC):
                             if a[0]==singlySpecie and b[0]==singlySpecie:
-                                variance.append(np.round(np.abs(a[1]-b[1]),2))
+                                if np.abs(a[1]-b[1]) >=0.0:
+                                    # print(np.abs(a[1]-b[1]))
+                                    variance.append(np.round(np.abs(a[1]-b[1]),2))
 
                 elif np.count_nonzero(distancesUC)==1:
-                    variance.append(distancesUC[np.nonzero(distancesUC)]) 
-                # print(variance)
+                    variance.append(np.abs(distancesUC[np.nonzero(distancesUC)])) 
+                print('varrr',variance)
                 minVar=np.amin(variance)
                 distancesAtom=np.dot(positions,direction)
-
+                if np.amax(variance)==np.amax(distancesAtom) or np.amin(variance)==np.amax(distancesAtom):
+                    minVar=0.1
+                # print(len(distancesAtom))
                 lowerLimit=np.amax(distancesAtom)-minVar
                 # Get the indexes of atoms to preserve in that direction
-                print(*distances,sep='\n')
-                print('lower limit',lowerLimit)
-                atomIndexToPreserve=[n for n,d in zip(singlyCoordinatedAtomsIndex,distancesAtom) if d>lowerLimit]
-            
-                # print('atomIndexToRemove',surfaces[indexP])
-                # print(atomIndexToRemove)
-                indexToRemove=[]
-                for i in atomIndexToRemove:
-                    indexToRemove.append(singlyCoordinatedAtomsIndex.index(i))
-                
-                # indexToRemove.sort(reverse=True)
+                print(distancesAtom)
+                print(lowerLimit)
+                fathersPerEq=sorted([n for n,d in zip(fatherSinglyIndex,distancesAtom) if d>lowerLimit],reverse=True)
+                print(fathersPerEq,eq)
                 # exit(1)
-                print(*atomIndexToRemove,sep='\n')
-                print('-------------')
-                if len(atomIndexToRemove) >1:
-                    for i in atomIndexToRemove:
-                        print(i)
-                        danglingsBelongPolar.append(i)
+            exit(1)            
+        #         indexToRemove=[]
+        #         for i in atomIndexToRemove:
+        #             indexToRemove.append(singlyCoordinatedAtomsIndex.index(i))
+                
+        #         # indexToRemove.sort(reverse=True)
+        #         # exit(1)
+        #         print(*atomIndexToRemove,sep='\n')
+        #         print('-------------')
+        #         if len(atomIndexToRemove) >1:
+        #             for i in atomIndexToRemove:
+        #                 print(i)
+        #                 danglingsBelongPolar.append(i)
                     
-                #     # for i in indexToRemove:
-                #     #     del positions[i]
-                #     #     del singlyCoordinatedAtomsIndex[i]
-                #     # print(*singlyCoordinatedAtomsIndex,sep='\n')
-                #     # print(*positions,sep='\n')
-                # else:
-                #     pass
-        # exit(1) 
-                # del positions[atomIndexToRemove]
-        #Second screening: non polar indexes
-            # print('singlyCoordinatedAtomsIndex cycle',surfaces[i])
-            # print(singlyCoordinatedAtomsIndex)
-        print('danglingsBelongPolar',sorted(list(set(danglingsBelongPolar))))
-        # exit(1)
-        danglingsBelongNonPolar=[] 
-        for index in noPolarIndex:
-            print('surface')
-            print(surfaces[index])
-            # get the equivalent planes
-            equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
-            for eq in equivalentSurfaces:
-                # if len(positions)==0:
-                #     break
-                # else:
-                # get the direction and make the dot product magic
-                direction= np.dot(eq,symbol.get_reciprocal_cell())
-                direction/=np.linalg.norm(direction)
+        #         #     # for i in indexToRemove:
+        #         #     #     del positions[i]
+        #         #     #     del singlyCoordinatedAtomsIndex[i]
+        #         #     # print(*singlyCoordinatedAtomsIndex,sep='\n')
+        #         #     # print(*positions,sep='\n')
+        #         # else:
+        #         #     pass
+        # # exit(1) 
+        #         # del positions[atomIndexToRemove]
+        # #Second screening: non polar indexes
+        #     # print('singlyCoordinatedAtomsIndex cycle',surfaces[i])
+        #     # print(singlyCoordinatedAtomsIndex)
+        # print('danglingsBelongPolar',sorted(list(set(danglingsBelongPolar))))
+        # # exit(1)
+        # danglingsBelongNonPolar=[] 
+        # for index in noPolarIndex:
+        #     print('surface')
+        #     print(surfaces[index])
+        #     # get the equivalent planes
+        #     equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
+        #     for eq in equivalentSurfaces:
+        #         # if len(positions)==0:
+        #         #     break
+        #         # else:
+        #         # get the direction and make the dot product magic
+        #         direction= np.dot(eq,symbol.get_reciprocal_cell())
+        #         direction/=np.linalg.norm(direction)
                 
-                # Get the distance limit as the shortest distance
-                # in each direction ... of singly coordinated specie
+        #         # Get the distance limit as the shortest distance
+        #         # in each direction ... of singly coordinated specie
 
-                distancesUC=np.dot(symbol.get_positions(),direction)
-                elements=symbol.get_chemical_symbols()
+        #         distancesUC=np.dot(symbol.get_positions(),direction)
+        #         elements=symbol.get_chemical_symbols()
 
-                variance=[]
-                if np.count_nonzero(distancesUC)>1 :
-                    for a in zip(elements,distancesUC):
-                        for b in zip(elements,distancesUC):
-                            if a[0]==singlySpecie and b[0]==singlySpecie:
-                                variance.append(np.round(np.abs(a[1]-b[1]),2))
-                elif np.count_nonzero(distancesUC)==1:
-                    variance.append(distancesUC[np.nonzero(distancesUC)]) 
+        #         variance=[]
+        #         if np.count_nonzero(distancesUC)>1 :
+        #             for a in zip(elements,distancesUC):
+        #                 for b in zip(elements,distancesUC):
+        #                     if a[0]==singlySpecie and b[0]==singlySpecie:
+        #                         variance.append(np.round(np.abs(a[1]-b[1]),2))
+        #         elif np.count_nonzero(distancesUC)==1:
+        #             variance.append(distancesUC[np.nonzero(distancesUC)]) 
                 
-                if np.amin(variance)==0.0:
-                    minVar=0.1
-                # minVar=np.amin(variance)
-                # print(minVar)
-                distancesAtom=np.dot(positions,direction)
-                # lowerLimit=distances[index]-minVar
-                lowerLimit=np.amax(distancesAtom)-minVar
-                # print(np.max(distancesAtom),distances[index],lowerLimit)
-                # Get the indexes of atoms to remove in that direction
-                atomIndexToRemove=sorted([n for n,d in zip(singlyCoordinatedAtomsIndex,distancesAtom) if d>lowerLimit],reverse=True)
-                print(len(atomIndexToRemove))
-                # del atoms[atomIndexToRemove] 
-                # view(atoms)
-                # exit(1)
-                for i in atomIndexToRemove:
-                    danglingsBelongNonPolar.append(i)
-                for i in atomIndexToRemove:
-                    indexToRemove.append(singlyCoordinatedAtomsIndex.index(i))
-                # indexToRemove.sort(reverse=True)
-                # for i in indexToRemove:
-                #     del positions[i] 
-                #     del singlyCoordinatedAtomsIndex[i]
-                # print(*singlyCoordinatedAtomsIndex,sep='\n')
-                # print(*positions,sep='\n')
+        #         if np.amin(variance)==0.0:
+        #             minVar=0.1
+        #         # minVar=np.amin(variance)
+        #         # print(minVar)
+        #         distancesAtom=np.dot(positions,direction)
+        #         # lowerLimit=distances[index]-minVar
+        #         lowerLimit=np.amax(distancesAtom)-minVar
+        #         # print(np.max(distancesAtom),distances[index],lowerLimit)
+        #         # Get the indexes of atoms to remove in that direction
+        #         atomIndexToRemove=sorted([n for n,d in zip(singlyCoordinatedAtomsIndex,distancesAtom) if d>lowerLimit],reverse=True)
+        #         print(len(atomIndexToRemove))
+        #         # del atoms[atomIndexToRemove] 
+        #         # view(atoms)
+        #         # exit(1)
+        #         for i in atomIndexToRemove:
+        #             danglingsBelongNonPolar.append(i)
+        #         for i in atomIndexToRemove:
+        #             indexToRemove.append(singlyCoordinatedAtomsIndex.index(i))
+        #         # indexToRemove.sort(reverse=True)
+        #         # for i in indexToRemove:
+        #         #     del positions[i] 
+        #         #     del singlyCoordinatedAtomsIndex[i]
+        #         # print(*singlyCoordinatedAtomsIndex,sep='\n')
+        #         # print(*positions,sep='\n')
+        # # exit(1)
+        # print('danglingsBelongNonPolar',sorted(list(set(danglingsBelongNonPolar))))
         # exit(1)
-        print('danglingsBelongNonPolar',sorted(list(set(danglingsBelongNonPolar))))
-        exit(1)
-        if len(singlyCoordinatedAtomsIndex) ==0:
-            return (atoms)
-        else:
-            del atoms[singlyCoordinatedAtomsIndex.sort(reverse=True)]
-            return (atoms)
+        # if len(singlyCoordinatedAtomsIndex) ==0:
+        #     return (atoms)
+        # else:
+        #     del atoms[singlyCoordinatedAtomsIndex.sort(reverse=True)]
+        #     return (atoms)
 
 def forceTermination3(symbol,atoms,surfaces,distances,termNature):
     """
