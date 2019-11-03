@@ -57,16 +57,18 @@ def main():
         data['wulff-like-method'] = 'hybridMethod'
     if not 'sampleSize' in data:
     	data['sampleSize']=1000
-    if not 'reducedModel' in data:
-        data['reducedModel']=False
-    if not 'coordinationLimit' in data:
-        data['coordinationLimit']='minus2'
-    if not 'polar' in data:
-        data['polar']=False
-    if not 'termNature' in data:
-        data['termNature']='non-metal'
-    if not 'neutralize' in data:
-        data['neutralize']=False
+    # Termination 
+    # if not 'reducedModel' in data:
+    #     data['reducedModel']=False
+    # if not 'coordinationLimit' in data:
+    #     data['coordinationLimit']='minus2'
+    # if not 'polar' in data:
+    #     data['polar']=False
+    # if not 'termNature' in data:
+    #     data['termNature']='non-metal'
+    # if not 'neutralize' in data:
+    #     data['neutralize']=False
+    # model reduction 
     if not 'inertiaMoment' in data:
         data['inertiaMoment']=False
     ####Creating a execution directory
@@ -80,7 +82,11 @@ def main():
     print('Running parameters')
     for key,values in data.items():
         print(key,':',values)
-
+    # If not any of termination related parameters, exit the code
+    if not all(k in data for k in ("reducedModel","coordinationLimit","polar","termNature","neutralize")):
+        print('\nPlease, specify appropiate termination keyword')
+        exit(1)
+        
     ###Start execution
     print('\nStart execution')
     ## Making the crystalObject

@@ -338,7 +338,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
 
                 name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
                 write(name,atoms,format='xyz',columns=['symbols', 'positions'])
-                view(models)
+                # view(models)
             if neutralize==True:
                 adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
                 write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
@@ -2926,11 +2926,12 @@ def orientedReduction(symbol,atoms,surfaces,distances):
     
     # Get the positions of singly coordinated atoms
     removeUnbounded(symbol,atoms)
-    view(atoms)
+    # view(atoms)
     C=coordinationv2(symbol,atoms)
     # print(*C,sep='\n')
     singlyCoordinatedAtomsIndex=[c[0] for c in C if len(c[1])==1]
     fatherSinglyIndex=[c[1][0] for c in C if len(c[1])==1]
+    print('fatherSinglyIndex')
     # print(len(fatherSinglyIndex))
     print(fatherSinglyIndex)
     # exit(1)
@@ -2977,35 +2978,42 @@ def orientedReduction(symbol,atoms,surfaces,distances):
                 fathersBelongPolar.extend(fathersPerEq)
         print('belongPolar',sorted(list(set(fathersBelongPolar))))
 
-        fathersBelongNonPolar=[] 
-        for index in noPolarIndex:
-            equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
-            for eq in equivalentSurfaces:
-                direction= np.dot(eq,symbol.get_reciprocal_cell())
-                direction/=np.linalg.norm(direction)
+        # fathersBelongNonPolar=[] 
+        # for index in noPolarIndex:
+        #     equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
+        #     for eq in equivalentSurfaces:
+        #         direction= np.dot(eq,symbol.get_reciprocal_cell())
+        #         direction/=np.linalg.norm(direction)
                 
-                distancesAtom=np.dot(positions,direction)
-                boundary=np.amax(np.dot(centerAllPositions,direction))
-                # print('eq',eq)
-                # print('distancesAtom',distancesAtom)
-                # print('boundary',boundary)
-                fathersPerEq=[n for n,d in zip(fatherSinglyIndex,distancesAtom) if d>=boundary]
-                # print(fathersPerEq,'\n-------------')
-                # exit(1)
-                fathersBelongNonPolar.extend(fathersPerEq)
-        print('belongNoP',sorted(list(set(fathersBelongNonPolar))))
+        #         distancesAtom=np.dot(positions,direction)
+        #         boundary=np.amax(np.dot(centerAllPositions,direction))
+        #         # print('eq',eq)
+        #         # print('distancesAtom',distancesAtom)
+        #         # print('boundary',boundary)
+        #         fathersPerEq=[n for n,d in zip(fatherSinglyIndex,distancesAtom) if d>=boundary]
+        #         # print(fathersPerEq,'\n-------------')
+        #         # exit(1)
+        #         fathersBelongNonPolar.extend(fathersPerEq)
+        # print('belongNoP',sorted(list(set(fathersBelongNonPolar))))
 
-        danglingsToRemove=[]
-        for i in singlyCoordinatedAtomsIndex:
-            if C[i][1] in fathersBelongNonPolar:
-                danglingsToRemove.append(i)
-        print(danglingsToRemove)        
-        danglingsToRemove.sort(reverse=True)
-        if len(danglingsToRemove)==0:
-            return atoms
+
+        #Remove all the ones that does not belong to polar surfaces
+        fathersToRemove=list(set(fatherSinglyIndex)-set(fathersBelongPolar))
+        print('fathersToRemove',fathersToRemove) 
+        # exit(1)
+        
+        if len(fathersToRemove)==0:
+            return(atoms)
         else:
-            
+            danglingsToRemove=[]
+            for i in singlyCoordinatedAtomsIndex:
+                if C[i][1] in fathersToRemove:
+                    danglingsToRemove.append(i)
+            danglingsToRemove.sort(reverse=True)
+            # view(atoms)
             del atoms[danglingsToRemove]
+            # view(atoms)
+            # exit(1) 
             return atoms
 
 def forceTermination3(symbol,atoms,surfaces,distances,termNature):
