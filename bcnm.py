@@ -24,7 +24,7 @@ from bcnm.bcn_wulff import bcn_wulff_construction, specialCenterings,evaluateSur
 
 def main():
     startTime = time.time()
-
+    
     print('''
     BcnM  Copyright (C) 2017 Computational BioNanoCat Group at UAB
     This program comes with ABSOLUTELY NO WARRANTY; for details type 'python bcnm.py --help'. 
@@ -57,16 +57,20 @@ def main():
         data['wulff-like-method'] = 'hybridMethod'
     if not 'sampleSize' in data:
     	data['sampleSize']=1000
-    if not 'reducedModel' in data:
-        data['reducedModel']=False
     if not 'coordinationLimit' in data:
         data['coordinationLimit']='minus2'
-    if not 'polar' in data:
-        data['polar']=False
-    if not 'termNature' in data:
-        data['termNature']='non-metal'
-    if not 'neutralize' in data:
-        data['neutralize']=False
+    # Termination 
+    # if not 'reducedModel' in data:
+    #     data['reducedModel']=False
+    # if not 'polar' in data:
+    #     data['polar']=False
+    # if not 'termNature' in data:
+    #     data['termNature']='non-metal'
+    # if not 'neutralize' in data:
+    #     data['neutralize']=False
+    # model reduction 
+    if not 'inertiaMoment' in data:
+        data['inertiaMoment']=False
     ####Creating a execution directory
     execDir = Path('tmp/'+str(uuid.uuid4().hex))
     execDir.mkdir(parents=True, exist_ok=True)
@@ -78,7 +82,13 @@ def main():
     print('Running parameters')
     for key,values in data.items():
         print(key,':',values)
-
+    # If not any of termination related parameters, exit the code
+    inputSetKwrds=set(data)
+    terminationKeywords=set(["reducedModel","stoichiometric","polar","termNature","neutralize"])
+    
+    if len(terminationKeywords.intersection(inputSetKwrds))==0:
+        print('\nPlease specify the appropiated termination keywords')
+        exit(0)
     ###Start execution
     print('\nStart execution')
     ## Making the crystalObject
@@ -290,7 +300,8 @@ def main():
     # exit(1)
         # print(sorted(temp,key=lambda x: x[mostAbundPosition]))
         finalPositions.append(sorted(temp,key=lambda x: x[mostAbundPosition])[-1][-1])
-    finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
+    # finalModels=[i for n,i in enumerate(firstFilteredModels) if n in finalPositions]
+    finalModels=firstFilteredModels
     finalModels.sort(key=lambda x: x[3])
     print('\nFinal NP0s models:',len(finalModels))
     print(*finalModels, sep='\n')
@@ -301,42 +312,56 @@ def main():
 
     if data['onlyNp0']==True:
         exit(0)
-    elif data['reducedModel']==True:
-        print('\nGenerating reduced nanoparticles\n')
-        for i in finalModels:
-            # print(i)
-            print('\n NP0: ',i,"\n")
-            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
-            	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],totalReduced=True,
+    elif 'reducedModel' in data:
+        if data['reducedModel']==True:
+            print('\nGenerating reduced nanoparticles\n')
+            for i in finalModels:
+                # print(i)
+                print('\n NP0: ',i,"\n")
+                bcn_wulff_construction(crystalObject,data['surfaces'],
+                data['surfaceEnergy'],float(i[0]),'ext',center = i[1],
+                rounding='above',debug=data['debug'],
+                sampleSize=data['sampleSize'],
+                wl_method=data['wulff-like-method'],
+                totalReduced=data['reducedModel'],
                 coordinationLimit=data['coordinationLimit'])
-        finalTime=time.time()
-        print("Total execution time:",round(finalTime-startTime),"s")
-        exit(0)
-    elif data['polar']==True:
-        print('\nGenerating polar nanoparticles\n')
-        for i in finalModels:
-            # print(i)
-            print('\n NP0: ',i,"\n")
-            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
-            	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],wl_method=data['wulff-like-method'],polar=True,
-                termNature=data['termNature'],neutralize=data['neutralize'],
+            finalTime=time.time()
+            print("Total execution time:",round(finalTime-startTime),"s")
+            exit(0)
+    elif 'polar' in data:
+        if data['polar']==True:
+            print('\nGenerating polar nanoparticles\n')
+            for i in finalModels:
+                # print(i)
+                print('\n NP0: ',i,"\n")
+                bcn_wulff_construction(crystalObject,data['surfaces'],
+                data['surfaceEnergy'],float(i[0]),'ext',center = i[1],
+                rounding='above',debug=data['debug'],
+                sampleSize=data['sampleSize'],
+                wl_method=data['wulff-like-method'],
+                polar=data['polar'],
+                termNature=data['termNature'],
+                neutralize=data['neutralize'],
                 coordinationLimit=data['coordinationLimit'])
-        finalTime=time.time()
-        print("Total execution time:",round(finalTime-startTime),"s")
-        exit(0)
-    else:
-        ##Construction of stoichiometric nanoparticles
-        print('\nGenerating stoichiometric nanoparticles\n')
-        for i in finalModels:
-            # print(i)
-            print('\n NP0: ',i,"\n")
-            bcn_wulff_construction(crystalObject,data['surfaces'],data['surfaceEnergy'],
-            	float(i[0]),'ext',center = i[1], rounding='above',debug=data['debug'],
-            	sampleSize=data['sampleSize'],coordinationLimit=data['coordinationLimit'])
-        finalTime=time.time()
-        print("Total execution time:",round(finalTime-startTime),"s")
-        exit(0)
+            finalTime=time.time()
+            print("Total execution time:",round(finalTime-startTime),"s")
+            exit(0)
+    elif 'stoichiometric' in data:
+        if data['stoichiometric']==True:
+            ##Construction of stoichiometric nanoparticles
+            print('\nGenerating stoichiometric nanoparticles\n')
+            for i in finalModels:
+                # print(i)
+                print('\n NP0: ',i,"\n")
+                bcn_wulff_construction(crystalObject,data['surfaces'],
+                data['surfaceEnergy'],float(i[0]),'ext',center = i[1],
+                rounding='above',debug=data['debug'],
+                sampleSize=data['sampleSize'],
+                wl_method=data['wulff-like-method'],
+                coordinationLimit=data['coordinationLimit'])
+                # inertiaMoment=data['inertiaMoment'])
+            finalTime=time.time()
+            print("Total execution time:",round(finalTime-startTime),"s")
+            exit(0)
 
 main()
