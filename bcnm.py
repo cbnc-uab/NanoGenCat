@@ -105,19 +105,23 @@ def main():
     polarityEvaluation=evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
                         data['charges'])
     
-    # print(polarityEvaluation)
-    if len(polarityEvaluation)>1:
-        pass
-    elif 'polar' in polarityEvaluation and data['polar']==True:
-        pass
-    elif not 'polar' in polarityEvaluation and data['polar']==True:
-        print('This input not contain a polar surface')
-        # exit(1)
-    elif not 'polar' in polarityEvaluation and data['polar']==False:
-        pass
-    elif 'polar' in polarityEvaluation and data['polar']==False:
-        print('This input contain a polar surface')
+    polarityEv2=[]
+    for i in polarityEvaluation:
+        for j in i:
+            polarityEv2.append(j)
     
+    # if len(polarityEv2)>1:
+    #     pass
+    if 'polar' in polarityEv2 and data['polar']==True:
+        pass
+    elif not 'polar' in polarityEv2 and data['polar']==True:
+        print('Warning: This input not contain a polar surface')
+        # exit(1)
+    elif not 'polar' in polarityEv2 and data['polar']==False:
+        pass
+    elif 'polar' in polarityEv2 and data['polar']==False:
+        print('Warning: This input contain a polar surface')
+    # exit(1)
     #####Centering
     if data['centering'] == 'none':
         shifts = [[0.0, 0.0, 0.0]]
@@ -328,6 +332,8 @@ def main():
             finalTime=time.time()
             print("Total execution time:",round(finalTime-startTime),"s")
             exit(0)
+        else:
+            pass
     elif 'polar' in data:
         if data['polar']==True:
             print('\nGenerating polar nanoparticles\n')
@@ -346,6 +352,8 @@ def main():
             finalTime=time.time()
             print("Total execution time:",round(finalTime-startTime),"s")
             exit(0)
+        else:
+            pass
     elif 'stoichiometric' in data:
         if data['stoichiometric']==True:
             ##Construction of stoichiometric nanoparticles
@@ -363,5 +371,7 @@ def main():
             finalTime=time.time()
             print("Total execution time:",round(finalTime-startTime),"s")
             exit(0)
+        else:
+            pass
 
 main()
