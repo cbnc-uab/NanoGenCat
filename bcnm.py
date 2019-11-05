@@ -107,21 +107,24 @@ def main():
     
     polarityEv2=[]
     for i in polarityEvaluation:
-        for j in i:
-            polarityEv2.append(j)
-    
+        if 'non Polar' in i:
+            polarityEv2.append('non Polar')
+        else:
+            polarityEv2.append('polar')
+    # print(polarityEv2)
+    # exit(1) 
     # if len(polarityEv2)>1:
     #     pass
-    if 'polar' in polarityEv2 and data['polar']==True:
+    if 'polar' in polarityEv2 and not 'polar' in data:
+        print('Warning: This input contain a polar surface')
         pass
-    elif not 'polar' in polarityEv2 and data['polar']==True:
+    elif not 'polar' in polarityEv2 and 'polar' in data:
         print('Warning: This input not contain a polar surface')
         # exit(1)
-    elif not 'polar' in polarityEv2 and data['polar']==False:
+    elif not 'polar' in polarityEv2 and not 'polar' in data:
         pass
     elif 'polar' in polarityEv2 and data['polar']==False:
         print('Warning: This input contain a polar surface')
-    # exit(1)
     #####Centering
     if data['centering'] == 'none':
         shifts = [[0.0, 0.0, 0.0]]

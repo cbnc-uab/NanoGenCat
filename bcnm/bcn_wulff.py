@@ -1011,9 +1011,11 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,inertiaMoment,debu
     # Check the stoichiometry of NP0
     if check_stoich_v2(symbol,atoms,debug) is 'stop':
         print("Exiting because the structure can not achieve stoichiometry by removing just one type of ions")
+        print("-------------------------")
         return None
     if check_stoich_v2(symbol,atoms,debug) is 'stoichiometric':
         print("NP0 is stoichiometric")
+        print("-------------------------")
         name=atoms.get_chemical_formula()+'stoich_f.xyz'
         write(name,atoms,format='xyz',columns=['symbols', 'positions'])
         return None
@@ -1115,6 +1117,7 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,inertiaMoment,debu
     # Discard models where can not remove singly coordinated
     if np.min(coordFather) < np.min(allowedCoordination):
         print('We can not remove dangling atoms with the available coordination limits')
+        print("-------------------------")
         # exit(1)
         return None
     # To have a large amounth of conformation we generate
@@ -1695,6 +1698,7 @@ def check_stoich_v2(Symbol,atoms,singly=0,debug=0):
         if len([i for i in singly if atoms[i].symbol==chemicalElements[excesiveIonIndex]])<excess:
             print('NP0 does not have enough singly coordinated excess atoms to remove','\n',
                 'to achive the stoichiometry for this model')
+            print("-------------------------")
             return 'stop it'
 
     elif excess<0 or excess%1!=0:
@@ -2074,6 +2078,7 @@ def daniloSingulizator(C,singly,father,fatherFull,excess,allowedCoordination,sam
         if len(toRemove)< excess:
             print ('Is not possible to achieve coordination with the available coordinaation limits')
             print('allowedCoordination:',allowedCoordination)
+            print("-------------------------")
             # exit(1)
             S.append(None)
             break
