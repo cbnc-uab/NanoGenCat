@@ -2244,8 +2244,8 @@ def totalReduce(symbol,atoms):
     totalCharge=np.sum(atoms.get_initial_charges())
     print('warning: ',atoms.get_chemical_formula(mode='hill'), 'has total charge', totalCharge)
     # save the reduced Np
-    name=str(atoms.get_chemical_formula(mode='hill'))+str('.xyz')
-    write(name,atoms,format='xyz')
+    name=str(atoms.get_chemical_formula(mode='hill'))+str('_reduced_f_.xyz')
+    write(name,atoms,format='xyz',columns=['symbols', 'positions'])
     comment='Total charge:'+str(totalCharge)
     command='sed -i \' 2s/.*/'+comment+'/\' '+name
     subprocess.run(command,shell=True)
@@ -2935,7 +2935,7 @@ def orientedReduction(symbol,atoms,surfaces,distances):
     C=coordinationv2(symbol,atoms)
     # print(*C,sep='\n')
     singlyCoordinatedAtomsIndex=[c[0] for c in C if len(c[1])==1]
-    fatherSinglyIndex=[c[1][0] for c in C if len(c[1])==1]
+    fatherSinglyIndex=list(set([c[1][0] for c in C if len(c[1])==1]))
     print('fatherSinglyIndex')
     # print(len(fatherSinglyIndex))
     print(fatherSinglyIndex)
@@ -2978,11 +2978,12 @@ def orientedReduction(symbol,atoms,surfaces,distances):
                 direction= np.dot(eq,symbol.get_reciprocal_cell())
                 direction/=np.linalg.norm(direction)
                 distancesAtom=np.dot(positions,direction)
+                # boundary=np.amax(distancesAtom)
                 boundary=np.amax(np.dot(centerAllPositions,direction))
                 fathersPerEq=[n for n,d in zip(fatherSinglyIndex,distancesAtom) if d>=boundary]
+                print(eq,fathersPerEq)
                 fathersBelongPolar.extend(fathersPerEq)
         print('belongPolar',sorted(list(set(fathersBelongPolar))))
-
         # fathersBelongNonPolar=[] 
         # for index in noPolarIndex:
         #     equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
