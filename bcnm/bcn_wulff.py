@@ -311,7 +311,13 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 # evauate terminations only on polar surfaces
                 termEva=[]
                 for s in polarSurfacesIndex:
-                    termEva.append(terminationStoichiometry(symbol,atoms_midpoint,surfaces[s]))
+                    termEvaperSurf=[]
+                    for eq in equivalentSurfaces(symbol,surfaces[s])
+                        termEvaperSurf.append(terminationStoichiometry(symbol,atoms_midpoint,eq))
+                    if len(list(set(termEvaperSurf)))>1:
+                        print('symmetry equivalent surfaces does not have the same termination')
+                    else:
+                        termEva.append(termEvaperSurf[0])
                 # print(termEva)
                 # print(bunch)
                 # print(termEva)
@@ -1215,6 +1221,7 @@ def interplanarDistance(recCell,millerIndexes):
 
 def equivalentSurfaces(symbols,millerIndexes):
     """Function that get the equivalent surfaces for a set of  millerIndexes
+
     Args:
         symbols(Atoms):Crystal structure
         millerIndexes(list([])): list of miller Indexes
@@ -2696,11 +2703,21 @@ def forceTermination2(symbol,atoms,surfaces,distances,interplanarDistances,termN
     for index,s in enumerate(surfaces):
         if index not in polarSurfacesIndex:
             newDistances[index]=distances[index]
-    
     terminationsNature=[] 
     # If the orientation has the desired termination preserve the distance
     for index in polarSurfacesIndex:
-        terminationsNature.append(terminationStoichiometry(symbol,atoms,surfaces[index]))
+        termNaturePerOrientation=[]
+        for eq in equivalentSurfaces(symbol,surfaces[index]):
+            termNaturePerOrientation.append(terminationStoichiometry(symbol,atoms,eq))
+
+        # Check if all equivalent has the same termination 
+        if len(set(termNaturePerOrientation))>1:
+            print(surfaces[index] 'symmetry equivalent NP surfaces does not have the same termination')
+            print(equivalentSurfaces(symbol,surfaces[index]))
+            print(termNaturePerOrientation)
+            return None
+        else:
+            terminationsNature.append(termNaturePerOrientation[0])
     # print(terminationsNature)
     # print(polarSurfacesIndex)
     for n,index in enumerate(polarSurfacesIndex):            
@@ -3129,7 +3146,11 @@ def forceTermination3(symbol,atoms,surfaces,distances,termNature):
 def terminationStoichiometry(symbol,atoms,surfaceIndexes):
     """
     Function that return the nature termination in a face
+    
     Args:
+        symbol(Atoms):crystal strucuture
+        atoms(Atoms):nanoparticle
+        surfaceIndexez([]): miller indexes 
     Return:
         termFaceNatur(str): metalRich,nonMetalRich,stoich
     """
