@@ -295,34 +295,41 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             # exit(1)
 
             # Add the NP0
-            models.append(atoms_midpoint)
+            # models.append(atoms_midpoint)
 
             cutoffSets=forceTermination2(symbol,atoms_midpoint,surfaces,distances,dArray,termNature)
             finalSize=[]
             # print(len(cutoffSets))
+            # counter=0
             for bunch in cutoffSets:
+                # counter+=1
+                # print(counter)
                 layers=bunch/dArray
                 # get the nanoparticle for the new set of distances 
                 atoms_midpoint = make_atoms_dist(symbol, surfaces, layers,bunch, 
                                     structure, center, latticeconstant,debug)
                 # add each midpoint
                 models.append(atoms_midpoint)
-
                 # evauate terminations only on polar surfaces
                 termEva=[]
                 for s in polarSurfacesIndex:
-                    termEvaperSurf=[]
-                    for eq in equivalentSurfaces(symbol,surfaces[s])
-                        termEvaperSurf.append(terminationStoichiometry(symbol,atoms_midpoint,eq))
-                    if len(list(set(termEvaperSurf)))>1:
-                        print('symmetry equivalent surfaces does not have the same termination')
-                    else:
-                        termEva.append(termEvaperSurf[0])
+                    termEva.append(terminationStoichiometry(symbol,atoms_midpoint,[surfaces[s]]))
+                # print(polarSurfacesIndex)
+                # print(termEvaperSurf)
+                # exit(1) 
+                    # if len(list(set(termEvaperSurf)))>1:
+                    #     print('symmetry equivalent surfaces does not have the same termination')
+                    # else:
+                    #     termEva.append(termEvaperSurf[0])
                 # print(termEva)
                 # print(bunch)
                 # print(termEva)
                 if len(set(termEva))==1:
                     if termEva[0]=="nonMetalRich" and termNature=='non-metal':
+                        # view(atoms_midpoint)
+                        # print(termEva)
+                        # view(models)
+                        # exit(1)
                         finalSize.append([layers,bunch,len(atoms_midpoint)])
                     elif termEva[0]=="metalRich"  and termNature=='metal':
                         finalSize.append([layers,bunch,len(atoms_midpoint)])
@@ -336,9 +343,14 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 # keep the smallest nanoparticle
                 atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
                                 structure,center,latticeconstant,debug)
+                removeUnbounded(symbol,atoms_midpoint)
+                name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_0"+str(termNature)+".xyz"
+                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
                 models.append(atoms_midpoint)
                 # view(atoms_midpoint)
+                
                 atoms=orientedReduction(symbol,atoms_midpoint,surfaces,orderedSizes[0][1])
+                # view(atoms)
                 # exit(1)
                 models.append(atoms) 
 
@@ -346,7 +358,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 write(name,atoms,format='xyz',columns=['symbols', 'positions'])
                 # view(models)
             if neutralize==True:
-                adsorbed=addSpecies(symbol,atoms_midpoint,surfaces,termNature)
+                polarSurf=[surfaces[s] for s in polarSurfacesIndex]
+                adsorbed=addSpecies(symbol,atoms_midpoint,polarSurf,termNature)
                 write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
 
         else:
@@ -2390,60 +2403,65 @@ def reduceDipole(symbol,surfaces,distances,interplanarDistances,center):
     # exit(1)
     return finalDistances
 
-def terminations(symbol,atoms,surfaces):
+def terminations(symbol,atoms,polarSurface):
     """
-    Function that evaluates the termination.
+    Function that evaluates the termination of polar surface
     Equivalent orientation of polar surfaces must have the same termination
     Args:
         symbol(Atoms):crystal structure
         atoms(Atoms):nanoparticle
-        surfaces([list]): surface miller indexes
+        polarSurface([list]): polar surface miller indexes
         
     Return:
         finalElements: set of atomic symbols
     """
-    charges=[]
-    ions=[]
-    # Calculate the polarity  and get the polar surfaces
-    for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
-        if element not in ions:
-            ions.append(element)
-            if charge not in charges:
-                charges.append(charge)
-    polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
-    # print('polarity',polarity)
-    polarSurfacesIndex=[n for n,p in enumerate(polarity) if not 'non Polar' in p]
-    # print('polarSurfaceIndex',polarSurfacesIndex)
-    # exit(1)
-    polarSurfaces=[surfaces[i] for i in polarSurfacesIndex] 
+    # charges=[]
+    # ions=[]
+    # # Calculate the polarity  and get the polar surfaces
+    # for element,charge in zip(symbol.get_chemical_symbols(),symbol.get_initial_charges()):
+    #     if element not in ions:
+    #         ions.append(element)
+    #         if charge not in charges:
+    #             charges.append(charge)
+    # polarity=evaluateSurfPol(symbol,surfaces,ions,charges)
+    # # print('polarity',polarity)
+    # polarSurfacesIndex=[n for n,p in enumerate(polarity) if not 'non Polar' in p]
+    # # print('polarSurfaceIndex',polarSurfacesIndex)
+    # # exit(1)
+    # polarSurfaces=[surfaces[i] for i in polarSurfacesIndex] 
 
-    # Get the equivalent surfaces and give them the distance
-    # Creating the spacegroup object
-    sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
+    # # Get the equivalent surfaces and give them the distance
+    # # Creating the spacegroup object
+    # sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
 
-    positions=np.array([atom.position[:] for atom in atoms])
-    centroid=positions.mean(axis=0)
-    
+    positions=[atom.position-atoms.cut_origin for atom in atoms]
+    # centroid=positions.mean(axis=0)
+    result=[]
+    s=polarSurface
     finalElements=[]
-    for s in polarSurfaces:
-        equivalentSurfaces=sg.equivalent_reflections(s)
-        # print('surface and their equivalents ',s,equivalentSurfaces)
-        for equSurf in equivalentSurfaces:
-            rlist=[]
-            direction= np.dot(equSurf,symbol.get_reciprocal_cell())
-            direction = direction / np.linalg.norm(direction)
-            for pos,num in zip(atoms.get_positions(),atoms.get_atomic_numbers()):
-                rlist.append(np.dot(pos-centroid,direction))
-            # exit(1)
-            # finalElements.append(atoms[np.argmax(rlist)].symbol)
-            testArray=rlist-np.amax(rlist)
-            # print(testArray)
-            for n,val in enumerate(testArray):
-                if val==0.0:
-                    # print(val)
-                    finalElements.append(atoms[n].symbol)
-    # print(list(set(finalElements)))
-    return finalElements
+    for equSurf in equivalentSurfaces(symbol,s):
+        finalElementsPerEquivalent=[]
+        rlist=[]
+        direction= np.dot(equSurf,symbol.get_reciprocal_cell())
+        direction /= np.linalg.norm(direction)
+        for pos in positions:
+            rlist.append(np.dot(pos,direction))
+        testArray=rlist-np.amax(rlist)
+        # all the ones that has testArray value equal to 0 
+        # belong to that equivalent surface
+        for n,val in enumerate(testArray):
+            if val==0.0:
+                finalElementsPerEquivalent.append(atoms[n].symbol)
+        finalElementsPerEquivalent.sort()
+        finalElements.append(finalElementsPerEquivalent)
+    for p in product(finalElements,repeat=2):
+        if p[1]!=p[0]:
+            result.append('non equivalents')
+            break
+    if 'non equivalents' in result:
+        return result[0]
+    else:
+        return finalElements[0]
 
 def addSpecies(symbol,atoms,surfaces,termNature):
     """
@@ -2459,8 +2477,7 @@ def addSpecies(symbol,atoms,surfaces,termNature):
     """
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
 
-    positions=np.array([atom.position[:] for atom in atoms])
-    centroid=positions.mean(axis=0)
+    positions=[atom.position-atoms.cut_origin for atom in atoms]
     
     adsorbedNP=copy.deepcopy(atoms)
 
@@ -2474,7 +2491,7 @@ def addSpecies(symbol,atoms,surfaces,termNature):
             direction= np.dot(equSurf,symbol.get_reciprocal_cell())
             direction = direction / np.linalg.norm(direction)
             for pos,num in zip(atoms.get_positions(),atoms.get_atomic_numbers()):
-                rlist.append((np.dot(pos-centroid,direction)+covalent_radii[num]))
+                rlist.append((np.dot(pos,direction)+covalent_radii[num]))
             # exit(1)
             # finalElements.append(atoms[np.argmax(rlist)].symbol)
             testArray=rlist-np.amax(rlist)
@@ -2705,28 +2722,24 @@ def forceTermination2(symbol,atoms,surfaces,distances,interplanarDistances,termN
             newDistances[index]=distances[index]
     terminationsNature=[] 
     # If the orientation has the desired termination preserve the distance
-    for index in polarSurfacesIndex:
-        termNaturePerOrientation=[]
-        for eq in equivalentSurfaces(symbol,surfaces[index]):
-            termNaturePerOrientation.append(terminationStoichiometry(symbol,atoms,eq))
-
-        # Check if all equivalent has the same termination 
-        if len(set(termNaturePerOrientation))>1:
-            print(surfaces[index] 'symmetry equivalent NP surfaces does not have the same termination')
-            print(equivalentSurfaces(symbol,surfaces[index]))
-            print(termNaturePerOrientation)
-            return None
-        else:
-            terminationsNature.append(termNaturePerOrientation[0])
-    # print(terminationsNature)
-    # print(polarSurfacesIndex)
+    terminationsNature=[terminationStoichiometry(symbol,atoms,surfaces[index]) for index in polarSurfacesIndex]
+    print(terminationsNature)
+    # exit(1)
+    # first verify if the initial size matches with the desired polarity
+    # and remove from list
+    toRemove=[]
     for n,index in enumerate(polarSurfacesIndex):            
         if terminationsNature[n]=='nonMetalRich' and termNature=='non-metal':
             newDistances[index]=distances[index]
-            polarSurfacesIndex.remove(index)
+            toRemove.append(n)
         elif terminationsNature[n]=='metalRich' and termNature=='metal':
             newDistances[index]=distances[index]
-            polarSurfacesIndex.remove(index)
+            toRemove.append(n)
+            # del polarSurfacesIndex[index]
+    toRemove.sort(reverse=True)
+    for i in toRemove:
+        del polarSurfacesIndex[i]
+
     if polarSurfacesIndex==None:
         return newDistances
     else:
@@ -2766,9 +2779,10 @@ def forceTermination2(symbol,atoms,surfaces,distances,interplanarDistances,termN
                     i=i+1
             cutoffDistancesSets.append(cutoffD)
         # cutoffDistancesSets.sort(key=lambda x: x[2])
-        # print(*cutoffDistancesSets,sep='\n')
+        print(*cutoffDistancesSets,sep='\n')
         # exit(1)  
         return(cutoffDistancesSets)
+
 
 def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
     """
@@ -2947,12 +2961,13 @@ def orientedReduction(symbol,atoms,surfaces,distances):
     sg=Spacegroup((int(str(symbol.info['spacegroup'])[0:3])))
     
     # Get the positions of singly coordinated atoms
-    removeUnbounded(symbol,atoms)
-    # view(atoms)
+    # removeUnbounded(symbol,atoms)
+    # write('testLarge.xyz',atoms)
     C=coordinationv2(symbol,atoms)
     # print(*C,sep='\n')
+    # exit(1)
     singlyCoordinatedAtomsIndex=[c[0] for c in C if len(c[1])==1]
-    fatherSinglyIndex=list(set([c[1][0] for c in C if len(c[1])==1]))
+    fatherSinglyIndex=sorted(list(set([c[1][0] for c in C if len(c[1])==1])))
     print('fatherSinglyIndex')
     # print(len(fatherSinglyIndex))
     print(fatherSinglyIndex)
@@ -2997,27 +3012,13 @@ def orientedReduction(symbol,atoms,surfaces,distances):
                 distancesAtom=np.dot(positions,direction)
                 # boundary=np.amax(distancesAtom)
                 boundary=np.amax(np.dot(centerAllPositions,direction))
-                fathersPerEq=[n for n,d in zip(fatherSinglyIndex,distancesAtom) if d>=boundary]
-                print(eq,fathersPerEq)
+                test=[d - boundary for d in distancesAtom]
+                # print(test)
+                fathersPerEqIndex=[n for n,d in enumerate(test) if d==0.0]
+                fathersPerEq=[fatherSinglyIndex[i] for i in fathersPerEqIndex]
+                # print(eq,fathersPerEq)
                 fathersBelongPolar.extend(fathersPerEq)
         print('belongPolar',sorted(list(set(fathersBelongPolar))))
-        # fathersBelongNonPolar=[] 
-        # for index in noPolarIndex:
-        #     equivalentSurfaces=sg.equivalent_reflections(surfaces[index])
-        #     for eq in equivalentSurfaces:
-        #         direction= np.dot(eq,symbol.get_reciprocal_cell())
-        #         direction/=np.linalg.norm(direction)
-                
-        #         distancesAtom=np.dot(positions,direction)
-        #         boundary=np.amax(np.dot(centerAllPositions,direction))
-        #         # print('eq',eq)
-        #         # print('distancesAtom',distancesAtom)
-        #         # print('boundary',boundary)
-        #         fathersPerEq=[n for n,d in zip(fatherSinglyIndex,distancesAtom) if d>=boundary]
-        #         # print(fathersPerEq,'\n-------------')
-        #         # exit(1)
-        #         fathersBelongNonPolar.extend(fathersPerEq)
-        # print('belongNoP',sorted(list(set(fathersBelongNonPolar))))
 
 
         #Remove all the ones that does not belong to polar surfaces
@@ -3174,8 +3175,10 @@ def terminationStoichiometry(symbol,atoms,surfaceIndexes):
     cellStoichiometry=counterCell/gcd
     crystalRatio=cellStoichiometry[0]/cellStoichiometry[1]
 
-    terminationElements=terminations(symbol,atoms,[surfaceIndexes]) 
-    # print(terminationElements)
+    terminationElements=terminations(symbol,atoms,[surfaceIndexes])
+    if terminationElements=='non equivalents':
+        return None
+        
     # get the stoichiometry 
     orientationProp=[]
     for e in chemicalElements:
@@ -3211,5 +3214,5 @@ def terminationStoichiometry(symbol,atoms,surfaceIndexes):
                 termFaceNatur='nonMetalRich'
             else:
                 termFaceNatur='metalRich'
-
+    # print(termFaceNatur)
     return termFaceNatur
