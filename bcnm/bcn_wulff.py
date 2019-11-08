@@ -256,7 +256,6 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
     ######################################################################
     elif wl_method=='hybridMethod':
         wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
-        np0Properties.extend(wulff_like)
         # print('------------------------------------------------------')
         # exit(1)
         # plane_area=planeArea(symbol,areasIndex,surfaces)
@@ -268,6 +267,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             np0Properties=[atoms_midpoint.get_chemical_formula()]
             np0Properties.extend(minCoord)
             np0Properties.extend(wulff_like)
+            # exit(1)
             # np0Properties.append(centrosym)
             return np0Properties
         elif totalReduced==True:
@@ -810,26 +810,37 @@ def check_min_coord(symbol,atoms,coordinationLimit):
     ##Sum the coordination of all elements
     globalCoord=np.sum(indexes,axis=0)[1]
     # print('globalCoord',globalCoord)
-    # Get the metals
-    metalAtom=[atom.index for atom in atoms if atom.symbol not in nonMetals]
-    #Calculate the nonMetals as the diference between metals and total atoms
-    nonMetalsNumber=len(atoms)-len(metalAtom)
+    # identify the relative abundance of atoms and sort it
+    elements=list(set(symbol.get_chemical_symbols()))
+    if elements[0] in nonMetals:
+        elements.reverse()
+    
+    abundance=[]
+    for e in elements:
+        abundance.append(symbol.get_chemical_symbols().count(e))
+    
+    lessAbundantSpecie=elements[np.argmin(abundance)]
+    moreAbundantSpecie=elements[np.argmax(abundance)]
 
-    #Get the metals coordinations
-    metalsCoordinations=[i[1] for i in indexes if i[0] in metalAtom]
+    # Get the less abundant and more abundant in NP
+    lessAbIndex=[atom.index for atom in atoms if atom.symbol==lessAbundantSpecie]
+    moreAbIndex=[atom.index for atom in atoms if atom.symbol==moreAbundantSpecie]
+
+    #Get the less abundant coordination also the max and min
+    lessAbcoord=[i[1] for i in indexes if i[0] in lessAbIndex]
     # print(metalsCoordinations)
 
-    maxCoord=np.amax(metalsCoordinations)
+    maxCoord=np.amax(lessAbcoord)
+    minCoord=np.min(lessAbcoord)
     # print('maxCoord:',maxCoord)
 
     ##Filling characterization list
 
-    characterization.append(len(metalAtom))
-    characterization.append(nonMetalsNumber)
-    #Evaluate if metals have coordination larger than
+    characterization.append(len(lessAbIndex))
+    characterization.append(len(moreAbIndex))
+    #Evaluate if less abundant have coordination larger than
     #the half of maximium coordination
-    minCoord=np.min(metalsCoordinations)
-    # print('minCoord',minCoord)
+    print('minCoord',minCoord)
     if coordinationLimit=='half':
         if minCoord>=maxCoord/2:
             coordTest=True
@@ -841,21 +852,6 @@ def check_min_coord(symbol,atoms,coordinationLimit):
         else:
             coordTest=False
 
-
-    # if maxCoord<=2:
-    #     if minCoord>=maxCoord-1:
-    #         coordTest=True
-    #     else:
-    #         coordTest=False
-    # else: 
-    #     if minCoord>=maxCoord-2:
-    #         coordTest=True
-    #     else:
-    #         coordTest=False
-
-    # coordTest=all(i >= maxCoord/2 for i in metalsCoordinations)
-    # if coordTest==False:
-        # print(metalsCoordinations) 
     characterization.append(coordTest)
 
     characterization.append(globalCoord)
@@ -1744,7 +1740,7 @@ def check_stoich_v2(Symbol,atoms,singly=0,debug=0):
     # elif excess<0 or excess%1!=0:
     #     return 'stop'
 
-def coordinationv2(crystal,atoms):
+def coordinationv2(symbol,atoms):
     """
     function that calculates the
     coordination based on cutoff
@@ -1752,7 +1748,7 @@ def coordinationv2(crystal,atoms):
     the distances was calculated
     by using the MIC
     Args:
-        crystal(atoms): atoms object of the crystal
+        symbol(atoms): atoms object of the crystal
         atoms(atoms): atoms object for the nano
     """
     # get the neigboors for the crystal object by
@@ -1760,13 +1756,13 @@ def coordinationv2(crystal,atoms):
     # as unique len neighbour
 
     red_nearest_neighbour=[]
-    distances=crystal.get_all_distances(mic=True)
-    elements=list(set(crystal.get_chemical_symbols()))
+    distances=symbol.get_all_distances(mic=True)
+    elements=list(set(symbol.get_chemical_symbols()))
     # print(elements)
     for i in elements:
         # print(i)
         nearest_neighbour_by_element=[]
-        for atom in crystal:
+        for atom in symbol:
             if atom.symbol ==i:
                 nearest_neighbour_by_element.append(np.min([x for x in distances[atom.index] if x>0]))
         # print(list(set(nearest_neighbour_by_element)))
@@ -2782,7 +2778,6 @@ def forceTermination2(symbol,atoms,surfaces,distances,interplanarDistances,termN
         print(*cutoffDistancesSets,sep='\n')
         # exit(1)  
         return(cutoffDistancesSets)
-
 
 def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
     """

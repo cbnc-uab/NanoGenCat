@@ -233,8 +233,9 @@ def main():
             temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
             data['surfaceEnergy'],float(size),'ext',center = shift,
             rounding='above',debug=data['debug'],np0=True,
-            wl_method=data['wulff-like-method'],coordinationLimit=data['coordinationLimit'])]
-            print(size,shift,temp2[0])
+            wl_method=data['wulff-like-method'],
+            coordinationLimit=data['coordinationLimit'])]
+            # print(size,shift,temp2[0])
             # print(temp2)
             temp.extend(temp2)
             evaluation.append(temp)
@@ -247,7 +248,7 @@ def main():
     #Discard the models that have false inside
     # print(evaluation)
     print('\nNumber of evaluated NP0s: ',len(evaluation))
-    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
+    print('Evaluated parameters: Size,Shift,Chemical Formula,Less Abundant, More Abundant, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
     print('Results:')
     print(*evaluation, sep='\n')
     # print('testing Zone')
@@ -263,11 +264,12 @@ def main():
     # aprovedNp0Models=[i for i in evaluation if not False in i]
     print('\nAproved NP0s:', len(aprovedNp0Models))
     print(*aprovedNp0Models, sep='\n')
-
+    # exit(1)
     #For each formula keep the one that has the highest total coordination
-    # print(aprovedNp0Models[0][2])
-    # chemFormList=[i[2] for i in aprovedNp0Models]
     chemicalFormulas=list(set(i[2] for i in aprovedNp0Models))
+    # 
+    # print(chemicalFormulas)
+    # exit(1)
     # print('chemicalFormulas',chemicalFormulas)
     #First filter, get the ones that have the maximum coordination per center 
     firstFilteredModels=[]
