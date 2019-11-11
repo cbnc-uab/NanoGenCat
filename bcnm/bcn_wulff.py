@@ -357,10 +357,10 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
                 write(name,atoms,format='xyz',columns=['symbols', 'positions'])
                 # view(models)
-            if neutralize==True:
-                polarSurf=[surfaces[s] for s in polarSurfacesIndex]
-                adsorbed=addSpecies(symbol,atoms_midpoint,polarSurf,termNature)
-                write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+                if neutralize==True:
+                    polarSurf=[surfaces[s] for s in polarSurfacesIndex]
+                    adsorbed=addSpecies(symbol,atoms,polarSurf,termNature)
+                    write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
 
         else:
             #Stoichiometric NPS
@@ -840,7 +840,7 @@ def check_min_coord(symbol,atoms,coordinationLimit):
     characterization.append(len(moreAbIndex))
     #Evaluate if less abundant have coordination larger than
     #the half of maximium coordination
-    print('minCoord',minCoord)
+    # print('minCoord',minCoord)
     if coordinationLimit=='half':
         if minCoord>=maxCoord/2:
             coordTest=True
