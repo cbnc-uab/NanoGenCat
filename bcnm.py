@@ -105,19 +105,26 @@ def main():
     polarityEvaluation=evaluateSurfPol(crystalObject,data['surfaces'],data['chemicalSpecies'], 
                         data['charges'])
     
-    # print(polarityEvaluation)
-    if len(polarityEvaluation)>1:
+    polarityEv2=[]
+    for i in polarityEvaluation:
+        if 'non Polar' in i:
+            polarityEv2.append('non Polar')
+        else:
+            polarityEv2.append('polar')
+    # print(polarityEv2)
+    # exit(1) 
+    # if len(polarityEv2)>1:
+    #     pass
+    if 'polar' in polarityEv2 and not 'polar' in data:
+        print('Warning: This input contain a polar surface')
         pass
-    elif 'polar' in polarityEvaluation and data['polar']==True:
-        pass
-    elif not 'polar' in polarityEvaluation and data['polar']==True:
-        print('This input not contain a polar surface')
+    elif not 'polar' in polarityEv2 and 'polar' in data:
+        print('Warning: This input not contain a polar surface')
         # exit(1)
-    elif not 'polar' in polarityEvaluation and data['polar']==False:
+    elif not 'polar' in polarityEv2 and not 'polar' in data:
         pass
-    elif 'polar' in polarityEvaluation and data['polar']==False:
-        print('This input contain a polar surface')
-    
+    elif 'polar' in polarityEv2 and data['polar']==False:
+        print('Warning: This input contain a polar surface')
     #####Centering
     if data['centering'] == 'none':
         shifts = [[0.0, 0.0, 0.0]]
@@ -226,8 +233,9 @@ def main():
             temp2=[x for x in bcn_wulff_construction(crystalObject,data['surfaces'],
             data['surfaceEnergy'],float(size),'ext',center = shift,
             rounding='above',debug=data['debug'],np0=True,
-            wl_method=data['wulff-like-method'],coordinationLimit=data['coordinationLimit'])]
-            print(size,shift,temp2[0])
+            wl_method=data['wulff-like-method'],
+            coordinationLimit=data['coordinationLimit'])]
+            # print(size,shift,temp2[0])
             # print(temp2)
             temp.extend(temp2)
             evaluation.append(temp)
@@ -240,7 +248,7 @@ def main():
     #Discard the models that have false inside
     # print(evaluation)
     print('\nNumber of evaluated NP0s: ',len(evaluation))
-    print('Evaluated parameters: Size,Shift,Chemical Formula,Cations, Anions, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
+    print('Evaluated parameters: Size,Shift,Chemical Formula,Less Abundant, More Abundant, Minimum coordination, Global coordination,Equivalent planes areas,same order, Wulff-like index')
     print('Results:')
     print(*evaluation, sep='\n')
     # print('testing Zone')
@@ -256,11 +264,12 @@ def main():
     # aprovedNp0Models=[i for i in evaluation if not False in i]
     print('\nAproved NP0s:', len(aprovedNp0Models))
     print(*aprovedNp0Models, sep='\n')
-
+    # exit(1)
     #For each formula keep the one that has the highest total coordination
-    # print(aprovedNp0Models[0][2])
-    # chemFormList=[i[2] for i in aprovedNp0Models]
     chemicalFormulas=list(set(i[2] for i in aprovedNp0Models))
+    # 
+    # print(chemicalFormulas)
+    # exit(1)
     # print('chemicalFormulas',chemicalFormulas)
     #First filter, get the ones that have the maximum coordination per center 
     firstFilteredModels=[]
@@ -328,6 +337,8 @@ def main():
             finalTime=time.time()
             print("Total execution time:",round(finalTime-startTime),"s")
             exit(0)
+        else:
+            pass
     elif 'polar' in data:
         if data['polar']==True:
             print('\nGenerating polar nanoparticles\n')
@@ -346,6 +357,8 @@ def main():
             finalTime=time.time()
             print("Total execution time:",round(finalTime-startTime),"s")
             exit(0)
+        else:
+            pass
     elif 'stoichiometric' in data:
         if data['stoichiometric']==True:
             ##Construction of stoichiometric nanoparticles
@@ -363,5 +376,7 @@ def main():
             finalTime=time.time()
             print("Total execution time:",round(finalTime-startTime),"s")
             exit(0)
+        else:
+            pass
 
 main()
