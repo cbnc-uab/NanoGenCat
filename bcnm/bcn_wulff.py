@@ -344,7 +344,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
                                 structure,center,latticeconstant,debug)
                 removeUnbounded(symbol,atoms_midpoint)
-                name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_0"+str(termNature)+".xyz"
+                name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_0"+str(termNature)+"_f.xyz"
                 write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
                 models.append(atoms_midpoint)
                 # view(atoms_midpoint)
@@ -354,13 +354,13 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 # exit(1)
                 models.append(atoms) 
 
-                name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+".xyz"
+                name = atoms.get_chemical_formula()+str(center)+"_NP_"+str(termNature)+"_f.xyz"
                 write(name,atoms,format='xyz',columns=['symbols', 'positions'])
                 # view(models)
                 if neutralize==True:
                     polarSurf=[surfaces[s] for s in polarSurfacesIndex]
                     adsorbed=addSpecies(symbol,atoms,polarSurf,termNature)
-                    write(adsorbed.get_chemical_formula()+str('neutralized.xyz'),adsorbed,format='xyz')
+                    write(adsorbed.get_chemical_formula()+str('neutralized_f.xyz'),adsorbed,format='xyz')
 
         else:
             #Stoichiometric NPS
@@ -2260,7 +2260,7 @@ def totalReduce(symbol,atoms):
     totalCharge=np.sum(atoms.get_initial_charges())
     print('warning: ',atoms.get_chemical_formula(mode='hill'), 'has total charge', totalCharge)
     # save the reduced Np
-    name=str(atoms.get_chemical_formula(mode='hill'))+str('_reduced_f_.xyz')
+    name=str(atoms.get_chemical_formula(mode='hill'))+str('_reduced_f.xyz')
     write(name,atoms,format='xyz',columns=['symbols', 'positions'])
     comment='Total charge:'+str(totalCharge)
     command='sed -i \' 2s/.*/'+comment+'/\' '+name
