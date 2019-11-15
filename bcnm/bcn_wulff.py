@@ -344,8 +344,8 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                 atoms_midpoint=make_atoms_dist(symbol,surfaces,orderedSizes[0][0].tolist(),orderedSizes[0][1].tolist(),
                                 structure,center,latticeconstant,debug)
                 removeUnbounded(symbol,atoms_midpoint)
-                name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_0"+str(termNature)+"_f.xyz"
-                write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
+                # name = atoms_midpoint.get_chemical_formula()+str(center)+"_NP_0"+str(termNature)+"_f.xyz"
+                # write(name,atoms_midpoint,format='xyz',columns=['symbols', 'positions'])
                 models.append(atoms_midpoint)
                 # view(atoms_midpoint)
                 
