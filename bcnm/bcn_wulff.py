@@ -252,8 +252,9 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
             np0Properties.append(0)
             np0Properties.extend(wulff_like)
 
-    ######################################################################
-    ######################################################################
+    #* #####################################################################
+    #*#####################################################################
+    #* Definitive method
     elif wl_method=='hybridMethod':
         wulff_like=hybridMethod(symbol,atoms_midpoint,surfaces,layers,distances,dArray,ideal_wulff_fractions)
         # print('------------------------------------------------------')
@@ -363,7 +364,7 @@ def bcn_wulff_construction(symbol, surfaces, energies, size, structure,
                     write(adsorbed.get_chemical_formula()+str('neutralized_f.xyz'),adsorbed,format='xyz')
 
         else:
-            #Stoichiometric NPS
+            #* Stoichiometric NPS
             reduceNano(symbol,atoms_midpoint,size,sampleSize,coordinationLimit,inertiaMoment,debug)
             
 def make_atoms_dist(symbol, surfaces, layers, distances, structure, center, latticeconstant,debug):
@@ -1054,12 +1055,12 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,inertiaMoment,debu
     #     # print(*C, sep='\n')
 
     
-    # 4 lists:
-    # singly: contains the indexes of singly coordinated atoms
-    # father: contains the heavy metal atoms which singly
-    # coordinated atoms are bounded
-    # coordFather: contains the coordination of father atoms
-    # fatherFull: contains the combination of father and their coordination.
+    #* 4 lists:
+    #* singly: contains the indexes of singly coordinated atoms
+    #* father: contains the heavy metal atoms which singly
+    #* coordinated atoms are bounded
+    #* coordFather: contains the coordination of father atoms
+    #* fatherFull: contains the combination of father and their coordination.
     
     singly=[i for i in range(len(atoms)) if len(C[i][1])==1]
     # print('singly test')
@@ -1072,17 +1073,17 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,inertiaMoment,debu
 
     fatherFull=[[i,coordFather[n]] for n,i in enumerate(father)]
 
-    # Add the excess attribute to atoms object
-    # and checking if the dangling atoms belong
-    # to the excess element. If not, stop
-    # and removing this nps_f
+    #* Add the excess attribute to atoms object
+    #* and checking if the dangling atoms belong
+    #* to the excess element. If not, stop
+    #* and removing this nps_f
     danglingElement=check_stoich_v2(symbol,atoms,singly,debug)
     if danglingElement=='stop it':
         remove(name)
         return None
 
-    # if the nano does not have dangling and not stoichiometric, discard 
-    # the model
+    #* if the nano does not have dangling and not stoichiometric, discard 
+    #* the model
     
     # if len(singly)==0:
     #     print('NP0 does not have singly coordinated atoms to remove','\n',
@@ -1094,12 +1095,12 @@ def reduceNano(symbol,atoms,size,sampleSize,coordinationLimit,inertiaMoment,debu
         print('father:',father)
         print('coordFather:',coordFather)
         print('fatherFull:',fatherFull)
-    # allowedCoordination must to be generalized
-    # the upper limit is maximum coordination -2
-    # and the inferior limit is the maximum
-    # coordination. i.e. for fluorite, the maximum coordination
-    # is 8, so using list(range(8,6,-1)) we obtain the list
-    # [8, 7, 6, 5, 4] that is fully functional.
+    #* allowedCoordination must to be generalized
+    #* the upper limit is maximum coordination -2
+    #* and the inferior limit is the maximum
+    #* coordination. i.e. for fluorite, the maximum coordination
+    #* is 8, so using list(range(8,6,-1)) we obtain the list
+    #* [8, 7, 6, 5, 4] that is fully functional.
     
     maxCord=int(np.max(coordFather))
     # if maxCord == 2:
@@ -2145,8 +2146,7 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     and compares with the ideal wulff fractions, computed by using the
     initial surface energies
     Args:
-         symbol(Atoms): Atoms type 
-
+        symbol(Atoms): Atoms type 
         surfaces([srt]):List of surface indexesk
         layers([float]): List of number of layers
         distances([float]): List of interplanar distances
@@ -2184,8 +2184,8 @@ def wulfflikeLayerBased(symbol,surfaces,layers,distances,ideal_wulff_fractions):
     # print('distances',lenghtPerPlane)
     
     realAreas=idealWulffFractions(symbol,surfaces,lenghtPerPlane)
-    # print(realAreas)
-    # print(ideal_wulff_fractions)
+    print('real',realAreas)
+    print('ideal',ideal_wulff_fractions,'\n--------------------------------------------')
 
     ## Sort the ideal and real 
     sortedIdeal=sorted(ideal_wulff_fractions,key=lambda x:x[1],reverse=True)
@@ -2223,9 +2223,9 @@ def hybridMethod(symbol,atoms,surfaces,layers,distances,interplanarDistances,ide
 
     # Execute the Distancesbased method to get the equivalent grow
     # results.append(wulffDistanceBased(symbol,atoms,surfaces,distances)[0])
-    # Testing the new distanceBased
+    #* Testing the new distanceBased
     results.append(wulffDistanceBasedVer2(symbol,atoms,surfaces,distances))
-    # Execute the layerbased to get the order and wulff-like index
+    #* Execute the layerbased to get the order and wulff-like index
     results.extend(wulfflikeLayerBased(symbol,surfaces,layers,interplanarDistances,ideal_wulff_fractions)[:])
 
     return results
@@ -2785,8 +2785,6 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
     faces has the same lenght from the center of the material
     or not. Also calculates the WLI
 
-    Warning: Written for only one surface energy.
-
     Args:
         symbol(Atoms): bulk atom object
         atoms(Atoms): nanoparticle atoms type
@@ -2822,7 +2820,7 @@ def wulffDistanceBasedVer2(symbol,atoms,surfaces,distance):
     #Get the equivalent surfaces
     for s in surfaces:
         # Get the direction per each miller index
-        #Project the position to the direction of the miller index
+        # Project the position to the direction of the miller index
         # by calculating the dot produequivalentSurfacesStringsct
         maxDistances=[]
         for i in sg.equivalent_reflections(s):
