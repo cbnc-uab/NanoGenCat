@@ -26,7 +26,7 @@ BCN Models is a tool capable of generating stoichiometric Wulff-like NP in a sys
 
 4 - Create a new environment called ``bcnm``:
 
-    conda create env -f environment.yml --prefix=<path to anaconda environments> 
+    conda create env -f environment.yml 
 
 5 - Activate the new environment as proposed:
 
@@ -37,7 +37,7 @@ BCN Models is a tool capable of generating stoichiometric Wulff-like NP in a sys
 ### General usage notes
 
     cd NanoGencat
-    python3 bcnm.py examples/ruthenium.input.yaml
+    python3 bcnm.py examples/<filename>.yaml
     
 
 ### Contact
