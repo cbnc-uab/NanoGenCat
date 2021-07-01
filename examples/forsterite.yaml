@@ -32,3 +32,4 @@ step: 0.1
 
 centering: none
 onlyNp0: True
+stoichiometric : True

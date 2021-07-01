@@ -16,3 +16,4 @@ shifts:
 onlyNp0 : False
 debug: 1
 
+stoichiometric : True

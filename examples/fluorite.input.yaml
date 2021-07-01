@@ -13,3 +13,4 @@ surfaces:
   - [1, 0, 0]
 
 nanoparticleSize: 14
+stoichiometric : True

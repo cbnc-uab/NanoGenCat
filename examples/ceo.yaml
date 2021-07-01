@@ -18,3 +18,4 @@ sizeRange: 3
 step: 1
 
 centering: automatic
+stoichiometric : True

@@ -24,3 +24,4 @@ shifts:
  - [0.25,0.25,0.25]
 
 onlyNp0: True
+stoichiometric : True

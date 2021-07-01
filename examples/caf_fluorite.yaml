@@ -24,3 +24,4 @@ centering: automatic
 # shifts:
 #   - [0.153, 0.153, 0.0]
 onlyNp0: True
+stoichiometric : True

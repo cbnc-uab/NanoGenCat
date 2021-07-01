@@ -20,3 +20,4 @@ sizeRange: 3
 step: 1
 
 centering: none
+stoichiometric : True

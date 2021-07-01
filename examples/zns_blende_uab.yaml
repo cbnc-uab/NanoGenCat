@@ -19,3 +19,4 @@ centering: automatic
 onlyNp0: False
 debug: 0
 
+stoichiometric : True

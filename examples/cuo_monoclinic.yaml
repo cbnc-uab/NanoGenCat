@@ -22,3 +22,4 @@ centering: automatic
 
 onlyNp0: True
 
+stoichiometric : True
