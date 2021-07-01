@@ -87,7 +87,7 @@ def main():
     terminationKeywords=set(["reducedModel","stoichiometric","polar","termNature","neutralize"])
     
     if len(terminationKeywords.intersection(inputSetKwrds))==0:
-        print('\nPlease specify the appropiated termination keywords')
+        print('\nPlease specify the appropiated termination keywords: reducedModel, stoichiometric, polar, termNature, neutralize')
         exit(0)
     ###Start execution
     print('\nStart execution')

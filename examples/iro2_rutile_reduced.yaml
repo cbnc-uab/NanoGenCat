@@ -3,11 +3,10 @@
 chemicalSpecies: [Ir,O]
 spaceGroupNumber: 136
 charges: [4,-2]
-
 basis:
  - [0.0, 0.0, 0.0]
  - [0.306, 0.306,0.0]
-cellDimension: [4.54, 4.54, 3.18, 90, 90, 90]
+cellDimension: [4.497, 4.497, 3.193, 90, 90, 90]
 
 surfaceEnergy: [0.15, 0.158, 0.185, 0.206]
 surfaces: 
@@ -17,8 +16,11 @@ surfaces:
   - [0, 0, 1]
 
 nanoparticleSize: 14
-sizeRange: 3
+sizeRange: 1
 step: 1
 
 centering: none
-stoichiometric : True
+
+onlyNp0: False
+
+reducedModel : True
