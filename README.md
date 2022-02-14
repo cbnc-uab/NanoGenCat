@@ -22,7 +22,7 @@ BCN Models is a tool capable of generating stoichiometric Wulff-like NP in a sys
 
 3 - Clone Bcnm code from git:
 
-    git clone git@github.com:dagonzalezfo/NanoGenCat.git
+    git clone git@github.com:cbnc-uab/NanoGenCat.git
 
 4 - Create a new environment called ``bcnm``:
 
