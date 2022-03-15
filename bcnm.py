@@ -38,7 +38,7 @@ def main():
     # Reading data
     with open(args.input,'r') as file:
         try:
-            data = load(file)
+            data = yaml.safe_load(file)
         except YAMLError as exc:
             if hasattr(exc, 'problem_mark'):
                 mark = exc.problem_mark
