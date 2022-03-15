@@ -26,13 +26,24 @@ BCN Models is a tool capable of generating stoichiometric Wulff-like NP in a sys
 
 4 - Create a new environment called ``bcnm``:
 
-    conda create env -f environment.yml 
+    conda create --name bcnm python=3.7.3
 
 5 - Activate the new environment as proposed:
 
     conda activate bcnm
 
+6 - Install pip package manager:
 
+    python get-pip-py
+    python -m pip install --upgrade
+    
+7 - Install the versions of the packages shown above:
+
+    pip install ase=3.17.0
+    pip install pyyaml
+    pip install pandas
+    pip install pymatgen=2018.11.6
+    
 
 ### General usage notes
 
