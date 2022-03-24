@@ -1,6 +1,7 @@
 # Bcnm input example for fluorite 
-chemicalSpecie: CaF
+chemicalSpecies: [Ca,F]
 spaceGroupNumber: 225
+charges: [2,-1]
 basis:
  - [0., 0., 0.]
  - [0.25, 0.25, 0.25]
