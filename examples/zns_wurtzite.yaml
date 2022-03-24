@@ -1,5 +1,6 @@
 # Bcnm input example in yaml 
 # wurtz
+#Doesn't seem to understand duplicate charges... 
 chemicalSpecies: Zn2S2
 charges: [2,2,-2,-2]
 spaceGroupNumber: 186
