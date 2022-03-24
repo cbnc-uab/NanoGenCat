@@ -1,7 +1,8 @@
 # Bcnm input example in yaml 
 # Ceria
-chemicalSpecie: CeO
+chemicalSpecie: [Ce,O]
 spaceGroupNumber: 225
+charges: [4,-2]
 basis:
  - [0.0, 0.0, 0.0]
  - [0.25, 0.25,0.25]
