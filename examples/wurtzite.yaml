@@ -1,5 +1,6 @@
 # Bcnm input example in yaml 
-# wurtz
+# wurtz  
+#same as zns_wurtzite, doesn't work either
 chemicalSpecies: Zn2S2
 charges: [2,2,-2,-2]
 spaceGroupNumber: 186
