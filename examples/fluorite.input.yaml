@@ -1,6 +1,7 @@
 # Bcnm input example for fluorite 
-chemicalSpecie: CaF
+chemicalSpecies: [Ca,F]
 spaceGroupNumber: 225
+charges: [2,-1]
 basis:
  - [0., 0., 0.]
  - [0.25, 0.25, 0.25]
@@ -12,5 +13,5 @@ surfaces:
   - [1, 1, 0]
   - [1, 0, 0]
 
-nanoparticleSize: 14
+nanoparticleSize: 14   #Only difference between fluorite.input.yaml and caf_fluorite*.yaml
 stoichiometric : True
