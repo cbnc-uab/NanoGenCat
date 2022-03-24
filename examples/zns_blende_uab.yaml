@@ -1,6 +1,6 @@
 # Bcnm input example in yaml 
 # sparelite
-chemicalSpecies: ZnS
+chemicalSpecies: [Zn,S]
 charges: [2,-2]
 spaceGroupNumber: 216
 basis:
