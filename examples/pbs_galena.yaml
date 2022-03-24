@@ -1,7 +1,8 @@
 # Bcnm input example in yaml 
 # Galena
-chemicalSpecie: PbS
+chemicalSpecies: [Pb,S]
 spaceGroupNumber: 225
+charges: [2,-2]
 basis:
  - [0.00, 0.00, 0.0]
  - [0.5, 0.5, 0.5]
